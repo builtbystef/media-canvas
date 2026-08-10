@@ -36,6 +36,10 @@ _Avoid_: object-fit, scaling mode
 A named canvas size offered as a convenience when creating a design (e.g. Instagram post 1080×1080). Any design may instead use arbitrary width×height; a preset carries no behavior beyond its dimensions and name.
 _Avoid_: asset kind, format preset
 
+**Font Asset**:
+One font file (TTF or OTF), bundled or user-uploaded, identified by the hash of its bytes. Text elements reference a Font Asset by that id; the family name is display metadata only.
+_Avoid_: font family (as an identifier), typeface file
+
 **Generation Channel**:
 A way of producing assets from a template: one-off from the UI, the REST API (single render or a batch of rows), or CSV/data-file upload in the UI. All channels are clients of the same generation contract.
 _Avoid_: export channel, output mode

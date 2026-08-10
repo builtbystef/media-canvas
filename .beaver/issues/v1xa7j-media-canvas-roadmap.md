@@ -6,7 +6,7 @@ assignee: builtbystef
 labels:
     - roadmap
 created: 2026-08-08T07:08:13Z
-updated: 2026-08-10T05:28:40Z
+updated: 2026-08-10T18:39:18Z
 ---
 
 ## Goal
@@ -20,7 +20,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Editor UX details: canvas interactions, tool set, selection/alignment model, undo/redo.
 - Auth and API keys: how the "me first, product later" constraint translates into an account model.
 - CLI: what it wraps, its language, how it is distributed. (Post-MVP per node ylg1wr — a thin client of the generation API.)
-- Image/asset upload pipeline and storage layout.
+- Image/asset upload pipeline and storage layout. (The font contract oxcf2v sets a precedent: content-addressed assets served from the app's own storage.)
 - Print-ready PDF export (CMYK, bleed/trim marks) and color management. (Digital RGB PDF, JPEG, and PNG are in the MVP per node ylg1wr; the engine verdict gqr8bf makes digital PDF a vector printToPDF output.)
 - Design document migration mechanics as the format version advances. (Strategy settled by node 53lwlc — required integer schemaVersion, forward-only migrations applied at load, renderer accepts only the current version; the mechanics land with the first version bump.)
 - Auto-layout / resize anchoring — v1 is absolute positioning only (node 53lwlc); template reuse across canvas sizes may want it in a later version.
@@ -32,6 +32,8 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Deployment story: self-host now, what productizing changes. (The engine verdict gqr8bf adds a hard input: the worker ships as a pinned container image — pinned Chromium build, one pinned headless flavor, fontconfig-pinned fonts.)
 - Worker fleet scaling, retry semantics, observability. (Measured baseline from node gqr8bf: ~166 ms/render at 8 concurrent pages in one browser instance, ≈2.8 min per 1,000 assets on one host.)
 - Template organization: galleries, search, duplication.
+- Emoji and extended glyph coverage: v1 renders a missing glyph as the Font Asset's own .notdef, identically in editor and worker (node oxcf2v); a bundled fallback chain (Noto Sans / Noto Color Emoji) would need per-character font fallback inside the compiler's line-breaking math.
+- Variable font support — rejected at upload in v1 (node oxcf2v); revisit if a needed brand font ships variable-only.
 
 ## Out of scope
 
@@ -55,3 +57,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Semver for the design document schema version (node 53lwlc) — one writer, no ecosystem to signal compatibility ranges to; a single integer suffices.
 - Placeholder/fallback content in generated output (node k77nv9) — a row with a missing required value or a failed image fetch fails with a named-variable error before or during render; batches never silently ship neutral placeholders.
 - A global per-template on-error setting (node k77nv9) — rules live per element (Fit Mode) and per Variable (constraints); one template has one deterministic behavior.
+- WOFF2 font uploads in the MVP (node oxcf2v) — the compiler measures text with opentype.js, which cannot parse WOFF2; TTF and OTF only, with a convert-first message.
+- Variable fonts in the MVP (node oxcf2v) — opentype.js metrics off the default instance are unreliable: exactly the editor-vs-worker line-break drift the font contract exists to prevent. Rejected at upload via fvar-table detection.
+- External font CDNs at render time (node oxcf2v) — fonts are content-addressed Font Assets served from the app's own storage; bundled fonts are vendored in the repo. No Google Fonts links, ever.
+- Glyph fallback chains in the MVP (node oxcf2v) — a missing glyph renders the Font Asset's own .notdef, identically in editor and worker; fallback faces are never substituted silently.
