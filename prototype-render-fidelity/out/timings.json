@@ -1,0 +1,78 @@
+{
+  "renders": {},
+  "diffs": {
+    "b-native-vs-wasm": {
+      "differingPixels": 0,
+      "pct": 0
+    },
+    "a-vs-b": {
+      "differingPixels": 6088,
+      "pct": 0.522
+    },
+    "a-shell-vs-full": {
+      "differingPixels": 6228,
+      "pct": 0.534
+    }
+  },
+  "timings": {
+    "b-native-sequential": {
+      "n": 30,
+      "mean": 300.9,
+      "median": 300.3,
+      "p95": 307.4
+    },
+    "b-native-rss-mb": 402,
+    "b-wasm-sequential": {
+      "n": 10,
+      "mean": 910.5,
+      "median": 912.4,
+      "p95": 921.3
+    },
+    "b-native-concurrent-4x10": {
+      "wallMs": 3248,
+      "perRenderMs": 81.2,
+      "workerTimes": {
+        "n": 40,
+        "mean": 318.7,
+        "median": 318.6,
+        "p95": 326.3
+      }
+    },
+    "b-pdf-ms": 209.4,
+    "a-shell-sequential": {
+      "n": 30,
+      "mean": 385.4,
+      "median": 384.7,
+      "p95": 422.9
+    },
+    "a-shell-concurrent-8x5": {
+      "wallMs": 6652,
+      "perRenderMs": 166.3
+    },
+    "a-pdf-ms": 631.6,
+    "a-full-sequential": {
+      "n": 30,
+      "mean": 391.8,
+      "median": 394.1,
+      "p95": 432.2
+    },
+    "a-full-concurrent-8x5": {
+      "wallMs": 6619,
+      "perRenderMs": 165.5
+    },
+    "batch-1000-a-shell": {
+      "sequentialMin": 6.4,
+      "concurrentMin": 2.8
+    },
+    "batch-1000-b-native": {
+      "sequentialMin": 5,
+      "concurrentMin": 1.4
+    }
+  },
+  "notes": [
+    "resvg determinism (same host, repeat renders byte-identical): true",
+    "resvg native vs WASM byte-identical PNG: true",
+    "a-shell determinism (same host, repeat renders byte-identical): true",
+    "a-full determinism (same host, repeat renders byte-identical): true"
+  ]
+}
