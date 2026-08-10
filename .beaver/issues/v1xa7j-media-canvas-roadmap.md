@@ -6,7 +6,7 @@ assignee: builtbystef
 labels:
     - roadmap
 created: 2026-08-08T07:08:13Z
-updated: 2026-08-10T03:21:33Z
+updated: 2026-08-10T05:28:40Z
 ---
 
 ## Goal
@@ -24,7 +24,9 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Print-ready PDF export (CMYK, bleed/trim marks) and color management. (Digital RGB PDF, JPEG, and PNG are in the MVP per node ylg1wr; the engine verdict gqr8bf makes digital PDF a vector printToPDF output.)
 - Design document migration mechanics as the format version advances. (Strategy settled by node 53lwlc — required integer schemaVersion, forward-only migrations applied at load, renderer accepts only the current version; the mechanics land with the first version bump.)
 - Auto-layout / resize anchoring — v1 is absolute positioning only (node 53lwlc); template reuse across canvas sizes may want it in a later version.
-- Auto-fit text: shrink font until content fits a fixed box, for batch generation (node 53lwlc) — v1 wraps at fixed width with auto height from a vertical anchor instead.
+- Auto-fit text: shrink font until content fits a fixed box, for batch generation (node 53lwlc) — v1 wraps at fixed width with auto height from a vertical anchor instead (canvas-edge overflow accepted, node k77nv9).
+- Focal point / smart crop for image Fit Mode — v1 `cover` centers the image (node k77nv9).
+- Richer Variable constraints beyond v1's text maxLength/minLength — number ranges, regex patterns (node k77nv9).
 - Bindable property kinds beyond v1's text content / image source / solid color / number / visibility: geometry, fonts, opacity (node 53lwlc).
 - Formatting of price/number variables, localization.
 - Deployment story: self-host now, what productizing changes. (The engine verdict gqr8bf adds a hard input: the worker ships as a pinned container image — pinned Chromium build, one pinned headless flavor, fontconfig-pinned fonts.)
@@ -51,3 +53,5 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Byte-equality as the render regression bar (node gqr8bf) — measured: Chromium differs from itself by 0.53% of pixels across headless flavors (antialiasing only). The bar is a perceptual tolerance, settled by node ud46e4.
 - Literal SVG as the stored design document format (node 53lwlc) — semantic concepts (groups, crop frames, Variables, template metadata) would live in data-* attributes; the stored format is a project-owned JSON schema compiled to render markup.
 - Semver for the design document schema version (node 53lwlc) — one writer, no ecosystem to signal compatibility ranges to; a single integer suffices.
+- Placeholder/fallback content in generated output (node k77nv9) — a row with a missing required value or a failed image fetch fails with a named-variable error before or during render; batches never silently ship neutral placeholders.
+- A global per-template on-error setting (node k77nv9) — rules live per element (Fit Mode) and per Variable (constraints); one template has one deterministic behavior.

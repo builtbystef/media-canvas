@@ -28,6 +28,10 @@ _Avoid_: master, model design
 A named, typed slot declared at the top level of a Template, referenced by element properties. Supplying one value per Variable is what generation consumes.
 _Avoid_: slot, placeholder, merge field
 
+**Fit Mode**:
+The per-image-element rule — cover, contain, or stretch — that places a Variable-supplied image inside the element's frame, replacing the crop that was authored for the placeholder image.
+_Avoid_: object-fit, scaling mode
+
 **Canvas Preset**:
 A named canvas size offered as a convenience when creating a design (e.g. Instagram post 1080×1080). Any design may instead use arbitrary width×height; a preset carries no behavior beyond its dimensions and name.
 _Avoid_: asset kind, format preset
