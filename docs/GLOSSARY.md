@@ -1,0 +1,37 @@
+# Glossary
+
+The project's shared language. The rules: use one term for each concept — the rejected synonyms go under _Avoid_. A definition is one or two sentences that say what the term IS, not what it does. Only terms specific to this project belong here — general concepts from programming do not. No implementation details. Group the terms under subheadings when clusters appear.
+
+The entry format:
+
+```
+**{{Term}}**:
+{{Definition.}}
+_Avoid_: {{rejected synonyms}}
+```
+
+## Language
+
+**Design Document**:
+The JSON document that fully describes one design: schema version, canvas, background, and the element tree. It is the single source of truth — the editor edits it, and the renderer renders it.
+_Avoid_: design file, scene, canvas file
+
+**Element**:
+One node in a Design Document's tree. The v1 set is closed: text, image, rect, ellipse, vector (imported or preset SVG), and group.
+_Avoid_: layer, object, node
+
+**Template**:
+A Design Document with declared Variables, created by promoting a design (a copy — the original design and the template evolve independently afterward). Generation produces assets from a Template plus one value per Variable.
+_Avoid_: master, model design
+
+**Variable**:
+A named, typed slot declared at the top level of a Template, referenced by element properties. Supplying one value per Variable is what generation consumes.
+_Avoid_: slot, placeholder, merge field
+
+**Canvas Preset**:
+A named canvas size offered as a convenience when creating a design (e.g. Instagram post 1080×1080). Any design may instead use arbitrary width×height; a preset carries no behavior beyond its dimensions and name.
+_Avoid_: asset kind, format preset
+
+**Generation Channel**:
+A way of producing assets from a template: one-off from the UI, the REST API (single render or a batch of rows), or CSV/data-file upload in the UI. All channels are clients of the same generation contract.
+_Avoid_: export channel, output mode
