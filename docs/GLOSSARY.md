@@ -44,6 +44,14 @@ _Avoid_: media file, upload, picture file
 One font file (TTF or OTF), bundled or user-uploaded, identified by the hash of its bytes. Text elements reference a Font Asset by that id; the family name is display metadata only.
 _Avoid_: font family (as an identifier), typeface file
 
+**Generation Job**:
+One submitted batch: a set of Rows rendered against one Template with one output format, tracked from submission through per-Row results. Single renders are synchronous and never create one.
+_Avoid_: batch job, render task
+
+**Row**:
+One mapping of Variable names to values within a Generation Job, producing exactly one output asset.
+_Avoid_: record, entry, data row
+
 **Generation Channel**:
 A way of producing assets from a template: one-off from the UI, the REST API (single render or a batch of rows), or CSV/data-file upload in the UI. All channels are clients of the same generation contract.
 _Avoid_: export channel, output mode
