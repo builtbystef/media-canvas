@@ -6,7 +6,7 @@ assignee: builtbystef
 labels:
     - roadmap
 created: 2026-08-08T07:08:13Z
-updated: 2026-08-10T18:39:18Z
+updated: 2026-08-10T19:15:40Z
 ---
 
 ## Goal
@@ -20,7 +20,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Editor UX details: canvas interactions, tool set, selection/alignment model, undo/redo.
 - Auth and API keys: how the "me first, product later" constraint translates into an account model.
 - CLI: what it wraps, its language, how it is distributed. (Post-MVP per node ylg1wr — a thin client of the generation API.)
-- Image/asset upload pipeline and storage layout. (The font contract oxcf2v sets a precedent: content-addressed assets served from the app's own storage.)
+- Image/asset upload pipeline and storage layout. (The core spec 1qoccb fixes the read side: content-addressed Font Assets and Image Assets served from app storage at immutable URLs; upload endpoints and UI remain open.)
 - Print-ready PDF export (CMYK, bleed/trim marks) and color management. (Digital RGB PDF, JPEG, and PNG are in the MVP per node ylg1wr; the engine verdict gqr8bf makes digital PDF a vector printToPDF output.)
 - Design document migration mechanics as the format version advances. (Strategy settled by node 53lwlc — required integer schemaVersion, forward-only migrations applied at load, renderer accepts only the current version; the mechanics land with the first version bump.)
 - Auto-layout / resize anchoring — v1 is absolute positioning only (node 53lwlc); template reuse across canvas sizes may want it in a later version.
@@ -28,8 +28,8 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Focal point / smart crop for image Fit Mode — v1 `cover` centers the image (node k77nv9).
 - Richer Variable constraints beyond v1's text maxLength/minLength — number ranges, regex patterns (node k77nv9).
 - Bindable property kinds beyond v1's text content / image source / solid color / number / visibility: geometry, fonts, opacity (node 53lwlc).
-- Formatting of price/number variables, localization.
-- Deployment story: self-host now, what productizing changes. (The engine verdict gqr8bf adds a hard input: the worker ships as a pinned container image — pinned Chromium build, one pinned headless flavor, fontconfig-pinned fonts.)
+- Formatting of price/number variables, localization. (v1 interpolates a number as ECMAScript String(number), node 6lxoec.)
+- Deployment story: self-host now, what productizing changes. (The engine verdict gqr8bf adds a hard input: the worker ships as a pinned container image — pinned Chromium build, one pinned headless flavor, fontconfig-pinned fonts. Node 6lxoec pinned the flavor: full Chromium new headless.)
 - Worker fleet scaling, retry semantics, observability. (Measured baseline from node gqr8bf: ~166 ms/render at 8 concurrent pages in one browser instance, ≈2.8 min per 1,000 assets on one host.)
 - Template organization: galleries, search, duplication.
 - Emoji and extended glyph coverage: v1 renders a missing glyph as the Font Asset's own .notdef, identically in editor and worker (node oxcf2v); a bundled fallback chain (Noto Sans / Noto Color Emoji) would need per-character font fallback inside the compiler's line-breaking math.
@@ -61,3 +61,8 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Variable fonts in the MVP (node oxcf2v) — opentype.js metrics off the default instance are unreliable: exactly the editor-vs-worker line-break drift the font contract exists to prevent. Rejected at upload via fvar-table detection.
 - External font CDNs at render time (node oxcf2v) — fonts are content-addressed Font Assets served from the app's own storage; bundled fonts are vendored in the repo. No Google Fonts links, ever.
 - Glyph fallback chains in the MVP (node oxcf2v) — a missing glyph renders the Font Asset's own .notdef, identically in editor and worker; fallback faces are never substituted silently.
+- chrome-headless-shell as the worker's headless flavor (node 6lxoec) — full Chromium new headless is pinned; the shell build measurably diverges (0.53% of pixels) from the desktop Chrome the editor runs in.
+- A Python re-implementation of the compiler or validation (node 6lxoec) — one shared TypeScript core package is the single implementation (ADR-0003); render workers are Node, written in TypeScript.
+- An escape syntax for a literal {{ in text content (node 6lxoec) — no v1 design needs it; revisit only if one does.
+- Inside/outside stroke alignment in the MVP (node 6lxoec) — v1 borders are SVG-native strokes centered on the edge.
+- Multi-fill vector elements (node 6lxoec) — a vector element is one path with one fill; SVG import flattens a file into a group of single-path vector elements.
