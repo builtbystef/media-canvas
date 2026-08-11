@@ -18,7 +18,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 ## Frontier
 
 - Editor UX details: canvas interactions, tool set, selection/alignment model, undo/redo.
-- Auth and API keys: how the "me first, product later" constraint translates into an account model. (The generation contract jgo8tv is auth-agnostic; keys bolt onto it.)
+- Auth and API keys: how the "me first, product later" constraint translates into an account model. (The generation contract jgo8tv is auth-agnostic; keys bolt onto it. Node kjz6f0 adds: all file URLs are proxied through FastAPI, so auth gets one enforcement point.)
 - CLI: what it wraps, its language, how it is distributed. (Post-MVP per node ylg1wr — a thin client of the generation API, whose contract node jgo8tv settled.)
 - Image/asset upload pipeline and storage layout. (The core spec 1qoccb fixes the read side: content-addressed Font Assets and Image Assets served from app storage at immutable URLs; upload endpoints and UI remain open.)
 - Print-ready PDF export (CMYK, bleed/trim marks) and color management. (Digital RGB PDF, JPEG, and PNG are in the MVP per node ylg1wr; the engine verdict gqr8bf makes digital PDF a vector printToPDF output.)
@@ -29,7 +29,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Richer Variable constraints beyond v1's text maxLength/minLength — number ranges, regex patterns (node k77nv9).
 - Bindable property kinds beyond v1's text content / image source / solid color / number / visibility: geometry, fonts, opacity (node 53lwlc).
 - Formatting of price/number variables, localization. (v1 interpolates a number as ECMAScript String(number), node 6lxoec.)
-- Deployment story: self-host now, what productizing changes. (The engine verdict gqr8bf adds a hard input: the worker ships as a pinned container image — pinned Chromium build, one pinned headless flavor, fontconfig-pinned fonts. Node 6lxoec pinned the flavor: full Chromium new headless.)
+- Deployment story: self-host now, what productizing changes. (The engine verdict gqr8bf adds a hard input: the worker ships as a pinned container image — pinned Chromium build, one pinned headless flavor, fontconfig-pinned fonts. Node 6lxoec pinned the flavor: full Chromium new headless. Node kjz6f0 fixes the dev stack: root docker-compose with Postgres, Redis, and MinIO; production compose topology stays open.)
 - Worker fleet scaling, retry semantics, observability. (Measured baseline from node gqr8bf: ~166 ms/render at 8 concurrent pages in one browser instance, ≈2.8 min per 1,000 assets on one host. Contract-level retry settled by node jgo8tv: one automatic retry per Row on transient errors; fleet policy stays open.)
 - Webhooks for Generation Job completion — v1 signals completion by polling only (node jgo8tv); webhooks need callback registration, signing, and delivery retries.
 - Output retention policy once productized — v1 keeps Generation Job outputs until an explicit delete-job call, no auto-expiry (node jgo8tv).
@@ -72,3 +72,8 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Explicit empty-string text values via CSV (node jgo8tv) — an empty CSV cell always means omitted (default applies); JSON is the input format that can express "".
 - Server-side persistence of single-render outputs (node jgo8tv) — the synchronous response is the delivery; only Generation Jobs persist outputs.
 - A completed_with_errors job state (node jgo8tv) — completed covers runs with per-Row render failures; per-Row statuses carry the detail.
+- SQLite as the database (node kjz6f0) — two runtimes write Job/Row state concurrently; Postgres chosen.
+- A DB-backed task queue (node kjz6f0) — Redis + BullMQ chosen (official Python producer, Node consumer); Postgres stays the source of truth, Redis carries only the work signal (ADR-0004).
+- Local-disk object storage (node kjz6f0) — MinIO from day one, behind the S3 API.
+- Presigned storage URLs (node kjz6f0) — all file serving proxies through FastAPI, keeping the contract's immutable URLs stable and giving later auth one enforcement point.
+- Direct Postgres writes from the render worker (node kjz6f0) — FastAPI owns the schema and Alembic migrations; the worker reports row results via an internal API endpoint (ADR-0005).
