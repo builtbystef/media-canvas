@@ -37,7 +37,7 @@ A named canvas size offered as a convenience when creating a design (e.g. Instag
 _Avoid_: asset kind, format preset
 
 **Image Asset**:
-One uploaded image file, identified by the hash of its bytes and served from the app's own storage at an immutable URL. Image elements and image Variable values reference it by that id.
+One image file held by the app, identified by the hash of its stored bytes and served from the app's own storage at an immutable URL. Image elements and image Variable values reference it by that id.
 _Avoid_: media file, upload, picture file
 
 **Font Asset**:

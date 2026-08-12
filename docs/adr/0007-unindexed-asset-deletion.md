@@ -1,0 +1,7 @@
+# 0007 — Assets are deletable, and nothing tracks what references them
+
+**Context.** Font Assets and Image Assets are content-addressed and referenced by id from stored Design Documents, which FastAPI treats as opaque JSON (ADR-0003). Answering "is this asset still used?" would therefore need either a crossing to the worker on every delete, or a reference index that must stay correct across every document save, template promotion, and Generation Job snapshot, forever.
+
+**Decision.** Deleting a Font Asset or Image Asset always succeeds (bundled fonts excepted) and removes the row and the object outright. Nothing records which documents referenced it. A design, template, or in-flight Job Row that references a deleted asset hard-errors by the existing missing-asset rule, naming the asset id and the offending elements; the editor replaces its preview with that error and offers a per-asset Replace action. Re-uploading identical bytes recreates the asset at the same id and revives every reference.
+
+**Reason.** The index is the expensive half of the feature and buys only a warning. Content addressing already makes the failure recoverable rather than destructive — the same bytes come back to the same id — and the editor can warn about the document it already holds in memory for free, which covers the common case at zero cost. The accepted cost is that a delete can break stored designs the app never mentions.
