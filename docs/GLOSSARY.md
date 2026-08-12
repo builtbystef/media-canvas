@@ -55,3 +55,21 @@ _Avoid_: record, entry, data row
 **Generation Channel**:
 A way of producing assets from a template: one-off from the UI, the REST API (single render or a batch of rows), or CSV/data-file upload in the UI. All channels are clients of the same generation contract.
 _Avoid_: export channel, output mode
+
+## Editor
+
+**Preset Shape**:
+A shipped vector element — star, arrow, triangle, line — offered from a panel and placed like an image. It is an ordinary vector Element, not an Element type of its own, and it is unrelated to a Canvas Preset.
+_Avoid_: built-in shape, shape library item
+
+**Resize**:
+The editor operation that changes an Element's width and height and nothing else — stroke width, corner radius, and shadow lengths keep the values they had.
+_Avoid_: stretch, scale (when resize is meant)
+
+**Scale**:
+The editor operation that multiplies every length an Element owns — dimensions, font size, letter spacing, stroke width, corner radius, shadow offset and blur — by one factor. It is the only operation a text Element or a group offers at its corners.
+_Avoid_: resize (when scale is meant), zoom
+
+**Crop Mode**:
+The editor state, entered by double-clicking an image Element, in which the frame and the bitmap inside it move and size independently of each other. Outside it, the two always change together.
+_Avoid_: crop tool, image edit mode
