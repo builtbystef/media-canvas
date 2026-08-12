@@ -1,0 +1,506 @@
+<!doctype html>
+<!-- PROTOTYPE — editor preview strategy bench (disposable, wipe me).
+     Roadmap node vnmueh: can the editor render the compiled SVG live at interactive rates,
+     and is inline <svg> the right editing surface? Run: node server.mjs -->
+<meta charset="utf-8">
+<title>PROTOTYPE — editor preview strategy</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; color: #16202c; background: #eceef1; }
+  header { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 10px 14px;
+           background: #16202c; color: #fff; position: sticky; top: 0; z-index: 5; }
+  header b { font-size: 14px; letter-spacing: .02em; }
+  header label { display: flex; gap: 5px; align-items: center; font-size: 12px; opacity: .9; }
+  select, button { font: inherit; padding: 3px 6px; border-radius: 4px; border: 1px solid #94a3b8; background: #fff; color: #16202c; }
+  button { cursor: pointer; }
+  button.primary { background: #06D6A0; border-color: #06D6A0; font-weight: 600; }
+  #stats { margin-left: auto; display: flex; gap: 10px; font: 12px ui-monospace, monospace; }
+  #stats span { background: #24354a; padding: 3px 7px; border-radius: 4px; white-space: nowrap; }
+  #stats span.bad { background: #EF476F; }
+  #stats span.ok { background: #0b7a5e; }
+  main { display: grid; grid-template-columns: minmax(320px, 1fr) 460px; gap: 14px; padding: 14px; align-items: start; }
+  #stage { position: relative; width: 100%; aspect-ratio: 1; background: #fff; box-shadow: 0 1px 6px #0002;
+           touch-action: none; user-select: none; overflow: hidden; }
+  #stage svg { display: block; width: 100%; height: 100%; }
+  #overlay { position: absolute; inset: 0; pointer-events: none; }
+  .handle { position: absolute; width: 11px; height: 11px; background: #fff; border: 2px solid #118AB2;
+            border-radius: 2px; margin: -6px 0 0 -6px; pointer-events: auto; cursor: nwse-resize; }
+  .selbox { position: absolute; border: 1.5px solid #118AB2; pointer-events: none; }
+  aside { display: flex; flex-direction: column; gap: 10px; }
+  .card { background: #fff; border-radius: 6px; padding: 10px 12px; box-shadow: 0 1px 4px #0001; }
+  .card h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: #64748b; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+  pre { margin: 0; font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; word-break: break-word;
+        max-height: 46vh; overflow: auto; background: #0f172a; color: #cbd5e1; padding: 8px; border-radius: 5px; }
+  table { border-collapse: collapse; width: 100%; font: 11px ui-monospace, monospace; }
+  th, td { text-align: right; padding: 2px 5px; border-bottom: 1px solid #e2e8f0; }
+  th:first-child, td:first-child { text-align: left; }
+  .note { font-size: 11px; color: #64748b; }
+</style>
+
+<header>
+  <b>PROTOTYPE · editor preview strategy</b>
+  <label>strategy
+    <select id="strategy">
+      <option value="full">full recompile → innerHTML</option>
+      <option value="memo">memoized elements → innerHTML</option>
+      <option value="patch">memoized + DOM patch (dirty node only)</option>
+      <option value="split">layout cache, full emission → innerHTML</option>
+      <option value="transform">transform during gesture, compile on release</option>
+    </select>
+  </label>
+  <label>elements
+    <select id="count">
+      <option>15</option><option>30</option><option selected>48</option>
+      <option>60</option><option>90</option><option>120</option>
+    </select>
+  </label>
+  <label>handles
+    <select id="handleMode">
+      <option value="overlay">HTML overlay</option>
+      <option value="insvg">inside the &lt;svg&gt;</option>
+    </select>
+  </label>
+  <div id="stats">
+    <span id="s-fps">fps –</span><span id="s-frame">frame –</span><span id="s-layout">layout –</span>
+    <span id="s-emit">emit –</span><span id="s-dom">dom –</span><span id="s-size">svg –</span>
+  </div>
+</header>
+
+<main>
+  <div id="stage"><div id="host"></div><div id="overlay"></div></div>
+  <aside>
+    <div class="card">
+      <h3>Scripted gestures (300 frames)</h3>
+      <div class="row">
+        <label>target
+          <select id="target"></select>
+        </label>
+        <button class="primary" data-run="move">drag</button>
+        <button data-run="resize">resize width</button>
+        <button data-run="type">type into text</button>
+        <button data-run="all">run all · every strategy</button>
+      </div>
+      <div class="note">Drag on the canvas with the mouse too — the on-screen counters are live.</div>
+    </div>
+    <div class="card">
+      <h3>Last run</h3>
+      <div id="lastrun"><span class="note">nothing yet</span></div>
+    </div>
+    <div class="card">
+      <h3>Results</h3>
+      <div class="row"><button id="dump">copy JSON</button><button id="clear">clear</button></div>
+      <pre id="log">boot…</pre>
+    </div>
+    <div class="card">
+      <h3>Document state</h3>
+      <pre id="state" style="max-height:22vh"></pre>
+    </div>
+  </aside>
+</main>
+
+<script type="module">
+import * as opentype from './node_modules/opentype.js/dist/opentype.mjs';
+import { compile, compileOne, setFonts, timers, resetTimers } from './compile-browser.mjs';
+import { makeDoc, deepCount, countText } from './doc.mjs';
+
+const $ = (s) => document.querySelector(s);
+const host = $('#host'), overlay = $('#overlay'), stage = $('#stage');
+const logEl = $('#log');
+const results = [];
+const log = (...a) => { logEl.textContent = a.map((x) => typeof x === 'string' ? x : JSON.stringify(x, null, 1)).join(' ') + '\n\n' + logEl.textContent; };
+
+// ---------- assets: fonts (opentype for metrics + @font-face for painting) ----------
+const fontUrls = { 400: '/fonts/Lato-Regular.ttf', 700: '/fonts/Lato-Bold.ttf' };
+const buffers = Object.fromEntries(await Promise.all(Object.entries(fontUrls).map(
+  async ([w, u]) => [w, await (await fetch(u)).arrayBuffer()])));
+setFonts(Object.fromEntries(Object.entries(buffers).map(([w, b]) => [w, opentype.parse(b.slice(0))])));
+for (const [w, u] of Object.entries(fontUrls)) {
+  const f = new FontFace('Lato', `url(${u})`, { weight: w });
+  await f.load(); document.fonts.add(f);
+}
+
+// ---------- assets: the sample photo, as an object URL (the spec serves images from
+// app storage at immutable URLs; a data: URI would inflate every innerHTML re-parse) ----
+const cv = Object.assign(document.createElement('canvas'), { width: 800, height: 600 });
+const cx2 = cv.getContext('2d');
+const g = cx2.createLinearGradient(0, 0, 800, 600);
+g.addColorStop(0, '#2850c8'); g.addColorStop(1, '#dcb450');
+cx2.fillStyle = g; cx2.fillRect(0, 0, 800, 600);
+for (const [x, y, r, c] of [[200, 180, 90, '#FFD166'], [560, 340, 130, '#EF476F'], [400, 480, 70, '#fff']]) {
+  cx2.fillStyle = c; cx2.beginPath(); cx2.arc(x, y, r, 0, 7); cx2.fill();
+}
+const photoUrl = URL.createObjectURL(await new Promise((r) => cv.toBlob(r, 'image/png')));
+const assets = { 'photo.png': photoUrl };
+
+// ---------- document state (immutable updates: the changed element and its ancestors
+// become NEW objects, which is exactly what the memo caches key on) ----------
+let doc, selectedId = 'headline';
+
+function rebuild() {
+  doc = makeDoc(+$('#count').value);
+  const sel = $('#target'); sel.innerHTML = '';
+  for (const e of doc.elements) sel.append(new Option(`${e.id} (${e.type})`, e.id));
+  if (!doc.elements.some((e) => e.id === selectedId)) selectedId = doc.elements[0].id;
+  sel.value = doc.elements.some((e) => e.id === selectedId) ? selectedId : sel.value;
+  fullRender();
+  showState();
+}
+
+function updateElement(id, patch) {
+  doc = { ...doc, elements: doc.elements.map((e) => e.id === id ? { ...e, ...patch } : e) };
+}
+const getEl = (id) => doc.elements.find((e) => e.id === id);
+
+// ---------- rendering strategies ----------
+let lastSvg = '';
+const frameStats = { layout: 0, emit: 0, dom: 0, size: 0 };
+
+function compileWith(opts) {
+  resetTimers();
+  const svg = compile(doc, assets, opts);
+  frameStats.layout = timers.layout; frameStats.emit = timers.emit; frameStats.size = svg.length;
+  return svg;
+}
+function applyInnerHTML(svg) {
+  const t = performance.now();
+  host.innerHTML = svg;
+  frameStats.dom = performance.now() - t;
+  lastSvg = svg;
+}
+function fullRender() {
+  applyInnerHTML(compileWith({ memo: false, useCache: false }));
+  drawHandles();
+}
+
+// One frame of an in-progress gesture, under the chosen strategy.
+function renderFrame(strategy, dirtyId, gestureDelta) {
+  if (strategy === 'full') { applyInnerHTML(compileWith({ memo: false, useCache: false })); }
+  else if (strategy === 'memo') { applyInnerHTML(compileWith({ memo: true, useCache: true })); }
+  else if (strategy === 'split') { applyInnerHTML(compileWith({ memo: false, useCache: true })); }
+  else if (strategy === 'patch') {
+    resetTimers();
+    const node = host.querySelector(`[data-el="${dirtyId}"]`);
+    const { markup, defs } = compileOne(getEl(dirtyId), assets, { memo: false, useCache: true });
+    frameStats.layout = timers.layout; frameStats.emit = timers.emit; frameStats.size = markup.length;
+    const t = performance.now();
+    if (node) {
+      const defsNode = host.querySelector('defs');
+      if (defs.length && defsNode) defsNode.insertAdjacentHTML('beforeend', defs.join(''));
+      node.outerHTML = markup;
+    }
+    frameStats.dom = performance.now() - t;
+  }
+  else if (strategy === 'transform') {
+    // No compile at all during the gesture: move/scale the existing painted node.
+    resetTimers();
+    frameStats.layout = 0; frameStats.emit = 0; frameStats.size = 0;
+    const t = performance.now();
+    const node = host.querySelector(`[data-el="${dirtyId}"]`);
+    if (node && gestureDelta) {
+      node.setAttribute('transform', gestureDelta.kind === 'resize'
+        ? `translate(${gestureDelta.ox} ${gestureDelta.oy}) scale(${gestureDelta.sx} 1) translate(${-gestureDelta.ox} ${-gestureDelta.oy})`
+        : `translate(${gestureDelta.dx} ${gestureDelta.dy})`);
+    }
+    frameStats.dom = performance.now() - t;
+  }
+  drawHandles();
+}
+
+// ---------- selection handles: HTML overlay vs inside the <svg> ----------
+let handleCost = 0;
+function bboxOf(id) {
+  const n = host.querySelector(`[data-el="${id}"]`);
+  if (!n) return null;
+  const b = n.getBoundingClientRect(), s = stage.getBoundingClientRect();
+  return { x: b.x - s.x, y: b.y - s.y, w: b.width, h: b.height };
+}
+function drawHandles() {
+  const t = performance.now();
+  const mode = $('#handleMode').value;
+  overlay.innerHTML = '';
+  const b = bboxOf(selectedId);
+  if (!b) { handleCost = performance.now() - t; return; }
+  if (mode === 'overlay') {
+    const box = document.createElement('div');
+    box.className = 'selbox';
+    Object.assign(box.style, { left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px' });
+    overlay.append(box);
+    for (const [hx, hy] of [[0, 0], [1, 0], [0, 1], [1, 1], [.5, 0], [.5, 1], [0, .5], [1, .5]]) {
+      const h = document.createElement('div');
+      h.className = 'handle';
+      h.dataset.hx = hx; h.dataset.hy = hy;
+      h.style.cursor = hx === .5 ? 'ns-resize' : hy === .5 ? 'ew-resize' : (hx === hy ? 'nwse-resize' : 'nesw-resize');
+      h.style.left = (b.x + hx * b.w) + 'px'; h.style.top = (b.y + hy * b.h) + 'px';
+      overlay.append(h);
+    }
+  } else {
+    // Handles live in the same <svg>, so every innerHTML re-render destroys and
+    // recreates them — that is the cost this mode is here to expose.
+    const svg = host.querySelector('svg');
+    if (!svg) { handleCost = performance.now() - t; return; }
+    const sc = doc.canvas.width / stage.getBoundingClientRect().width;
+    const ns = 'http://www.w3.org/2000/svg';
+    svg.querySelector('[data-handles]')?.remove();
+    const gEl = document.createElementNS(ns, 'g');
+    gEl.setAttribute('data-handles', '1');
+    const r = document.createElementNS(ns, 'rect');
+    for (const [k, v] of Object.entries({ x: b.x * sc, y: b.y * sc, width: b.w * sc, height: b.h * sc,
+      fill: 'none', stroke: '#118AB2', 'stroke-width': 1.5 * sc })) r.setAttribute(k, v);
+    gEl.append(r);
+    for (const [hx, hy] of [[0, 0], [1, 0], [0, 1], [1, 1], [.5, 0], [.5, 1], [0, .5], [1, .5]]) {
+      const h = document.createElementNS(ns, 'rect');
+      for (const [k, v] of Object.entries({ x: (b.x + hx * b.w) * sc - 5.5 * sc, y: (b.y + hy * b.h) * sc - 5.5 * sc,
+        width: 11 * sc, height: 11 * sc, fill: '#fff', stroke: '#118AB2', 'stroke-width': 2 * sc })) h.setAttribute(k, v);
+      h.dataset.hx = hx; h.dataset.hy = hy;
+      gEl.append(h);
+    }
+    svg.append(gEl);
+  }
+  handleCost = performance.now() - t;
+}
+
+// ---------- live pointer interaction ----------
+let drag = null, liveFrames = [];
+stage.addEventListener('pointerdown', (ev) => {
+  const s = stage.getBoundingClientRect();
+  const tHit = performance.now();
+  const under = document.elementFromPoint(ev.clientX, ev.clientY);
+  const handle = under?.closest('[data-hx]');
+  const hit = under?.closest('[data-el]');
+  const hitCost = performance.now() - tHit;
+  const sc = doc.canvas.width / s.width;
+  if (!handle) {
+    const topId = hit ? (doc.elements.find((e) => e.id === hit.dataset.el)?.id
+      ?? doc.elements.find((e) => (e.children || []).some((c) => c.id === hit.dataset.el))?.id) : null;
+    if (topId) selectedId = topId;
+  }
+  $('#target').value = selectedId;
+  const el = getEl(selectedId);
+  if (handle && el.width == null) { log(`${el.id} is a ${el.type}: no width/height in the schema, nothing to resize`); return; }
+  drag = {
+    mode: handle ? 'resize' : 'move',
+    hx: handle ? +handle.dataset.hx : 0, hy: handle ? +handle.dataset.hy : 0,
+    x0: ev.clientX, y0: ev.clientY, ex: el.x, ey: el.y, ew: el.width, eh: el.height, sc, hitCost,
+  };
+  liveFrames = [];
+  stage.setPointerCapture(ev.pointerId);
+  drawHandles();
+});
+// Dragging a left/top handle moves the origin as well as the size. A text element has
+// width only — its height is whatever the compiler's line breaking produces.
+function resizePatch(dx, dy) {
+  const isText = getEl(selectedId).type === 'text';
+  const p = {};
+  if (drag.hx !== .5) {
+    const w = Math.max(20, drag.ew + (drag.hx === 0 ? -dx : dx));
+    p.width = w;
+    if (drag.hx === 0) p.x = drag.ex + (drag.ew - w);
+  }
+  if (drag.hy !== .5 && !isText) {
+    const h = Math.max(20, drag.eh + (drag.hy === 0 ? -dy : dy));
+    p.height = h;
+    if (drag.hy === 0) p.y = drag.ey + (drag.eh - h);
+  }
+  return p;
+}
+
+// What the transform-only strategy fakes during the gesture: a scale about the
+// handle's opposite corner. Glyphs stretch and text never rewraps — that is the point.
+function gestureFor(patch, dx, dy) {
+  if (drag.mode === 'move') return { kind: 'move', dx, dy };
+  return {
+    kind: 'resize',
+    sx: (patch.width ?? drag.ew) / drag.ew,
+    ox: drag.hx === 0 ? drag.ex + drag.ew : drag.ex,
+    oy: drag.hy === 0 ? drag.ey + drag.eh : drag.ey,
+  };
+}
+
+stage.addEventListener('pointermove', (ev) => {
+  if (!drag) return;
+  const t = performance.now();
+  const dx = (ev.clientX - drag.x0) * drag.sc, dy = (ev.clientY - drag.y0) * drag.sc;
+  const strategy = $('#strategy').value;
+  const patch = drag.mode === 'resize' ? resizePatch(dx, dy) : { x: drag.ex + dx, y: drag.ey + dy };
+  if (strategy === 'transform') renderFrame(strategy, selectedId, gestureFor(patch, dx, dy));
+  else { updateElement(selectedId, patch); renderFrame(strategy, selectedId); }
+  liveFrames.push(performance.now() - t);
+  paintStats(liveFrames);
+});
+stage.addEventListener('pointerup', (ev) => {
+  if (!drag) return;
+  if ($('#strategy').value === 'transform') {
+    const dx = (ev.clientX - drag.x0) * drag.sc, dy = (ev.clientY - drag.y0) * drag.sc;
+    updateElement(selectedId, drag.mode === 'resize' ? resizePatch(dx, dy) : { x: drag.ex + dx, y: drag.ey + dy });
+    const before = bboxOf(selectedId);
+    fullRender();
+    const after = bboxOf(selectedId);
+    log(`transform release snap for ${selectedId}: dx=${(after.x - before.x).toFixed(2)}px dy=${(after.y - before.y).toFixed(2)}px ` +
+        `dw=${(after.w - before.w).toFixed(2)}px dh=${(after.h - before.h).toFixed(2)}px (screen px)`);
+  }
+  log(`live ${drag.mode} ${liveFrames.length} frames · hit-test ${drag.hitCost.toFixed(2)}ms · median JS ${median(liveFrames).toFixed(2)}ms`);
+  drag = null; showState();
+});
+
+// ---------- scripted gestures ----------
+const median = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : 0; };
+const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * p))] : 0; };
+const round = (n) => +n.toFixed(2);
+
+// A hidden tab gets no requestAnimationFrame ticks, so fall back to setTimeout there.
+// JS cost per frame stays valid; frame interval and fps do not, and are reported null.
+const visible = () => document.visibilityState === 'visible';
+// setTimeout is clamped to ~1s in a background tab, so the fallback uses a microtask:
+// unthrottled, and JS cost per frame is what it measures.
+const schedule = (fn) => visible() ? requestAnimationFrame(fn) : queueMicrotask(() => fn(performance.now()));
+
+function runGesture(kind, strategy, targetId, frames = 300) {
+  return new Promise((resolve) => {
+    rebuildIfNeeded();
+    const el0 = getEl(targetId);
+    const base = { x: el0.x, y: el0.y, width: el0.width, content: el0.content };
+    fullRender();
+    const driver = visible() ? 'raf' : 'microtask';
+    const js = [], lay = [], emi = [], dom = [], hnd = [];
+    const intervals = [];
+    let i = 0, prev = 0;
+    const step = (ts) => {
+      if (prev) intervals.push(ts - prev);
+      prev = ts;
+      const t0 = performance.now();
+      const a = (i / frames) * Math.PI * 4;
+      if (kind === 'move') {
+        const dx = Math.cos(a) * 90, dy = Math.sin(a) * 90;
+        if (strategy === 'transform') renderFrame(strategy, targetId, { kind: 'move', dx, dy });
+        else { updateElement(targetId, { x: base.x + dx, y: base.y + dy }); renderFrame(strategy, targetId); }
+      } else if (kind === 'resize') {
+        const w = Math.max(80, base.width * (1 + Math.sin(a) * 0.35));
+        if (strategy === 'transform') renderFrame(strategy, targetId, { kind: 'resize', sx: w / base.width, ox: base.x, oy: base.y });
+        else { updateElement(targetId, { width: w }); renderFrame(strategy, targetId); }
+      } else { // type
+        const n = 12 + Math.round((Math.sin(a) + 1) * 30);
+        const text = (base.content || 'typing into a text box ') .repeat(3).slice(0, n + 20);
+        if (strategy === 'transform') renderFrame('full', targetId); // typing cannot be faked by a transform
+        else { updateElement(targetId, { content: text }); renderFrame(strategy, targetId); }
+      }
+      js.push(performance.now() - t0);
+      lay.push(frameStats.layout); emi.push(frameStats.emit); dom.push(frameStats.dom); hnd.push(handleCost);
+      if (++i < frames) schedule(step);
+      else {
+        updateElement(targetId, base);
+        fullRender();
+        const r = {
+          gesture: kind, strategy, target: targetId, type: el0.type,
+          topLevelElements: doc.elements.length, allElements: deepCount(doc), textElements: countText(doc),
+          frames,
+          jsMs: { p50: round(median(js)), p95: round(pct(js, 0.95)), max: round(Math.max(...js)) },
+          layoutMs: { p50: round(median(lay)), p95: round(pct(lay, 0.95)) },
+          emitMs: { p50: round(median(emi)), p95: round(pct(emi, 0.95)) },
+          domMs: { p50: round(median(dom)), p95: round(pct(dom, 0.95)) },
+          handlesMs: { p50: round(median(hnd)) },
+          driver: driver,
+          frameIntervalMs: driver === 'raf' ? { p50: round(median(intervals)), p95: round(pct(intervals, 0.95)) } : null,
+          fps: driver === 'raf' ? round(1000 / median(intervals)) : null,
+          svgKB: round(frameStats.size / 1024),
+        };
+        results.push(r);
+        resolve(r);
+      }
+    };
+    schedule(step);
+  });
+}
+
+let renderedCount = null;
+function rebuildIfNeeded() {
+  if (renderedCount !== +$('#count').value) { renderedCount = +$('#count').value; rebuild(); }
+}
+
+function paintStats(frames, r) {
+  const fps = r ? (r.fps ?? 0) : (frames.length > 1 ? 1000 / median(frames) : 0);
+  const set = (id, txt, cls) => { const n = $(id); n.textContent = txt; n.className = cls || ''; };
+  set('#s-fps', `fps ${fps ? fps.toFixed(0) : '–'}`, fps >= 55 ? 'ok' : fps >= 30 ? '' : 'bad');
+  set('#s-frame', `js ${median(frames).toFixed(1)}ms`, median(frames) < 8 ? 'ok' : median(frames) > 16 ? 'bad' : '');
+  set('#s-layout', `layout ${frameStats.layout.toFixed(1)}ms`);
+  set('#s-emit', `emit ${frameStats.emit.toFixed(1)}ms`);
+  set('#s-dom', `dom ${frameStats.dom.toFixed(1)}ms`);
+  set('#s-size', `svg ${(frameStats.size / 1024).toFixed(0)}KB`);
+}
+
+function showLastRun(r) {
+  $('#lastrun').innerHTML = `<table>
+    <tr><th>${r.strategy} · ${r.gesture} · ${r.target}</th><th>p50</th><th>p95</th></tr>
+    <tr><td>JS per frame</td><td>${r.jsMs.p50}</td><td>${r.jsMs.p95}</td></tr>
+    <tr><td>· text layout</td><td>${r.layoutMs.p50}</td><td>${r.layoutMs.p95}</td></tr>
+    <tr><td>· SVG emission</td><td>${r.emitMs.p50}</td><td>${r.emitMs.p95}</td></tr>
+    <tr><td>· DOM apply</td><td>${r.domMs.p50}</td><td>${r.domMs.p95}</td></tr>
+    <tr><td>· handles</td><td>${r.handlesMs.p50}</td><td></td></tr>
+    <tr><td>frame interval</td><td>${r.frameIntervalMs?.p50 ?? 'n/a'}</td><td>${r.frameIntervalMs?.p95 ?? ''}</td></tr>
+    <tr><td><b>effective fps</b></td><td><b>${r.fps ?? 'n/a (hidden tab)'}</b></td><td></td></tr></table>`;
+}
+
+function showState() {
+  const el = getEl(selectedId);
+  $('#state').textContent = JSON.stringify({
+    strategy: $('#strategy').value, handleMode: $('#handleMode').value,
+    canvas: doc.canvas, topLevelElements: doc.elements.length,
+    allElements: deepCount(doc), textElements: countText(doc),
+    svgKB: round(lastSvg.length / 1024), selected: el,
+  }, null, 1);
+}
+
+for (const b of document.querySelectorAll('[data-run]')) b.addEventListener('click', async () => {
+  const kind = b.dataset.run;
+  const target = $('#target').value;
+  if (kind === 'all') {
+    const strategies = ['full', 'memo', 'patch', 'split', 'transform'];
+    const table = [];
+    for (const gesture of ['move', 'resize', 'type']) {
+      for (const s of strategies) {
+        const r = await runGesture(gesture, s, target);
+        showLastRun(r); paintStats([], r);
+        table.push(`${gesture.padEnd(7)} ${s.padEnd(10)} js p50 ${String(r.jsMs.p50).padStart(6)}ms  p95 ${String(r.jsMs.p95).padStart(6)}ms  ` +
+          `layout ${String(r.layoutMs.p50).padStart(6)}  emit ${String(r.emitMs.p50).padStart(6)}  dom ${String(r.domMs.p50).padStart(6)}  fps ${r.fps}`);
+      }
+    }
+    log(`ALL · target=${target} · ${doc.elements.length} top-level / ${deepCount(doc)} total elements\n` + table.join('\n'));
+  } else {
+    const r = await runGesture(kind, $('#strategy').value, target);
+    showLastRun(r); paintStats([], r); log(r);
+  }
+  showState();
+});
+
+$('#count').addEventListener('change', () => { renderedCount = +$('#count').value; rebuild(); });
+$('#strategy').addEventListener('change', () => { fullRender(); showState(); });
+$('#handleMode').addEventListener('change', () => { drawHandles(); showState(); });
+$('#target').addEventListener('change', () => { selectedId = $('#target').value; drawHandles(); showState(); });
+$('#dump').addEventListener('click', () => { navigator.clipboard.writeText(JSON.stringify(results, null, 2)); log('copied ' + results.length + ' results'); });
+$('#clear').addEventListener('click', () => { results.length = 0; logEl.textContent = ''; });
+
+renderedCount = +$('#count').value;
+rebuild();
+log(`ready · ${doc.elements.length} top-level / ${deepCount(doc)} total elements · ${countText(doc)} text · svg ${(lastSvg.length / 1024).toFixed(0)}KB`);
+async function verifyPatch(targetId = 'headline', frames = 120) {
+  await runGesture('move', 'patch', targetId, frames);   // ends on a mid-gesture patched DOM
+  updateElement(targetId, { x: getEl(targetId).x + 37.5, y: getEl(targetId).y - 21.25 });
+  renderFrame('patch', targetId);
+  const patched = [...host.querySelectorAll('[data-el]')].map((n) => [n.dataset.el, n.getBoundingClientRect()]);
+  fullRender();
+  const fresh = new Map([...host.querySelectorAll('[data-el]')].map((n) => [n.dataset.el, n.getBoundingClientRect()]));
+  let worst = { id: null, d: 0 };
+  for (const [id, b] of patched) {
+    const f = fresh.get(id);
+    if (!f) { worst = { id, d: Infinity }; continue; }
+    const d = Math.max(Math.abs(b.x - f.x), Math.abs(b.y - f.y), Math.abs(b.width - f.width), Math.abs(b.height - f.height));
+    if (d > worst.d) worst = { id, d: +d.toFixed(4) };
+  }
+  const out = { check: 'patched DOM vs full recompile', elementsCompared: patched.length, worstDeltaPx: worst };
+  log(out);
+  return out;
+}
+
+window.__bench = { runGesture, verifyPatch, results, rebuild, doc: () => doc, set: (k, v) => { $(k).value = v; $(k).dispatchEvent(new Event('change')); } };
+</script>
