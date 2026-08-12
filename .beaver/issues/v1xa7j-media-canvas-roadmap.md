@@ -6,7 +6,7 @@ assignee: builtbystef
 labels:
     - roadmap
 created: 2026-08-08T07:08:13Z
-updated: 2026-08-10T23:03:11Z
+updated: 2026-08-12T02:59:00Z
 ---
 
 ## Goal
@@ -17,10 +17,10 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 
 ## Frontier
 
-- Editor UX details: canvas interactions, tool set, selection/alignment model, undo/redo.
+- Editor UX details: canvas interactions, tool set, selection/alignment model, undo/redo. (Now tracked as nodes: ep90f3 settles interactions and the tool set, 73rm0x settles document state and undo/redo, 8h50hu settles template promotion. Node 9eooei writes the editor spec from them. The editing surface is settled by node vnmueh — memoized compile plus a patched DOM node, ADR-0006 — which leaves a gesture frame under 1 ms of preview cost at any document size, so the preview does not constrain what the tool set can offer.)
 - Auth and API keys: how the "me first, product later" constraint translates into an account model. (The generation contract jgo8tv is auth-agnostic; keys bolt onto it. Node kjz6f0 adds: all file URLs are proxied through FastAPI, so auth gets one enforcement point.)
 - CLI: what it wraps, its language, how it is distributed. (Post-MVP per node ylg1wr — a thin client of the generation API, whose contract node jgo8tv settled.)
-- Image/asset upload pipeline and storage layout. (The core spec 1qoccb fixes the read side: content-addressed Font Assets and Image Assets served from app storage at immutable URLs; upload endpoints and UI remain open.)
+- Image/asset upload pipeline and storage layout. (The core spec 1qoccb fixes the read side: content-addressed Font Assets and Image Assets served from app storage at immutable URLs, and the generation platform spec 0egsmf fixes that all file serving proxies through FastAPI. The write side — upload endpoints, validation placement, MinIO key layout, and UI — is node 3ko2p7.)
 - Print-ready PDF export (CMYK, bleed/trim marks) and color management. (Digital RGB PDF, JPEG, and PNG are in the MVP per node ylg1wr; the engine verdict gqr8bf makes digital PDF a vector printToPDF output.)
 - Design document migration mechanics as the format version advances. (Strategy settled by node 53lwlc — required integer schemaVersion, forward-only migrations applied at load, renderer accepts only the current version; the mechanics land with the first version bump.)
 - Auto-layout / resize anchoring — v1 is absolute positioning only (node 53lwlc); template reuse across canvas sizes may want it in a later version.
@@ -30,6 +30,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Bindable property kinds beyond v1's text content / image source / solid color / number / visibility: geometry, fonts, opacity (node 53lwlc).
 - Formatting of price/number variables, localization. (v1 interpolates a number as ECMAScript String(number), node 6lxoec.)
 - Deployment story: self-host now, what productizing changes. (The engine verdict gqr8bf adds a hard input: the worker ships as a pinned container image — pinned Chromium build, one pinned headless flavor, fontconfig-pinned fonts. Node 6lxoec pinned the flavor: full Chromium new headless. Node kjz6f0 fixes the dev stack: root docker-compose with Postgres, Redis, and MinIO; production compose topology stays open.)
+- Editor performance beyond the preview: how many elements the layer list, overlay, and hit-testing hold up under, and whether very large documents need virtualization. (Node vnmueh measured the preview only — a full compile of a 236-element document costs ~27 ms, paid at load, font change, and canvas resize; nothing measured the rest of the editor's frame.)
 - Worker fleet scaling, retry semantics, observability. (Measured baseline from node gqr8bf: ~166 ms/render at 8 concurrent pages in one browser instance, ≈2.8 min per 1,000 assets on one host. Contract-level retry settled by node jgo8tv: one automatic retry per Row on transient errors; fleet policy stays open.)
 - Webhooks for Generation Job completion — v1 signals completion by polling only (node jgo8tv); webhooks need callback registration, signing, and delivery retries.
 - Output retention policy once productized — v1 keeps Generation Job outputs until an explicit delete-job call, no auto-expiry (node jgo8tv).
@@ -77,3 +78,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Local-disk object storage (node kjz6f0) — MinIO from day one, behind the S3 API.
 - Presigned storage URLs (node kjz6f0) — all file serving proxies through FastAPI, keeping the contract's immutable URLs stable and giving later auth one enforcement point.
 - Direct Postgres writes from the render worker (node kjz6f0) — FastAPI owns the schema and Alembic migrations; the worker reports row results via an internal API endpoint (ADR-0005).
+- Full recompile of the document on every gesture frame as the editor's preview strategy (node vnmueh) — measured 9.3 ms at 48 elements and 28.9 ms at 120, holding 60 fps only to ~60 top-level elements, with no headroom left for the rest of the frame. Memoized compile plus a patched DOM node costs under 1 ms at every size (ADR-0006).
+- A cheap approximate render surface during gestures, with the true compiled SVG on release (node vnmueh) — rejected outright rather than traded against: patching the dirty element's DOM node was verified identical to a from-scratch recompile (worst bounding-box delta 0.0000 px across 236 elements), so no approximation is needed and the core spec's parity guarantee costs nothing.
+- Selection handles rendered inside the editor's `<svg>` (node vnmueh) — identical JS cost to an HTML overlay, but a re-render destroys them mid-gesture along with their pointer capture and focus. Handles, guides, and marquee live in an HTML overlay above the SVG.
+- Mutable in-place edits to editor document state (node vnmueh) — memoization keys on element object identity, so per-element immutability is load-bearing for the preview, not an optimization (ADR-0006).
