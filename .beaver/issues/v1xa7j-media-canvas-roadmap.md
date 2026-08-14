@@ -6,7 +6,7 @@ assignee: builtbystef
 labels:
     - roadmap
 created: 2026-08-08T07:08:13Z
-updated: 2026-08-12T02:59:00Z
+updated: 2026-08-14T05:20:04Z
 ---
 
 ## Goal
@@ -17,12 +17,13 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 
 ## Frontier
 
-- Editor UX details: canvas interactions, tool set, selection/alignment model, undo/redo. (Interactions and the tool set are settled by node ep90f3 — Figma's grammar minus what schema v1 cannot express: five tools, enter-a-group selection, resize for shapes vs. scale for text and groups, alignment-guide snapping only, inspector-authoritative properties, no pasteboard per ADR-0008. Still open as nodes: 73rm0x settles document state and undo/redo, 8h50hu settles template promotion. Node 9eooei writes the editor spec from all three. The editing surface is settled by node vnmueh — memoized compile plus a patched DOM node, ADR-0006 — which leaves a gesture frame under 1 ms of preview cost at any document size, so the preview did not constrain any tool-set answer.)
+- Editor UX details: canvas interactions, tool set, selection/alignment model, undo/redo. (Interactions and the tool set are settled by node ep90f3 — Figma's grammar minus what schema v1 cannot express: five tools, enter-a-group selection, resize for shapes vs. scale for text and groups, alignment-guide snapping only, inspector-authoritative properties, no pasteboard per ADR-0008. Document state, undo/redo, and persistence are settled by node 73rm0x — immutable whole-document snapshots leaning on ADR-0006's structural sharing, one Undo Entry per completed gesture, debounced autosave against a revision-checked PUT, one `documents` table with kind design|template, migrations running only where the TypeScript core runs. Still open as a node: 8h50hu settles template promotion. Node 9eooei writes the editor spec from all three. The editing surface is settled by node vnmueh — memoized compile plus a patched DOM node, ADR-0006 — which leaves a gesture frame under 1 ms of preview cost at any document size, so the preview did not constrain any tool-set answer.)
 - Auth and API keys: how the "me first, product later" constraint translates into an account model. (The generation contract jgo8tv is auth-agnostic; keys bolt onto it. Node kjz6f0 adds: all file URLs are proxied through FastAPI, so auth gets one enforcement point. Node 3ko2p7 adds the asset upload, serve, and delete endpoints to what that point must cover — v1 serves asset bytes unauthenticated with `Access-Control-Allow-Origin: *`, which `@font-face` requires cross-origin, so an auth design has to keep font fetches working from the editor's origin.)
 - CLI: what it wraps, its language, how it is distributed. (Post-MVP per node ylg1wr — a thin client of the generation API, whose contract node jgo8tv settled.)
 - Thumbnails or derived image files for the Assets panel — v1 has none, and the panel points `<img>` at the full-size immutable URL (node 3ko2p7). Revisit when a library of large images makes the panel drag; it costs a second key layout and a "which files exist for this asset" question in every deletion and migration discussion, which is why it waited.
 - Sweeping storage objects orphaned by a failed delete — asset deletion removes the Postgres row before the MinIO object (node 3ko2p7), so a crash between the two leaves an unreferenced object. Harmless and sweepable; no sweeper is built.
 - Print-ready PDF export (CMYK, bleed/trim marks) and color management. (Digital RGB PDF, JPEG, and PNG are in the MVP per node ylg1wr; the engine verdict gqr8bf makes digital PDF a vector printToPDF output.)
+- Document version history — list, preview, and restore of earlier saves. v1 keeps one current JSON per document (node 73rm0x): undo covers in-session mistakes, promotion copies protect Templates, Job snapshots protect batches. Autosave makes history the natural next safety layer once real work accumulates.
 - Design document migration mechanics as the format version advances. (Strategy settled by node 53lwlc — required integer schemaVersion, forward-only migrations applied at load, renderer accepts only the current version; the mechanics land with the first version bump.)
 - Auto-layout / resize anchoring — v1 is absolute positioning only (node 53lwlc); template reuse across canvas sizes may want it in a later version.
 - Auto-fit text: shrink font until content fits a fixed box, for batch generation (node 53lwlc) — v1 wraps at fixed width with auto height from a vertical anchor instead (canvas-edge overflow accepted, node k77nv9).
@@ -101,3 +102,10 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Element lock in the layer list in the MVP (node ep90f3) — no schema field exists for it, and editor-only fields in the Design Document were not opened here. Hiding is the document's own `visible` field, the same one a boolean Variable binds, so hiding in the editor hides in every render.
 - SVG import of files containing text, gradients, patterns, filters, masks, or clip paths (node ep90f3) — rejected outright, naming what was found and suggesting the file be flattened or outlined first. An SVG `<text>` would smuggle a second, unpinned text-rendering surface into a render, which is the same reason SVG is not an Image Asset.
 - View state in the Design Document (node ep90f3) — zoom and scroll offset persist per document in `localStorage`. Zoom is a CSS transform on a wrapper around the `<svg>`, never a recompile at a different scale, so the ADR-0006 memo caches survive every zoom change.
+
+- A command/patch log as the editor's undo model (node 73rm0x) — ADR-0006's per-element immutability makes whole-document snapshots with structural sharing nearly free, and inverse-operation bugs are the classic undo failure mode. The undo stack is an array of document values.
+- Persisting the undo stack across reloads (node 73rm0x) — in-memory only, capped at 200 entries; it would buy little once autosave is reliable and would cost a serialization format that needs migrating.
+- An explicit-save workflow (node 73rm0x) — autosave, debounced ~1 s with a flush on tab hide/close; Cmd-S survives only as "flush now". Job snapshots already protect batches from mid-edit state.
+- Merging concurrent edits, or live sync (node 73rm0x) — a revision-checked PUT returns 409 and the editor demands a reload; single user, the goal is preventing silent clobbering, not collaboration.
+- Separate `designs` and `templates` tables (node 73rm0x) — one `documents` table with a kind column; unlike the asset tables (3ko2p7), the columns are 100% shared, and the editor opens either kind through one code path. A nullable promoted_from_id keeps lineage only.
+- Server-side migration of stored documents (node 73rm0x) — FastAPI cannot run the TypeScript core (ADR-0003), so migration happens where core runs: the editor at load, the worker at snapshot load. FastAPI only stores bytes.

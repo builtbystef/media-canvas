@@ -73,3 +73,11 @@ _Avoid_: resize (when scale is meant), zoom
 **Crop Mode**:
 The editor state, entered by double-clicking an image Element, in which the frame and the bitmap inside it move and size independently of each other. Outside it, the two always change together.
 _Avoid_: crop tool, image edit mode
+
+**Undo Entry**:
+One step on the editor's undo stack: the document state produced by one completed user gesture — a drag, a text-editing session, one inspector commit — never a fragment of one.
+_Avoid_: history step, command, checkpoint
+
+**Revision**:
+The integer a stored document carries that counts its saves. A save states the Revision it loaded, and a mismatch is the signal that the document changed elsewhere.
+_Avoid_: version (that is `schemaVersion`), etag
