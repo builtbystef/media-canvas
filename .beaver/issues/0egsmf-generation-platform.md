@@ -9,7 +9,7 @@ depends_on:
     - jgo8tv
     - kjz6f0
 created: 2026-08-11T01:54:08Z
-updated: 2026-08-14T19:54:24Z
+updated: 2026-08-14T20:20:22Z
 ---
 
 ## Problem Statement
@@ -178,3 +178,7 @@ AMENDMENT (node 8h50hu, 2026-08-14): the synchronous render endpoint is now POST
 **claude** — 2026-08-14T19:54:24Z
 
 AMENDMENT (node q44rtp, 2026-08-14): the batch UI's global Jobs page needs a job list. Add GET /api/v1/jobs → array of JobView minus the rows array, plus templateName denormalized in (one server-side join), ordered newest first, no pagination in v1 (the same all-records rule node 9eooei set for document and asset lists). No other contract change — the batch UI is otherwise a pure client of this spec.
+
+**claude** — 2026-08-14T20:20:22Z
+
+AMENDMENT (node p1fkjl, 2026-08-14): the text/csv variant of POST /templates/{id}/jobs had no carrier for the output format or the idempotency key — the JSON body's fields have no CSV equivalent. For a text/csv submission both travel as flat query parameters: ?format=png&scale=2 | ?format=jpeg&quality=90 | ?format=pdf, plus &idempotencyKey=... (same optionality as the JSON field). One channel, no header-casing rules; the JSON variant is unchanged. The batch UI submits the raw CSV bytes this way — cell-typing stays server-side in core, so the browser never submits client-typed JSON.
