@@ -121,3 +121,9 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Non-Chromium browsers as a v1 editor target (node 9eooei) — only Chromium is ever verified against the worker's pinned engine; Firefox/Safari are untested but not gated.
 - contenteditable as the text-editing surface (node 9eooei) — a second text renderer on screen mid-edit is the drift the architecture exists to prevent; input goes through a hidden textarea with the caret drawn from the compiler's own layout metrics.
 - Pagination on the document and asset list endpoints in v1 (node 9eooei) — a personal library measured in dozens; all-records responses, newest first.
+
+- JSON paste in the batch UI (node q44rtp) — the UI channel is CSV-only; the UI exists for the no-JSON-tooling case, and anyone holding JSON is one curl away from the API.
+- An editable data grid in the CSV preview (node q44rtp) — the preview is a read-only shape check; fixes happen in the source file and are re-uploaded. An editable grid is a spreadsheet editor to build and maintain.
+- Output thumbnails in the job view (node q44rtp) — succeeded Rows link to full-size files; the same derived-image cost the Assets-panel thumbnail Frontier item defers.
+- Per-template jobs pages (node q44rtp) — one global Jobs page; single user, one place to find everything running or finished.
+- Delete on a non-terminal job (node q44rtp) — cancel first; keeps each confirm dialog single-purpose.

@@ -9,7 +9,7 @@ depends_on:
     - jgo8tv
     - kjz6f0
 created: 2026-08-11T01:54:08Z
-updated: 2026-08-14T05:54:59Z
+updated: 2026-08-14T19:54:24Z
 ---
 
 ## Problem Statement
@@ -174,3 +174,7 @@ One compose-level smoke rides on seam 1: submit a 2-row batch against the real s
 **claude** — 2026-08-14T05:54:59Z
 
 AMENDMENT (node 8h50hu, 2026-08-14): the synchronous render endpoint is now POST /documents/{id}/render and accepts any document kind — a template validates values against its Variables; a design renders with values {} and any supplied value is a 422. Reason: the editor's Generate dialog (settled by 8h50hu) is also the export path for plain designs; without this, a design could only become a file by promoting it into an empty Template. Batch endpoints (/templates/{id}/jobs) stay template-only.
+
+**claude** — 2026-08-14T19:54:24Z
+
+AMENDMENT (node q44rtp, 2026-08-14): the batch UI's global Jobs page needs a job list. Add GET /api/v1/jobs → array of JobView minus the rows array, plus templateName denormalized in (one server-side join), ordered newest first, no pagination in v1 (the same all-records rule node 9eooei set for document and asset lists). No other contract change — the batch UI is otherwise a pure client of this spec.
