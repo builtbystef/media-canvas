@@ -6,7 +6,7 @@ assignee: builtbystef
 labels:
     - roadmap
 created: 2026-08-08T07:08:13Z
-updated: 2026-08-14T20:30:19Z
+updated: 2026-08-14T20:36:23Z
 ---
 
 ## Goal
@@ -17,7 +17,6 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 
 ## Frontier
 
-- Auth and API keys: how the "me first, product later" constraint translates into an account model. (The generation contract jgo8tv is auth-agnostic; keys bolt onto it. Node kjz6f0 adds: all file URLs are proxied through FastAPI, so auth gets one enforcement point. Node 3ko2p7 adds the asset upload, serve, and delete endpoints to what that point must cover — v1 serves asset bytes unauthenticated with `Access-Control-Allow-Origin: *`, which `@font-face` requires cross-origin, so an auth design has to keep font fetches working from the editor's origin.)
 - CLI: what it wraps, its language, how it is distributed. (Post-MVP per node ylg1wr — a thin client of the generation API, whose contract node jgo8tv settled.)
 - Thumbnails or derived image files for the Assets panel — v1 has none, and the panel points `<img>` at the full-size immutable URL (node 3ko2p7). Revisit when a library of large images makes the panel drag; it costs a second key layout and a "which files exist for this asset" question in every deletion and migration discussion, which is why it waited.
 - Sweeping storage objects orphaned by a failed delete — asset deletion removes the Postgres row before the MinIO object (node 3ko2p7), so a crash between the two leaves an unreferenced object. Harmless and sweepable; no sweeper is built.
@@ -133,3 +132,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 **claude** — 2026-08-14T20:30:19Z
 
 v1-completeness sweep of the Frontier (2026-08-14, user-directed): every entry was checked against the settled record for whether it gates the first version. One entry split — the v1 self-hosted production deployment is now node ex95f4 (session:grill, ready; blocked on kjz6f0, 6lxoec, 2jpnag, all closed), while 'what productizing changes' stays on the Frontier. Every other entry stays deferred because a closed node already settled its v1 behavior: auth/API keys (product-later; jgo8tv auth-agnostic), CLI (post-MVP, ylg1wr), thumbnails, orphan sweeper, print PDF/CMYK, version history, migration mechanics (first bump), auto-layout, auto-fit text, smart crop, richer constraints, more bindable kinds, number formatting, editor perf beyond the preview (revisit if it bites), fleet scaling/webhooks/retention (post-v1 per jgo8tv/kjz6f0), template organization, emoji fallback, variable fonts. Implementation itself flows from the four spec issues via create-issues, not from the Frontier.
+
+**claude** — 2026-08-14T20:36:23Z
+
+Amendment to the v1 sweep (2026-08-14): the user pulled auth into v1. The Frontier entry 'Auth and API keys' moved wholesale into node ejy8hn (session:grill, ready; blocked on jgo8tv, kjz6f0, 3ko2p7, all closed). It coordinates with the deployment node ex95f4 — exposure sets the threat model — but neither blocks the other.
