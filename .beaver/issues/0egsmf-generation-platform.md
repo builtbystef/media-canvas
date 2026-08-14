@@ -9,7 +9,7 @@ depends_on:
     - jgo8tv
     - kjz6f0
 created: 2026-08-11T01:54:08Z
-updated: 2026-08-11T01:54:08Z
+updated: 2026-08-14T05:54:59Z
 ---
 
 ## Problem Statement
@@ -44,10 +44,13 @@ Because `validate`/`resolve`/`compile`/`render` are TypeScript-only (ADR-0003) a
 ### Public API (under `/api/v1`, versioned independently of `schemaVersion`)
 
 ```
-POST /templates/{id}/render
+POST /documents/{id}/render        (amended by node 8h50hu — was /templates/{id}/render)
   body: { values: Record<string, unknown>, output: OutputFormat }
   → 200 file bytes (Content-Type per format) | 422 { errors: NamedVariableError[] }
   Synchronous; output is not persisted — the response is the delivery.
+  Resolves any documents row, either kind: a template validates `values` against its
+  Variables; a design renders with `values: {}`, and any supplied value is a 422.
+  This is also how a plain design exports a file. Batch endpoints stay template-only.
 
 POST /templates/{id}/jobs
   body (application/json): { rows: Row[], output: OutputFormat, idempotencyKey?: string }
@@ -165,3 +168,9 @@ One compose-level smoke rides on seam 1: submit a 2-row batch against the real s
 - Throughput to preserve: ~166 ms/render at concurrency 8, ≈2.8 min per 1,000 Rows on one host.
 - Job deletion removes both DB records and the `jobs/{jobId}/` prefix in storage.
 - The `web` app's CSV-upload UI is a thin client of `POST /templates/{id}/jobs` (text/csv) — no separate upload contract.
+
+## Notes
+
+**claude** — 2026-08-14T05:54:59Z
+
+AMENDMENT (node 8h50hu, 2026-08-14): the synchronous render endpoint is now POST /documents/{id}/render and accepts any document kind — a template validates values against its Variables; a design renders with values {} and any supplied value is a 422. Reason: the editor's Generate dialog (settled by 8h50hu) is also the export path for plain designs; without this, a design could only become a file by promoting it into an empty Template. Batch endpoints (/templates/{id}/jobs) stay template-only.

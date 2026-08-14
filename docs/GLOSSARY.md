@@ -28,6 +28,10 @@ _Avoid_: master, model design
 A named, typed slot declared at the top level of a Template, referenced by element properties. Supplying one value per Variable is what generation consumes.
 _Avoid_: slot, placeholder, merge field
 
+**Unknown Token**:
+A `{{name}}` interpolation token whose name matches no declared Variable. The editor renders it literally and warns; generation rejects it as a validation error.
+_Avoid_: undefined variable, broken token
+
 **Fit Mode**:
 The per-image-element rule — cover, contain, or stretch — that places a Variable-supplied image inside the element's frame, replacing the crop that was authored for the placeholder image.
 _Avoid_: object-fit, scaling mode
