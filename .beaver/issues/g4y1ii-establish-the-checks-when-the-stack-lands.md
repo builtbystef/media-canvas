@@ -6,7 +6,7 @@ priority: high
 labels:
     - maintenance
 created: 2026-08-08T06:42:54Z
-updated: 2026-08-12T06:50:45Z
+updated: 2026-08-14T06:07:03Z
 ---
 
 The repository has no source code and no chosen stack, so the four checks — format, lint, typecheck, test — have no commands yet.
@@ -36,3 +36,9 @@ With the stack settled, set up its standard tools with a minimal configuration:
 Also record the run command (how to start the app locally), and update the Checks section of `CLAUDE.md` and `AGENTS.md` with each real command. Each recorded command must run green on the current tree.
 
 Re-running the `set-up-for-agents` skill does this work and is safe to run again.
+
+## Notes
+
+**claude** — 2026-08-14T06:07:03Z
+
+Input from the editor-spec interview (node 9eooei, 2026-08-14): repository layout was deliberately left OPEN by the editor spec — this issue's stack grill owns it. Fixed by that interview and binding here: the web app is Next.js with Tailwind + shadcn/ui (Base UI variant) + Zustand; unit tests run under Vitest, e2e under Playwright; the shared TypeScript core, the Node render worker, and the FastAPI api are the other runtimes (ADR-0003/0005). Only their arrangement (workspace layout, package names, one-command-per-check wiring) is this issue's to settle.

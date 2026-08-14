@@ -1,0 +1,179 @@
+---
+id: ek7pq1
+title: Editor and asset pipeline
+state: todo
+labels:
+    - spec
+depends_on:
+    - vnmueh
+    - 3ko2p7
+    - ep90f3
+    - 73rm0x
+    - 8h50hu
+created: 2026-08-14T07:13:32Z
+updated: 2026-08-14T07:13:32Z
+---
+
+## Problem Statement
+
+The system can render a Design Document deterministically and generate assets from a Template by the thousands — but nothing can author one. There is no way to create a design, place and arrange elements, upload the fonts and images a design needs, promote a design to a Template, or get a file out without hand-writing JSON. The editor is the third pillar: everything the other two specs render has to come from somewhere.
+
+## Solution
+
+A Next.js web app with two pages: a document list, and an editor whose canvas *is* the compiled SVG — the same markup the worker renders, produced by the same shared core compiler, patched in place per gesture so editing runs at full frame rate at any document size. The editor speaks Figma's interaction grammar, holds the document as immutable snapshots with per-gesture undo, autosaves against a revision-checked PUT, and grows Variable authoring and a Generate dialog when the open document is a Template. FastAPI gains the asset write side: upload, list, and delete endpoints for Font Assets and Image Assets, feeding the editor's Assets panel, font picker, and drag-and-drop.
+
+## User Stories
+
+1. As a designer, I want to create a design from a Canvas Preset or custom dimensions, so that a new document starts at the size its channel needs.
+2. As a designer, I want to edit with Figma's grammar — tools, selection, handles, snapping, shortcuts — so that I learn nothing new.
+3. As a designer, I want the canvas to be exactly the markup the worker renders, so that exports never surprise me.
+4. As a designer, I want to drop images onto the canvas and upload fonts from the font picker, so that assets enter the system where I need them, not in a separate admin step.
+5. As a designer, I want one undo step per completed gesture, with selection restored on undo, so that undo shows me what changed.
+6. As a designer, I want autosave with a visible indicator, so that closing the tab never loses work.
+7. As a designer, I want to be told when the document changed elsewhere instead of silently overwriting it, so that no save clobbers another.
+8. As a template author, I want to promote a design into a Template and declare typed Variables, so that generation can consume it.
+9. As a template author, I want unknown `{{name}}` tokens badged and fixable while I type, so that a broken Template cannot ship silently.
+10. As a designer or template author, I want a Generate dialog that downloads a rendered file, so that one-off output is one click from the canvas.
+11. As a designer, I want a missing asset to block the preview with a named error and a replace action, so that a design referencing a deleted asset is never unopenable.
+12. As a user, I want an Assets panel that lists, uploads, and deletes fonts and images with a plain warning about consequences, so that the library stays manageable.
+
+## Implementation Decisions
+
+### Application shell
+
+- Two routes: the document list at the root, and the editor at a per-document URL, opening either kind through one code path.
+- **Document list**: backed by `GET /api/v1/documents`; filter tabs All / Designs / Templates; one row per document with name, kind, and last-updated, sorted by last-updated descending; per-row actions: open, promote (designs, per node 8h50hu), delete with a confirm dialog. A "New design" button opens the creation dialog. No search, folders, or duplication.
+- **Creation dialog**: pick a Canvas Preset — Instagram post 1080×1080, Instagram story 1080×1920, Facebook post 1200×630, X post 1600×900, A4 poster 2480×3508, Full HD 1920×1080 — or type custom width×height. Creates a `kind: 'design'` document named "Untitled" with a white solid background and no elements, then opens the editor. The preset list is a constant in the web app; presets carry no behavior beyond name and dimensions.
+- **Editor chrome**: top bar with the document name (rename in place), the saving/saved indicator, "Promote to Template" (designs) and "Generate" buttons, and a "promoted from" link on templates with lineage. Left side: panels for Layers, Assets, Shapes, and — templates only — Variables. Right side: the inspector. Center: the canvas.
+- **Theme**: light and dark following the system preference, stock shadcn tokens, no in-app toggle. The canvas is theme-independent — it renders the document's own background.
+- **Browser support**: Chromium-based browsers only. No user-agent gate; other browsers are simply untested.
+
+### Frontend architecture
+
+- React owns the shell, panels, inspector, dialogs, and the HTML overlay. The compiled SVG lives in a container element React never reconciles: mounted once, then mutated imperatively by the preview layer below. This split is load-bearing — per-gesture DOM patching (ADR-0006) cannot coexist with reconciliation over the same nodes.
+- **State**: one Zustand store, holding the current document value, the undo and redo stacks (arrays of document values), the selection (element ids plus the entered-group path), the active tool, and transient gesture state. Document mutation goes exclusively through pure operation functions `(DesignDocument, args) → DesignDocument` that replace changed elements and their ancestor groups and preserve the object identity of everything untouched — the memo caches key on element identity (ADR-0006), so this purity is a correctness requirement, not style. Representative shapes:
+
+```ts
+// pure document operations — the unit-test seam
+function moveElements(doc: DesignDocument, ids: string[], dx: number, dy: number): DesignDocument
+function scaleGroup(doc: DesignDocument, id: string, factor: number): DesignDocument
+function renameVariable(doc: DesignDocument, from: string, to: string): DesignDocument
+```
+
+- Undo/redo moves a pointer over the snapshot array; a new edit clears the redo stack; the stack is in-memory only, capped at 200 entries (node 73rm0x).
+
+### Canvas preview (ADR-0006, node vnmueh)
+
+- The preview is the shared core compiler's output, inline in the DOM. Compilation memoizes per element on object identity in two caches — line breaking (text) and emitted markup (all types).
+- A gesture frame patches only the dirty element's DOM node (< 1 ms at every measured size). A change that dirties the whole document — load, font change, canvas resize, undo of a multi-element edit — does a full compile and accepts ~11–30 ms.
+- Selection handles, rotation zones, marquee, snap guides, badges, and the text caret live in the HTML overlay above the SVG, positioned from element bounds. Hit-testing goes through `elementFromPoint` against the SVG, walked up to the nearest element-id attribute.
+- **Assets in the browser**: the editor implements the core's `AssetResolver` over the asset endpoints — font bytes are fetched once per Font Asset and parsed by the compiler; a matching `@font-face` rule is injected per used Font Asset so the SVG text displays in the real face. Image URLs pass through as the immutable serving URLs.
+- **Zoom** is a CSS transform on a wrapper around the SVG, never a recompile at a different scale; the memo caches survive every zoom change. Range 5%–1600%. Zoom and scroll offset persist per document in `localStorage`; first open lands on zoom-to-fit. Nothing about the view enters the Design Document.
+
+### Interaction model (node ep90f3, normative here)
+
+Figma's grammar minus what schema v1 cannot express. The complete rules — tool palette (Select V, Text T, Rectangle R, Ellipse O, Hand H; draw one, return to Select), selection (top-level click, double-click to enter groups, Cmd/Ctrl-click deep select, Shift add/remove, intersecting marquee), per-type handle behavior (Resize for rect/ellipse/vector; Scale for text, images, and groups; Crop Mode inside images), rotation about the element center with Shift 15° snapping, snapping to canvas and element edges/centers at 6 px screen-space with Cmd/Ctrl suspend, the six align and two distribute actions, pan/zoom bindings, the full keyboard map, text creation defaults, new-shape defaults, canvas-change semantics, off-canvas clipping (ADR-0008), and SVG import with its reject list — are settled in node ep90f3's closure note and bind this spec verbatim. The inspector is the single authority for every property; image Crop Mode is the one on-canvas exception.
+
+### Text editing
+
+- Entering text editing (double-click or Enter on a text element) focuses a hidden textarea holding the element's raw content, including literal `{{name}}` tokens. Keystrokes mutate the document through the store; the displayed text is always the compiled SVG — no contenteditable, no second text renderer, ever.
+- The caret and selection highlight are drawn in the HTML overlay from the compiler's own layout data. The core package gains one export for this, implemented inside the same line-breaking code the compiler uses (never a re-implementation):
+
+```ts
+// new export from the shared core package
+function layoutText(el: TextElement, fontBytes: ArrayBuffer): TextLayout
+type TextLayout = {
+  lines: Array<{ start: number; end: number; baselineY: number }>  // content index range per line
+  positions: number[]  // x of each character boundary, per line concatenated
+}
+```
+
+Both directions come from it: content index → canvas x/y for the caret, and click point → content index for caret placement and drag selection.
+- Typing `{{` in a template pops the Variable autocomplete (node 8h50hu); free typing stays allowed. A text element left empty on exit is deleted.
+
+### Document state and persistence (node 73rm0x, normative here)
+
+- Whole-document immutable snapshots with structural sharing; one Undo Entry per completed gesture exactly as node 73rm0x defines (drag = one entry, text-editing session = one entry, inspector scrub coalesces on release, typed field commits on blur/Enter); selection restores to the touched elements on undo.
+- **Autosave**: debounced ~1 s after the last mutation, immediate flush on tab hide/close, Cmd-S is "flush now". The indicator shows saving/saved. A non-409 save failure (network, 5xx) never interrupts editing: retry with exponential backoff (1 s doubling to a 30 s cap) and flip the indicator to a warning until a save lands.
+- **Concurrency**: every PUT carries the loaded Revision; a 409 shows a blocking "changed elsewhere — reload" notice. No merging.
+- **Migration**: a stored document older than the current `schemaVersion` migrates at load in the editor via the core package; the next autosave persists the current version. FastAPI never migrates (ADR-0003).
+- **Documents API** (FastAPI, table per node 73rm0x — one `documents` table with `kind`, `revision`, `promoted_from_id`):
+
+```
+POST   /api/v1/documents            { kind: 'design', name, document } → 201 DocumentView (revision 1)
+GET    /api/v1/documents?kind=      → DocumentSummary[]   (no document body; updated_at desc)
+GET    /api/v1/documents/{id}       → DocumentView
+PUT    /api/v1/documents/{id}       { document, revision, name? } → 200 { revision, updatedAt } | 409
+DELETE /api/v1/documents/{id}       → 204
+POST   /api/v1/documents/{id}/promote → 201 DocumentView   (new row, kind 'template', document copied,
+                                        promoted_from_id set, name copied verbatim; 422 on a template)
+
+type DocumentSummary = { id, kind: 'design'|'template', name, schemaVersion,
+                         revision, promotedFromId: string|null, createdAt, updatedAt }
+type DocumentView = DocumentSummary & { document: DesignDocument }
+```
+
+### Template authoring and generation (node 8h50hu, normative here)
+
+- The Variables panel and every bind control appear only when `kind = 'template'`; promotion is the door. Promote navigates straight into the new copy.
+- Binding, chips, unbind write-back, the Variables panel rows (name, type, typed default control, minLength/maxLength, usage count), the name grammar `^[A-Za-z][A-Za-z0-9_]*$`, rename rewriting `$var` refs and `{{name}}` tokens in one Undo Entry, delete unbinding-but-never-editing-text, Unknown Token badging with one-click fixes, and defaults-as-preview all bind verbatim from node 8h50hu's closure note.
+- **Generate dialog**: reached from the top bar on both kinds. For a template: one typed input per Variable prefilled with defaults, constraints enforced inline, plus the output-format picker (PNG scale 1/2/3, JPEG quality, PDF). For a design: the format picker only. Calls `POST /api/v1/documents/{id}/render` (spec 0egsmf as amended) and hands the response bytes over as a browser download. Nothing persisted.
+
+### Asset pipeline (node 3ko2p7, normative here)
+
+- All sixteen items of node 3ko2p7's closure note bind this spec: worker-side font inspection via `POST /internal/fonts/inspect`, Pillow image inspection and EXIF normalization in FastAPI, bundled-font seeding at startup, the upload/serve/delete endpoints, upload sequences and dedupe-by-hash returning 200, format and size limits with their 422 error codes, the two-bucket flat key layout, the `font_assets` / `image_assets` tables, unconditional unindexed deletion (ADR-0007) with the bundled-font 409, delete confirms, and the serving headers (CORS `*`, immutable cache).
+- New here, closing the one gap the node left: **list endpoints** —
+
+```
+GET /api/v1/fonts   → FontAssetView[]    (all records, newest first, unpaginated)
+GET /api/v1/images  → ImageAssetView[]
+
+type FontAssetView  = { id, format: 'ttf'|'otf', family, subfamily, weight, italic,
+                        postscriptName, byteSize, bundled, originalFilename, createdAt, url }
+type ImageAssetView = { id, contentType, width, height, byteSize,
+                        originalFilename, createdAt, url }
+```
+
+`url` is the immutable serving URL with its cosmetic suffix.
+- **Editor surfaces**, per node 3ko2p7: image drag-and-drop and paste with immediate upload and placeholder-borne progress/errors; the font picker's inline "Upload font" with inline rejections; the Assets panel with Images (thumbnail grid pointing at full-size URLs) and Fonts (rows in their own face, bundled families grouped and marked, no delete on bundled) sections, each with an upload control; drag from panel to canvas places without an upload.
+- **Missing-asset panel**: a missing Font or Image Asset replaces the preview with a blocking error panel naming each missing asset id and the referencing elements by name, with a per-asset Replace action opening the matching picker; replacement rewrites the references and restores the preview. Layout, panels, and the document remain interactive enough to reach Replace; nothing else renders.
+
+## Dependencies
+
+- **next** + **react** — the web app framework, a stack constraint from the roadmap goal.
+- **zustand** — the document/undo/selection store; store-outside-React fits the imperative canvas, gesture code reads and writes without render churn.
+- **tailwindcss** — styling (user choice).
+- **shadcn/ui, Base UI variant** — component primitives for panels, dialogs, inspector controls (user choice).
+- **vitest** — unit runner for the store-operation seam.
+- **@playwright/test** — the e2e smoke; the browser itself is already pinned by the core spec's Playwright dependency.
+- **Pillow** (api) — image inspection and EXIF normalization (node 3ko2p7).
+- **python-multipart** (api) — FastAPI multipart upload parsing.
+
+No other dependency may be added by an implementation session without amending this section. opentype.js, zod, playwright, boto3, Alembic and the rest are owned by the core and generation specs.
+
+## Testing Decisions
+
+Three seams, agreed:
+
+1. **Document operations / store** (Vitest, pure TypeScript — the editor's real logic, no browser). Worked examples: `moveElements` on `{x: 10}` with `dx: 5` → `x: 15`, untouched elements keep object identity; `scaleGroup` factor 2 doubles a descendant text's `fontSize`, `letterSpacing`, and shadow `dx/dy/blur`; rect resize leaves `border.width` untouched; a 120-frame drag produces one Undo Entry; undo of a two-element move restores both positions and selects exactly those two; `renameVariable` rewrites `{ $var: 'old' }` and `Price: {{old}}` in one entry, and rejects a colliding name; unbind writes the Variable's current default back as the authored value; deleting a Variable leaves `{{name}}` literal in content and the token reports as Unknown; a text element emptied on exit is removed from the document.
+2. **FastAPI endpoints** (test client; storage and worker inspection faked behind their contracts). Worked examples: PUT with a stale revision → 409, document unchanged; successful PUT → revision incremented by exactly 1; promote on a design → new row with `kind: 'template'`, `promoted_from_id` set, `revision: 1`, name copied; promote on a template → 422; `GET /documents?kind=template` excludes designs; re-uploading identical image bytes → 200 with the existing id, one row; delete of a bundled font → 409 `asset_is_bundled`; font list → bundled and uploaded records with `bundled` flags.
+3. **One Playwright e2e smoke** against the real dev stack: create a design from a preset, draw a rect and a text, watch the indicator reach saved, reload and find the document intact, promote it, declare and bind a Variable, generate a PNG and receive the download. One scripted pass — fine-grained behavior lives at seam 1.
+
+External behavior only at every seam. Prior art: none in-repo; the core spec's seam-1 test style is the model.
+
+## Out of Scope
+
+- The batch generation UI — its own roadmap node (q44rtp).
+- Repository and workspace layout — deliberately deferred to the checks issue (g4y1ii), which owns the stack grill; this spec names packages, never paths.
+- Document version history; thumbnails and derived images; template galleries, search, folders, duplication (Frontier).
+- Element lock; grid, rulers, user guides, spacing badges, dimension labels; a Scale tool; movable rotation pivot; non-uniform multi-select resize (node ep90f3).
+- A sample-value preview mode; Variable retype; an in-between design-with-Variables state (node 8h50hu).
+- Persisting the undo stack; explicit-save workflow; merge or live sync (node 73rm0x).
+- Firefox/Safari support; auth and API keys; everything the core spec (schema, compiler, validation, render) and generation spec (jobs, queue, file proxying) own.
+
+## Further Notes
+
+- The governing invariant, restated: the editor's `<svg>` is the worker's markup. Anything the editor can show that the compiler cannot express is a bug in the editor (core spec 1qoccb). `layoutText` must therefore be the compiler's own layout code exposed, never a parallel implementation.
+- ADRs binding this spec: 0003 (TypeScript core), 0005 (api owns the schema), 0006 (immutable elements, memoized preview), 0007 (unindexed asset deletion), 0008 (no pasteboard).
+- Glossary terms exercised here: Design Document, Element, Template, Variable, Unknown Token, Canvas Preset, Preset Shape, Resize, Scale, Crop Mode, Undo Entry, Revision, Font Asset, Image Asset, Fit Mode.
+- The `layoutText` export and the two asset list endpoints are the only additions this spec makes to surfaces other specs own; both are additive and were raised here rather than silently implemented.

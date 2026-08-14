@@ -6,7 +6,7 @@ assignee: builtbystef
 labels:
     - roadmap
 created: 2026-08-08T07:08:13Z
-updated: 2026-08-14T05:20:04Z
+updated: 2026-08-14T07:14:40Z
 ---
 
 ## Goal
@@ -17,7 +17,6 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 
 ## Frontier
 
-- Editor UX details: canvas interactions, tool set, selection/alignment model, undo/redo. (Interactions and the tool set are settled by node ep90f3 — Figma's grammar minus what schema v1 cannot express: five tools, enter-a-group selection, resize for shapes vs. scale for text and groups, alignment-guide snapping only, inspector-authoritative properties, no pasteboard per ADR-0008. Document state, undo/redo, and persistence are settled by node 73rm0x — immutable whole-document snapshots leaning on ADR-0006's structural sharing, one Undo Entry per completed gesture, debounced autosave against a revision-checked PUT, one `documents` table with kind design|template, migrations running only where the TypeScript core runs. Template promotion is settled by node 8h50hu — Variable authoring is template-only behind a promote-and-enter flow, binding is inspector chips plus literal `{{name}}` tokens with autocomplete, a template-only Variables panel owns declarations, unknown tokens warn in the editor and hard-fail only at generation, defaults are the preview, and one Generate dialog (backed by `POST /documents/{id}/render`, amended to accept any document kind) serves both template one-offs and plain-design export. Node 9eooei writes the editor spec from all of these. The editing surface is settled by node vnmueh — memoized compile plus a patched DOM node, ADR-0006 — which leaves a gesture frame under 1 ms of preview cost at any document size, so the preview did not constrain any tool-set answer.)
 - Auth and API keys: how the "me first, product later" constraint translates into an account model. (The generation contract jgo8tv is auth-agnostic; keys bolt onto it. Node kjz6f0 adds: all file URLs are proxied through FastAPI, so auth gets one enforcement point. Node 3ko2p7 adds the asset upload, serve, and delete endpoints to what that point must cover — v1 serves asset bytes unauthenticated with `Access-Control-Allow-Origin: *`, which `@font-face` requires cross-origin, so an auth design has to keep font fetches working from the editor's origin.)
 - CLI: what it wraps, its language, how it is distributed. (Post-MVP per node ylg1wr — a thin client of the generation API, whose contract node jgo8tv settled.)
 - Thumbnails or derived image files for the Assets panel — v1 has none, and the panel points `<img>` at the full-size immutable URL (node 3ko2p7). Revisit when a library of large images makes the panel drag; it costs a second key layout and a "which files exist for this asset" question in every deletion and migration discussion, which is why it waited.
@@ -117,3 +116,8 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - A sample-value preview mode (node 8h50hu) — the defaults are the preview; the Generate dialog is where real values are seen, and its output is exactly the render.
 - A naming dialog on promotion (node 8h50hu) — promote copies the name verbatim and enters the new template; rename happens in place.
 - Promote-first as the only export path for designs (node 8h50hu) — the synchronous render endpoint accepts any document kind, so a plain design exports through the same Generate dialog.
+
+
+- Non-Chromium browsers as a v1 editor target (node 9eooei) — only Chromium is ever verified against the worker's pinned engine; Firefox/Safari are untested but not gated.
+- contenteditable as the text-editing surface (node 9eooei) — a second text renderer on screen mid-edit is the drift the architecture exists to prevent; input goes through a hidden textarea with the caret drawn from the compiler's own layout metrics.
+- Pagination on the document and asset list endpoints in v1 (node 9eooei) — a personal library measured in dozens; all-records responses, newest first.
