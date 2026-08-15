@@ -6,7 +6,7 @@ assignee: builtbystef
 labels:
     - roadmap
 created: 2026-08-08T07:08:13Z
-updated: 2026-08-15T04:08:51Z
+updated: 2026-08-15T04:38:41Z
 ---
 
 ## Goal
@@ -19,7 +19,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 
 - CLI: what it wraps, its language, how it is distributed. (Post-MVP per node ylg1wr — a thin client of the generation API, whose contract node jgo8tv settled.)
 - Thumbnails or derived image files for the Assets panel — v1 has none, and the panel points `<img>` at the full-size immutable URL (node 3ko2p7). Revisit when a library of large images makes the panel drag; it costs a second key layout and a "which files exist for this asset" question in every deletion and migration discussion, which is why it waited.
-- Sweeping storage objects orphaned by a failed delete — asset deletion removes the Postgres row before the MinIO object (node 3ko2p7), so a crash between the two leaves an unreferenced object. Harmless and sweepable; no sweeper is built.
+- Sweeping storage objects orphaned by a failed delete — asset deletion (node 3ko2p7) and Workspace deletion (spec 88v6vg) both remove Postgres rows before MinIO objects, so a crash between the two leaves unreferenced objects. Harmless and sweepable; no sweeper is built.
 - Print-ready PDF export (CMYK, bleed/trim marks) and color management. (Digital RGB PDF, JPEG, and PNG are in the MVP per node ylg1wr; the engine verdict gqr8bf makes digital PDF a vector printToPDF output.)
 - Document version history — list, preview, and restore of earlier saves. v1 keeps one current JSON per document (node 73rm0x): undo covers in-session mistakes, promotion copies protect Templates, Job snapshots protect batches. Autosave makes history the natural next safety layer once real work accumulates.
 - Design document migration mechanics as the format version advances. (Strategy settled by node 53lwlc — required integer schemaVersion, forward-only migrations applied at load, renderer accepts only the current version; the mechanics land with the first version bump.)
@@ -48,6 +48,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Password authentication (node ejy8hn) — email OTP via Resend is the only sign-in; no password storage, no reset flows.
 - An instance admin, root account, or seed step (node ejy8hn) — fully self-serve: signup is sign-in, any User creates Workspaces, Owners invite. No instance-level concepts exist.
 - An in-app signup allowlist or access guard (node ejy8hn) — registration is open; restricting a private remote instance is the deployer's network-layer job (proxy rules, IP allowlists, VPN), outside the app.
+- Changing a User's email address, and deleting a User account (node n60ho8) — neither was in the settled record; excluded from v1 during the deployment-and-access spec rather than invented.
 - Pen tool / Bézier path editing in the MVP — SVG import substitutes (node ylg1wr).
 - Element-masks-element masking in the MVP — image crop-within-frame and clip-to-shape only (node ylg1wr).
 - Inner shadows, background blur, and blend modes in the MVP — editor-vs-renderer fidelity traps (node ylg1wr).
@@ -167,3 +168,7 @@ Extension after node ejy8hn (2026-08-15): the user reversed the multi-tenant exc
 **claude** — 2026-08-15T04:08:51Z
 
 Extension after node u2ovlu (2026-08-15): pure bookkeeping — the four published specs (1qoccb, 0egsmf, ek7pq1, wz3ev2) each carry a workspace-tenancy AMENDMENT note per ejy8hn/ADR-0009. No new Frontier entries, no exclusions. One derived decision flagged for review in the n60ho8 session: bundled fonts seed per Workspace at Workspace creation (forced by NOT NULL workspace_id on font_assets). Spec node n60ho8 is now unblocked.
+
+**claude** — 2026-08-15T04:38:41Z
+
+Extension after node n60ho8 (2026-08-15): the fifth and final spec is published — 88v6vg (Deployment and access), edges back to ex95f4, ejy8hn, u2ovlu. Every roadmap node is now closed; the root stays open only because the Frontier is not empty (all entries are post-v1 by the 2026-08-14 sweep). Out of scope gained User email-change/account-deletion (excluded during the spec rather than invented); the orphan-sweeper Frontier entry now also covers Workspace-delete orphans. The root body was also trimmed of note text earlier sessions had duplicated into it. Implementation flows from the five specs via create-issues — start with 88v6vg.
