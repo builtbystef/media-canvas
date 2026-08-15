@@ -11,7 +11,7 @@ depends_on:
     - 73rm0x
     - 8h50hu
 created: 2026-08-14T07:13:32Z
-updated: 2026-08-15T04:08:18Z
+updated: 2026-08-15T04:14:08Z
 ---
 
 ## Problem Statement
@@ -190,3 +190,7 @@ AMENDMENT (node u2ovlu, per node ejy8hn / ADR-0009, 2026-08-15): v1 is multi-ten
 - Serving headers: the CORS `*` font carve-out (node 3ko2p7) is deleted. Production is same-origin behind Caddy; dev uses credentialed CORS pinned to the editor origin, with the SameSite=Lax session cookie — the editor fetches font bytes and images with credentials. Immutable caching survives as `Cache-Control: private, immutable`.
 - Web app: the shell gains a workspace switcher; the document list and Assets panel list the current Workspace's records (9eooei's no-pagination rule survives per Workspace). Sign-in, workspace creation, invites, members, and API-key UI belong to node n60ho8's spec, not here.
 - RBAC on this surface: document mutation (create, PUT, delete, promote, rename) and asset upload/delete require Editor or Owner; Viewer is read/download only.
+
+**claude** — 2026-08-15T04:14:08Z
+
+Re the flagged bundled-font decision (2026-08-15): the user reviewed it — per-Workspace seeding at Workspace creation stands as written (a few MB per workspace is the accepted cost of zero special cases in scoping, auth, and deletion). n60ho8 confirms it as part of its spec; no re-litigation needed unless that session surfaces something new.
