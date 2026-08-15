@@ -8,9 +8,10 @@ labels:
 depends_on:
     - ex95f4
     - ejy8hn
+    - u2ovlu
 parent: v1xa7j
 created: 2026-08-15T03:22:03Z
-updated: 2026-08-15T03:22:03Z
+updated: 2026-08-15T04:02:06Z
 ---
 
 The deployment-and-access area is the pair {ex95f4 (v1 self-hosted production deployment), ejy8hn (v1 auth and API key model)}. They were interviewed separately but an implementer needs them together: Caddy is both the production topology's single origin and the front door where auth enforcement meets the route map (/ → web; /api, /assets, /jobs → api), and the .env layout must carry whatever secrets the auth model adds.

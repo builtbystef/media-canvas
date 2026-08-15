@@ -85,3 +85,25 @@ _Avoid_: history step, command, checkpoint
 **Revision**:
 The integer a stored document carries that counts its saves. A save states the Revision it loaded, and a mismatch is the signal that the document changed elsewhere.
 _Avoid_: version (that is `schemaVersion`), etag
+
+## Accounts & access
+
+**Workspace**:
+The tenant: the container that owns documents, assets, and Generation Jobs. Every owned record belongs to exactly one Workspace, and Users reach it only through membership.
+_Avoid_: org, team, tenant, account
+
+**User**:
+One person's identity on the instance, identified by email, holding memberships in Workspaces. A User is not a tenant — ownership of content belongs to Workspaces.
+_Avoid_: account, member (as the identity)
+
+**Membership**:
+The link between one User and one Workspace, carrying exactly one Role. It is the only path by which a User reaches a Workspace's content.
+_Avoid_: seat, workspace user
+
+**Role**:
+The per-Membership access level within a Workspace. The v1 set is closed: Owner (manage members, API keys, and the Workspace itself), Editor (create and change content, run generation), Viewer (read and download only).
+_Avoid_: permission level, access tier
+
+**Workspace Invite**:
+An Owner's emailed, single-use offer of Membership in one Workspace with one Role. Accepting it signs the recipient in — creating their User first if the email is new to the instance.
+_Avoid_: invite link, invitation email, admin invite

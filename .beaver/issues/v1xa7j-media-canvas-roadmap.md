@@ -6,14 +6,14 @@ assignee: builtbystef
 labels:
     - roadmap
 created: 2026-08-08T07:08:13Z
-updated: 2026-08-15T03:22:31Z
+updated: 2026-08-15T04:03:36Z
 ---
 
 ## Goal
 
 A running web app where the user designs a static visual asset (Instagram post, poster, ad, website graphic) in a visual editor; the design is saved in a structured, versioned format; any design can be promoted to a template with variable slots (text, images, colors, prices); and assets are produced from templates one-off in the UI or by the hundreds/thousands via API, CLI, or batch data upload — with background workers doing the rendering, and exported output matching what the editor showed.
 
-Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience: the user themselves first, self-hosted — but built so productizing later (accounts, API keys, tenancy) is not blocked.
+Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience: the user themselves first, self-hosted — and built as a multi-tenant "SaaS minus billing" from v1 (node ejy8hn, ADR-0009): Workspaces, Users, and RBAC are in the architecture now, so productizing later adds billing, not structure.
 
 ## Frontier
 
@@ -29,7 +29,10 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Richer Variable constraints beyond v1's text maxLength/minLength — number ranges, regex patterns (node k77nv9).
 - Bindable property kinds beyond v1's text content / image source / solid color / number / visibility: geometry, fonts, opacity (node 53lwlc).
 - Formatting of price/number variables, localization. (v1 interpolates a number as ECMAScript String(number), node 6lxoec.)
-- What productizing changes about deployment: accounts-era, multi-tenant hosting, registry-published images / a packaged installer. (The v1 self-hosted deployment settled — node ex95f4: a portable compose stack, one root docker-compose.yml with an `app` profile adding api, web, the pinned worker image, and a single-origin Caddy entry with a DOMAIN-flag TLS flip; images build from source, the repo is the distribution. The spec lands via node n60ho8 once auth node ejy8hn closes.)
+- What productizing still changes about deployment: registry-published images / a packaged installer, hosted multi-tenant operations, billing infrastructure. (Accounts and tenancy themselves are v1 now — node ejy8hn, ADR-0009. The v1 self-hosted deployment settled — node ex95f4: a portable compose stack, one root docker-compose.yml with an `app` profile adding api, web, the pinned worker image, and a single-origin Caddy entry with a DOMAIN-flag TLS flip; images build from source, the repo is the distribution. The spec lands via node n60ho8.)
+- OAuth / SSO sign-in — v1 is email OTP only (node ejy8hn); a hosted product likely wants Google/GitHub login, which changes nothing structural.
+- Scoped or per-role API keys — v1 keys are workspace-owned and Editor-equivalent on the generation surface only (node ejy8hn); finer scopes, expiry, and per-key rate limits are accounts-era.
+- Session management UI — listing and revoking one's own sessions across devices; v1 has only POST /logout for the current session (node ejy8hn).
 - Editor performance beyond the preview: how many elements the layer list, overlay, and hit-testing hold up under, and whether very large documents need virtualization. (Node vnmueh measured the preview only — a full compile of a 236-element document costs ~27 ms, paid at load, font change, and canvas resize; nothing measured the rest of the editor's frame. Node ep90f3 now names what the overlay must do per frame: selection handles, rotation zones, marquee, and snap guides computed against every other element's bounding box, which is the first thing here that scales with document size.)
 - Worker fleet scaling, retry semantics, observability. (Measured baseline from node gqr8bf: ~166 ms/render at 8 concurrent pages in one browser instance, ≈2.8 min per 1,000 assets on one host. Contract-level retry settled by node jgo8tv: one automatic retry per Row on transient errors; fleet policy stays open.)
 - Webhooks for Generation Job completion — v1 signals completion by polling only (node jgo8tv); webhooks need callback registration, signing, and delivery retries.
@@ -41,7 +44,10 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 ## Out of scope
 
 - Animated or video assets — the product is static visuals only.
-- Multi-tenant SaaS features in the MVP (billing, teams, orgs) — design must not block them, but none are built now.
+- Billing, plans, quotas, and usage metering (node ejy8hn, ADR-0009) — v1 is multi-tenant "SaaS minus billing." This line originally excluded all multi-tenant SaaS features; the user reversed the tenancy half on 2026-08-15 (Workspaces, Users, RBAC are v1), and money remains the productizing boundary.
+- Password authentication (node ejy8hn) — email OTP via Resend is the only sign-in; no password storage, no reset flows.
+- An instance admin, root account, or seed step (node ejy8hn) — fully self-serve: signup is sign-in, any User creates Workspaces, Owners invite. No instance-level concepts exist.
+- An in-app signup allowlist or access guard (node ejy8hn) — registration is open; restricting a private remote instance is the deployer's network-layer job (proxy rules, IP allowlists, VPN), outside the app.
 - Pen tool / Bézier path editing in the MVP — SVG import substitutes (node ylg1wr).
 - Element-masks-element masking in the MVP — image crop-within-frame and clip-to-shape only (node ylg1wr).
 - Inner shadows, background blur, and blend modes in the MVP — editor-vs-renderer fidelity traps (node ylg1wr).
@@ -87,7 +93,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Preserving the originally uploaded image bytes (node 3ko2p7) — images are normalized on upload (EXIF orientation applied, metadata stripped) and the normalized bytes are the Image Asset, hashed as stored. Keeping originals would mean two byte streams per image and a hash that the worker's verification does not match.
 - Tracking which Design Documents reference an asset (node 3ko2p7) — deletion is unconditional and unindexed; a referencing design hard-errors by the existing missing-asset rule. FastAPI treats Design Documents as opaque JSON (ADR-0003), so any index would need a worker crossing and would have to stay correct forever (ADR-0007).
 - Blocking asset deletion while Generation Jobs are in flight (node 3ko2p7) — same reason; affected Rows fail with the named missing-asset error, exactly as stored designs do.
-- Soft deletion or tombstones for assets (node 3ko2p7) — a tombstone would collide with a later re-upload of the same bytes under the same content-addressed primary key, and nothing would be done with the knowledge. Deletes are hard; a re-upload revives every reference.
+- Soft deletion or tombstones for assets (node 3ko2p7) — a tombstone would collide with a later re-upload of the same bytes under the same content-addressed primary key, and nothing would be done with the knowledge. Deletes are hard; a re-upload revives every reference (within one Workspace — node ejy8hn scoped asset identity to (workspace_id, hash)).
 - A single polymorphic `assets` table (node 3ko2p7) — font and image metadata share almost nothing; `font_assets` and `image_assets` avoid a table half full of nullable columns.
 - A quarantine prefix or sweeper for rejected uploads (node 3ko2p7) — inspection precedes storage, so a rejected file never lands in MinIO at all.
 - A pasteboard, or any visible off-canvas staging area (node ep90f3, ADR-0008) — the editor's `<svg>` is the worker's markup, so content outside the canvas is clipped in the editor exactly as in the export. Selection handles live in the HTML overlay and are positioned from element bounds regardless of visibility, so an off-canvas element stays reachable and draggable.
@@ -116,10 +122,9 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - A naming dialog on promotion (node 8h50hu) — promote copies the name verbatim and enters the new template; rename happens in place.
 - Promote-first as the only export path for designs (node 8h50hu) — the synchronous render endpoint accepts any document kind, so a plain design exports through the same Generate dialog.
 
-
 - Non-Chromium browsers as a v1 editor target (node 9eooei) — only Chromium is ever verified against the worker's pinned engine; Firefox/Safari are untested but not gated.
 - contenteditable as the text-editing surface (node 9eooei) — a second text renderer on screen mid-edit is the drift the architecture exists to prevent; input goes through a hidden textarea with the caret drawn from the compiler's own layout metrics.
-- Pagination on the document and asset list endpoints in v1 (node 9eooei) — a personal library measured in dozens; all-records responses, newest first.
+- Pagination on the document and asset list endpoints in v1 (node 9eooei) — a personal library measured in dozens; all-records responses, newest first (per-workspace lists after node ejy8hn).
 
 - JSON paste in the batch UI (node q44rtp) — the UI channel is CSV-only; the UI exists for the no-JSON-tooling case, and anyone holding JSON is one curl away from the API.
 - An editable data grid in the CSV preview (node q44rtp) — the preview is a read-only shape check; fixes happen in the source file and are re-uploaded. An editable grid is a spreadsheet editor to build and maintain.
@@ -130,7 +135,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Registry-published images or a packaged one-script installer (node ex95f4) — the repo is the v1 distribution; compose builds api, web, and worker from the repo's Dockerfiles, keeping the Chromium/fontconfig pin authoritative in one Dockerfile shared by goldens, CI, and production.
 - A separate production compose file (node ex95f4) — one root docker-compose.yml with profiles: infra on the default profile (dev behavior from kjz6f0 unchanged), api/web/worker/caddy behind `app`, so the pinned infra versions are stated once.
 - Host-owned TLS in front of the stack (node ex95f4) — the in-stack Caddy owns it: DOMAIN set → automatic Let's Encrypt HTTPS, unset → plain HTTP for local use; the proxy choice is fixed to Caddy.
-- Two exposed origins in production (node ex95f4) — Caddy is the single published port, routing / → web and /api, /assets, /jobs → api; the CORS `*` font carve-out (3ko2p7) becomes a dev-only fact.
+- Two exposed origins in production (node ex95f4) — Caddy is the single published port, routing / → web and /api, /assets, /jobs → api; the CORS `*` font carve-out (3ko2p7) is deleted outright by node ejy8hn (asset bytes are authenticated; dev uses credentialed CORS pinned to the editor origin).
 - Manual production migrations (node ex95f4) — the api container runs `alembic upgrade head` on startup; `git pull && docker compose --profile app up -d --build` is the whole upgrade.
 - A secret manager or secret auto-generation (node ex95f4) — a committed .env.example copied to a gitignored root .env, secrets via `openssl rand -hex 32`.
 - A scheduled backup service in the stack (node ex95f4) — named volumes plus a documented manual backup/restore procedure (pg_dump, MinIO data copy) in docs/DEPLOYMENT.md.
@@ -154,3 +159,7 @@ v1-completeness sweep of the Frontier (2026-08-14, user-directed): every entry w
 **claude** — 2026-08-14T20:36:23Z
 
 Amendment to the v1 sweep (2026-08-14): the user pulled auth into v1. The Frontier entry 'Auth and API keys' moved wholesale into node ejy8hn (session:grill, ready; blocked on jgo8tv, kjz6f0, 3ko2p7, all closed). It coordinates with the deployment node ex95f4 — exposure sets the threat model — but neither blocks the other.
+
+**claude** — 2026-08-15T04:03:36Z
+
+Extension after node ejy8hn (2026-08-15): the user reversed the multi-tenant exclusion — v1 is 'SaaS minus billing' (ADR-0009). Out of scope amended (billing/plans/quotas/metering stay out; password auth, instance admin/seed, and in-app signup allowlist added). Frontier gained OAuth/SSO, scoped API keys, and session-management-UI entries. New node u2ovlu (session:task, AFK): amend the published specs for workspace tenancy; spec node n60ho8 now also depends on it. Glossary gained an 'Accounts & access' section.

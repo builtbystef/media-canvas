@@ -1,7 +1,8 @@
 ---
 id: ejy8hn
 title: What is the v1 auth and API key model?
-state: todo
+state: done
+assignee: claude
 labels:
     - roadmap:v1xa7j
     - session:grill
@@ -11,7 +12,7 @@ depends_on:
     - 3ko2p7
 parent: v1xa7j
 created: 2026-08-14T20:36:05Z
-updated: 2026-08-15T03:22:34Z
+updated: 2026-08-15T04:01:44Z
 ---
 
 Settle how the "me first, product later" constraint translates into a concrete auth and API key model — pulled into v1 by the user (2026-08-14) instead of staying deferred on the Frontier.
@@ -33,3 +34,21 @@ Pointers: the former root Frontier entry "Auth and API keys"; notes of jgo8tv, k
 **claude** — 2026-08-15T03:22:34Z
 
 Node ex95f4 (deployment) closed first — you inherit its answers: production is a single origin behind Caddy (the only published port; / → web, /api + /assets + /jobs → api), exposure is the deployer's choice (portable stack, laptop or public box, DOMAIN env flips Let's Encrypt TLS), and secrets live in one root .env from a committed .env.example. Caddy is the one front door if auth sits at the proxy; the CORS * font carve-out (3ko2p7) is dev-only in production. Spec node n60ho8 (deployment and access) waits on this node.
+
+**claude** — 2026-08-15T04:01:15Z
+
+ANSWER (interview 2026-08-15). v1 auth is "SaaS minus billing": full multi-tenancy and RBAC, self-serve, no admin — reversing the roadmap's Out-of-scope line on multi-tenant features (user decision; billing, plans, quotas, and metering stay out). Recorded in ADR-0009; terms in the glossary's "Accounts & access" section.
+
+IDENTITY — Email OTP is the only sign-in; no passwords, no reset flows. Email → 6-digit code via Resend (RESEND_API_KEY in .env; when unset, codes and invites print to the api log — localhost works with zero setup). Codes: 10-min expiry, single-use, max 5 verify attempts, rate-limited per email (1/30s, 10/hour). Signup IS sign-in: first successful verification creates the User. Registration is truly open — no allowlist, no guard env; restricting a remote instance is the self-hoster's job at the network layer (proxy/IP rules), outside the app.
+
+SESSIONS — Postgres table (id, user_id, expiry), HTTP-only cookie, 30-day rolling expiry, POST /logout deletes the row. No Instance Admin, no seed command, no admin revocation.
+
+WORKSPACES & RBAC — Workspace = tenant, owns documents, assets, jobs. First sign-in lands on "create your workspace"; any User creates workspaces and is Owner of what they create. Roles per Membership: Owner (members, invites, API keys, the workspace itself), Editor (content + generation), Viewer (read/download). Workspace Invite: Owner-sent email carrying a Role, single-use; a new email's invite doubles as signup.
+
+API KEYS — Workspace-owned, Owner-managed, named; SHA-256 hash at rest + prefix for display, plaintext shown once; header `Authorization: Bearer mc_...`. Editor-equivalent on the generation surface only (render, jobs, outputs) — never member/key/workspace management (cookie + Owner only). No scopes/per-key roles in v1.
+
+ENFORCEMENT — Every route needs session cookie or API key except: OTP request/verify, invite acceptance, /health. Job output URLs and the zip are authenticated (jgo8tv's "scriptable retrieval" = with a key in the header). The 3ko2p7 CORS * font carve-out DIES: asset bytes authenticated everywhere; production is same-origin behind Caddy so fonts just work; dev uses credentialed CORS pinned to the editor origin (SameSite=Lax cookie).
+
+TENANCY RIPPLE (amendments to published specs — tracked by the follow-up task node): workspace_id on documents, image_assets, font_assets, generation_jobs; asset identity becomes (workspace_id, hash) — same bytes in two workspaces are two assets, and 3ko2p7's "re-upload revives references" holds per-workspace only; storage keys gain a workspace scope; collection/create routes become workspace-scoped (/api/v1/workspaces/{wsId}/...; batch jobs stay under templates/{id}/jobs), item routes stay id-based with membership (or key-workspace) checks; the web app gets a workspace switcher; 9eooei's no-pagination rule survives as per-workspace lists.
+
+REASON — the user's goal is to be "most of the way to a hosted SaaS" while self-hosting first: tenancy and RBAC are the architecture, billing is just a wall added later. OTP-plus-Resend deletes password storage, reset flows, and out-of-band invite links at the cost of one external service for new logins (accepted; 30-day sessions bound the blast radius, log fallback covers dev/offline).
