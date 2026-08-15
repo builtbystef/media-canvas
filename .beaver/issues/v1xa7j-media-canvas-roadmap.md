@@ -6,7 +6,7 @@ assignee: builtbystef
 labels:
     - roadmap
 created: 2026-08-08T07:08:13Z
-updated: 2026-08-14T20:36:23Z
+updated: 2026-08-15T03:22:31Z
 ---
 
 ## Goal
@@ -29,7 +29,7 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Richer Variable constraints beyond v1's text maxLength/minLength — number ranges, regex patterns (node k77nv9).
 - Bindable property kinds beyond v1's text content / image source / solid color / number / visibility: geometry, fonts, opacity (node 53lwlc).
 - Formatting of price/number variables, localization. (v1 interpolates a number as ECMAScript String(number), node 6lxoec.)
-- What productizing changes about deployment: accounts-era, multi-tenant hosting. (The v1 self-hosted production deployment became node ex95f4 — the only Frontier half that gates v1. Standing inputs: the worker ships as a pinned container image per the engine verdict gqr8bf — pinned Chromium build, full Chromium new headless per node 6lxoec, fontconfig-pinned fonts — and node kjz6f0 fixed the dev stack: root docker-compose with Postgres, Redis, and MinIO.)
+- What productizing changes about deployment: accounts-era, multi-tenant hosting, registry-published images / a packaged installer. (The v1 self-hosted deployment settled — node ex95f4: a portable compose stack, one root docker-compose.yml with an `app` profile adding api, web, the pinned worker image, and a single-origin Caddy entry with a DOMAIN-flag TLS flip; images build from source, the repo is the distribution. The spec lands via node n60ho8 once auth node ejy8hn closes.)
 - Editor performance beyond the preview: how many elements the layer list, overlay, and hit-testing hold up under, and whether very large documents need virtualization. (Node vnmueh measured the preview only — a full compile of a 236-element document costs ~27 ms, paid at load, font change, and canvas resize; nothing measured the rest of the editor's frame. Node ep90f3 now names what the overlay must do per frame: selection handles, rotation zones, marquee, and snap guides computed against every other element's bounding box, which is the first thing here that scales with document size.)
 - Worker fleet scaling, retry semantics, observability. (Measured baseline from node gqr8bf: ~166 ms/render at 8 concurrent pages in one browser instance, ≈2.8 min per 1,000 assets on one host. Contract-level retry settled by node jgo8tv: one automatic retry per Row on transient errors; fleet policy stays open.)
 - Webhooks for Generation Job completion — v1 signals completion by polling only (node jgo8tv); webhooks need callback registration, signing, and delivery retries.
@@ -126,6 +126,24 @@ Stack constraints given by the user: Next.js frontend, FastAPI backend. Audience
 - Output thumbnails in the job view (node q44rtp) — succeeded Rows link to full-size files; the same derived-image cost the Assets-panel thumbnail Frontier item defers.
 - Per-template jobs pages (node q44rtp) — one global Jobs page; single user, one place to find everything running or finished.
 - Delete on a non-terminal job (node q44rtp) — cancel first; keeps each confirm dialog single-purpose.
+
+- Registry-published images or a packaged one-script installer (node ex95f4) — the repo is the v1 distribution; compose builds api, web, and worker from the repo's Dockerfiles, keeping the Chromium/fontconfig pin authoritative in one Dockerfile shared by goldens, CI, and production.
+- A separate production compose file (node ex95f4) — one root docker-compose.yml with profiles: infra on the default profile (dev behavior from kjz6f0 unchanged), api/web/worker/caddy behind `app`, so the pinned infra versions are stated once.
+- Host-owned TLS in front of the stack (node ex95f4) — the in-stack Caddy owns it: DOMAIN set → automatic Let's Encrypt HTTPS, unset → plain HTTP for local use; the proxy choice is fixed to Caddy.
+- Two exposed origins in production (node ex95f4) — Caddy is the single published port, routing / → web and /api, /assets, /jobs → api; the CORS `*` font carve-out (3ko2p7) becomes a dev-only fact.
+- Manual production migrations (node ex95f4) — the api container runs `alembic upgrade head` on startup; `git pull && docker compose --profile app up -d --build` is the whole upgrade.
+- A secret manager or secret auto-generation (node ex95f4) — a committed .env.example copied to a gitignored root .env, secrets via `openssl rand -hex 32`.
+- A scheduled backup service in the stack (node ex95f4) — named volumes plus a documented manual backup/restore procedure (pg_dump, MinIO data copy) in docs/DEPLOYMENT.md.
+
+## Notes
+
+**claude** — 2026-08-14T20:30:19Z
+
+v1-completeness sweep of the Frontier (2026-08-14, user-directed): every entry was checked against the settled record for whether it gates the first version. One entry split — the v1 self-hosted production deployment is now node ex95f4 (session:grill, ready; blocked on kjz6f0, 6lxoec, 2jpnag, all closed), while 'what productizing changes' stays on the Frontier. Every other entry stays deferred because a closed node already settled its v1 behavior: auth/API keys (product-later; jgo8tv auth-agnostic), CLI (post-MVP, ylg1wr), thumbnails, orphan sweeper, print PDF/CMYK, version history, migration mechanics (first bump), auto-layout, auto-fit text, smart crop, richer constraints, more bindable kinds, number formatting, editor perf beyond the preview (revisit if it bites), fleet scaling/webhooks/retention (post-v1 per jgo8tv/kjz6f0), template organization, emoji fallback, variable fonts. Implementation itself flows from the four spec issues via create-issues, not from the Frontier.
+
+**claude** — 2026-08-14T20:36:23Z
+
+Amendment to the v1 sweep (2026-08-14): the user pulled auth into v1. The Frontier entry 'Auth and API keys' moved wholesale into node ejy8hn (session:grill, ready; blocked on jgo8tv, kjz6f0, 3ko2p7, all closed). It coordinates with the deployment node ex95f4 — exposure sets the threat model — but neither blocks the other.
 
 ## Notes
 

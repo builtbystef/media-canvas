@@ -11,7 +11,7 @@ depends_on:
     - 3ko2p7
 parent: v1xa7j
 created: 2026-08-14T20:36:05Z
-updated: 2026-08-14T20:36:05Z
+updated: 2026-08-15T03:22:34Z
 ---
 
 Settle how the "me first, product later" constraint translates into a concrete auth and API key model — pulled into v1 by the user (2026-08-14) instead of staying deferred on the Frontier.
@@ -27,3 +27,9 @@ Interview the user (grill-me skill, limited to this question). Settle at least:
 Coordinate with node ex95f4 (v1 self-hosted deployment): exposure — localhost-only, LAN, or public VPS — sets the threat model, and a reverse proxy chosen there could carry auth. Whichever session runs first, the other inherits its answers.
 
 Pointers: the former root Frontier entry "Auth and API keys"; notes of jgo8tv, kjz6f0, 3ko2p7; spec 0egsmf (internal service auth via INTERNAL_API_TOKEN is already settled — this node is only the public surface).
+
+## Notes
+
+**claude** — 2026-08-15T03:22:34Z
+
+Node ex95f4 (deployment) closed first — you inherit its answers: production is a single origin behind Caddy (the only published port; / → web, /api + /assets + /jobs → api), exposure is the deployer's choice (portable stack, laptop or public box, DOMAIN env flips Let's Encrypt TLS), and secrets live in one root .env from a committed .env.example. Caddy is the one front door if auth sits at the proxy; the CORS * font carve-out (3ko2p7) is dev-only in production. Spec node n60ho8 (deployment and access) waits on this node.
