@@ -12,7 +12,7 @@ depends_on:
     - 3ko2p7
 parent: v1xa7j
 created: 2026-08-14T20:36:05Z
-updated: 2026-08-15T04:01:44Z
+updated: 2026-08-15T04:04:33Z
 ---
 
 Settle how the "me first, product later" constraint translates into a concrete auth and API key model — pulled into v1 by the user (2026-08-14) instead of staying deferred on the Frontier.
@@ -52,3 +52,7 @@ ENFORCEMENT — Every route needs session cookie or API key except: OTP request/
 TENANCY RIPPLE (amendments to published specs — tracked by the follow-up task node): workspace_id on documents, image_assets, font_assets, generation_jobs; asset identity becomes (workspace_id, hash) — same bytes in two workspaces are two assets, and 3ko2p7's "re-upload revives references" holds per-workspace only; storage keys gain a workspace scope; collection/create routes become workspace-scoped (/api/v1/workspaces/{wsId}/...; batch jobs stay under templates/{id}/jobs), item routes stay id-based with membership (or key-workspace) checks; the web app gets a workspace switcher; 9eooei's no-pagination rule survives as per-workspace lists.
 
 REASON — the user's goal is to be "most of the way to a hosted SaaS" while self-hosting first: tenancy and RBAC are the architecture, billing is just a wall added later. OTP-plus-Resend deletes password storage, reset flows, and out-of-band invite links at the cost of one external service for new logins (accepted; 30-day sessions bound the blast radius, log fallback covers dev/offline).
+
+**claude** — 2026-08-15T04:04:33Z
+
+AMENDMENT (user, 2026-08-15): email delivery goes through a Mailer seam instead of hard-wiring Resend. One api-side (FastAPI) interface, exactly two message kinds (OTP code, Workspace Invite), three drivers selected by a MAILER env var: console (default — prints to the api log; the dev fallback already settled), resend (requires RESEND_API_KEY), smtp (requires SMTP_HOST/PORT/USER/PASSWORD — keeps a self-hosted stack fully self-contained with no external SaaS in the sign-in path). Shared EMAIL_FROM for the real drivers. Everything else in the answer stands; ADR-0009 updated to match.
