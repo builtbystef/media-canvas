@@ -6,13 +6,33 @@
 *.key
 secrets.json
 
-# Dependencies and build output
+# Dependencies
 node_modules/
+
+# Build output
 dist/
 build/
-.venv/
-__pycache__/
+*.tsbuildinfo
 
-# Editor and OS
+# Test output
+coverage/
+
+# Tool caches
+.cache/
+.vite/
+
+# Next.js
+.next/
+next-env.d.ts
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Logs, editor and OS noise
+*.log
 .DS_Store
 *.swp

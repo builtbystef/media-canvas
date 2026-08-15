@@ -1,10 +1,13 @@
-The project's purpose and its stack are not decided yet. The repository holds no source code. Settle the purpose before proposing a stack, and record what gets settled in `docs/` — the glossary for the terms, an ADR for each decision that is hard to reverse.
-
 ## Checks
 
-There are no check commands yet, because there is no code and no stack. Beaver issue `g4y1ii` establishes format, lint, typecheck, and test once the stack lands; re-running the `set-up-for-agents` skill does that work.
+One command vocabulary covers both languages: root pnpm scripts fan out through Vite+ (`vp`) to every workspace package (TypeScript directly, Python via ruff/ty/pytest under `uv run`). One failing package fails the command.
 
-Until then: when your change introduces the stack, set up its standard tools in the same session, and replace this section with the real commands.
+- Format: `pnpm check` (fix with `pnpm check:fix`)
+- Lint: `pnpm check` (fix with `pnpm check:fix`)
+- Typecheck: `pnpm check`
+- Test: `pnpm test`
+
+`pnpm check` deliberately runs format + lint + typecheck as one pass. After changing an endpoint, `pnpm build` regenerates the OpenAPI schema and typed client — commit them (CI fails on drift). `pnpm run ci` is check + test + build.
 
 ## Project docs & tracker
 
@@ -22,4 +25,4 @@ Until then: when your change introduces the stack, set up its standard tools in 
 
 ### Issue tracker
 
-`docs/TRACKER.md` — how to use this project's issue tracker: Beaver Backlog, via the `beaver` CLI, with the issues in `.beaver/issues/`.
+`docs/TRACKER.md` — how to use this project's issue tracker.

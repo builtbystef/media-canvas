@@ -1,0 +1,15 @@
+{
+  "name": "worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.ts"
+  },
+  "dependencies": {
+    "@media-canvas/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}
