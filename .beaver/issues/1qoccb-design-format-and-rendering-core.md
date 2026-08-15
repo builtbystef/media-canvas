@@ -12,7 +12,7 @@ depends_on:
     - oxcf2v
     - ud46e4
 created: 2026-08-10T19:14:32Z
-updated: 2026-08-15T04:07:52Z
+updated: 2026-08-15T05:47:37Z
 ---
 
 # Design format and rendering core
@@ -243,3 +243,16 @@ AMENDMENT (node u2ovlu, per node ejy8hn / ADR-0009, 2026-08-15): v1 is multi-ten
 - Asset identity is (workspace_id, hash), not the bare hash: the same bytes uploaded in two Workspaces are two Font/Image Assets. Content-addressing, hash verification on load, and dedupe-on-upload all hold per Workspace. Inside a Design Document, `fontAssetId` and image `src` still carry the bare asset id (the hash); resolution is scoped to the document's own Workspace — the AssetResolver seam signature is unchanged.
 - Asset storage keys gain a workspace prefix, and serving URLs carry the Workspace (it is half the asset's identity). URLs remain immutable but are now authenticated — no anonymous asset bytes. The CORS `*` font carve-out (node 3ko2p7) is deleted: production is same-origin behind Caddy; dev uses credentialed CORS pinned to the editor origin.
 - Nothing in the schema, validation, compiler, or render seams changes. The core package stays tenancy-blind: workspace scoping is enforced by FastAPI at the routes, never inside core, and the worker keeps loading assets by immutable URL + hash check exactly as before.
+
+**claude** — 2026-08-15T05:47:37Z
+
+SEAM DECISIONS (issue-slicing session, user decided 2026-08-15) — two gaps this spec left open, settled before implementation:
+
+1. FONT DELIVERY IN THE COMPILED SVG. `compile` emits a self-contained `<defs><style>` block with one `@font-face` rule per used Font Asset, its source being the asset bytes inline (base64 data URI) taken from `AssetResolver.fontBytes` — which the compiler already reads for metrics. The compiled string therefore renders identically in the editor and in the worker page with no host-side font wiring, and `render(svg, options)` needs nothing but the markup. Consequence for spec ek7pq1: the editor's per-Font-Asset `@font-face` injection is redundant and should not be built.
+
+2. AUTHORED CROP vs FIT MODE. `resolve` knows which image `src` values came from a VarRef and drops the authored crop on exactly those elements; `compile` then places an image by its authored crop when the crop is present, and by `fitMode` + `AssetResolver.imageSize` when it is absent. This makes image `content` optional in the resolved-document form.
+
+    src: {$var:'photo'} -> src: '<asset id>', authored crop dropped  // compiler fits by fitMode
+    src: '<asset id>' (authored)  -> crop preserved                   // compiler uses the crop
+
+Rejected for (1): host-side injection (a second place fonts are wired, and the worker would need bytes alongside the SVG). Rejected for (2): inferring from a naturalWidth/naturalHeight mismatch (a Variable image of exactly the authored size would silently take the authored crop).

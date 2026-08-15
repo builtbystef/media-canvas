@@ -9,7 +9,7 @@ depends_on:
     - jgo8tv
     - kjz6f0
 created: 2026-08-11T01:54:08Z
-updated: 2026-08-15T04:08:06Z
+updated: 2026-08-15T06:54:47Z
 ---
 
 ## Problem Statement
@@ -192,3 +192,17 @@ AMENDMENT (node u2ovlu, per node ejy8hn / ADR-0009, 2026-08-15): v1 is multi-ten
 - Auth: the Out-of-Scope line "Auth and API keys — the contract is auth-agnostic (Frontier)" is superseded. Every public route requires a session cookie or an API key (`Authorization: Bearer mc_...`), except OTP request/verify, invite acceptance, and /health. API keys are Workspace-owned and Editor-equivalent on exactly this spec's surface (sync render, job submission/polling/cancel/delete, per-Row outputs, the zip) — jgo8tv's "retrieval is scriptable" now means with a key in the header. RBAC via cookie: Editor/Owner submit, cancel, delete; Viewer reads and downloads. The internal contracts (INTERNAL_API_TOKEN, worker↔api) are unchanged.
 - Storage: output keys gain a workspace scope — `{workspaceId}/jobs/{jobId}/{name}.{ext}`; job deletion removes that prefix.
 - The accounts surface itself (OTP, sessions, Workspaces, Memberships, invites, API-key management) is specified by node n60ho8's spec, not here.
+
+**claude** — 2026-08-15T06:24:11Z
+
+One issue under spec 88v6vg is blocked on this spec and currently points its blocking edge at this umbrella: lgqvg9 (API keys authenticate the generation surface). The accounts work builds API keys and proves only the refused cases (403 off-surface, 401 revoked); the permitted case needs the render and job routes this spec owns. When this spec is sliced, retarget that edge to the slice that lands them.
+
+**claude** — 2026-08-15T06:54:47Z
+
+SEAM DECISIONS (issue-slicing session, user decided 2026-08-15) — two gaps the tenancy amendment opened, settled before implementation. Both follow from the same fact: asset serving became authenticated, and the worker is a member of no Workspace.
+
+1. THE RENDER PAGE FETCHES NOTHING. The worker loads every asset a document references — Font Asset bytes for the compiler's metrics and inlined faces, and every image, whether an app-held Image Asset or an external http(s) URL — and hands the compiler data URIs, so the compiled markup is fully self-contained and the render page issues no network requests at all. This matches the font decision on 1qoccb and makes a dead image URL an explicit, retryable worker error rather than a silently broken picture, which is what this spec's own retry example already assumes. Rejected: attaching the internal token to the page's api-origin requests via route interception (a second credential path, and a blanket header would leak the token to external image hosts); an internal unauthenticated asset route (asset bytes protected by network topology instead of a credential).
+
+2. ASSET BYTES COME FROM THE API, OVER THE INTERNAL CREDENTIAL. The api exposes internal asset-bytes access to the worker under INTERNAL_API_TOKEN, so the api remains the only thing that reads asset rows and knows the storage key layout. Rejected: the worker reading object storage directly by Workspace plus hash (it already has S3 credentials for uploads, but that couples this spec to the editor spec's key layout and duplicates hash verification).
+
+CONSEQUENT CONTRACT CHANGE: the worker's internal /validate and /render payloads gain the Workspace id. They carried no tenant context at all, and an asset's identity is (workspace_id, hash) — without it the worker cannot resolve a single font or image. The endpoint the worker calls for those bytes belongs to the asset pipeline (spec ek7pq1); this spec builds against its contract and exercises it for real in the end-to-end smoke.

@@ -11,7 +11,7 @@ depends_on:
     - 73rm0x
     - 8h50hu
 created: 2026-08-14T07:13:32Z
-updated: 2026-08-15T04:14:08Z
+updated: 2026-08-15T07:13:26Z
 ---
 
 ## Problem Statement
@@ -194,3 +194,23 @@ AMENDMENT (node u2ovlu, per node ejy8hn / ADR-0009, 2026-08-15): v1 is multi-ten
 **claude** — 2026-08-15T04:14:08Z
 
 Re the flagged bundled-font decision (2026-08-15): the user reviewed it — per-Workspace seeding at Workspace creation stands as written (a few MB per workspace is the accepted cost of zero special cases in scoping, auth, and deletion). n60ho8 confirms it as part of its spec; no re-litigation needed unless that session surfaces something new.
+
+**claude** — 2026-08-15T05:49:53Z
+
+CROSS-SPEC CONSEQUENCE (from the 1qoccb issue-slicing session, user decided 2026-08-15): the compiler now emits a self-contained `@font-face` block with the Font Asset bytes inline, so the compiled SVG needs no font wiring from its host. This spec's "Canvas preview" line — "a matching @font-face rule is injected per used Font Asset so the SVG text displays in the real face" — is therefore obsolete: the editor still fetches font bytes once per Font Asset for the compiler's metrics, but must not inject font rules of its own. See the SEAM DECISIONS note on 1qoccb.
+
+**claude** — 2026-08-15T06:24:11Z
+
+Two issues under spec 88v6vg are blocked on this spec and currently point their blocking edge at this umbrella: vn4r07 (seed the bundled fonts into a new Workspace) and 36ty5a (purge a deleted Workspace's stored objects). The accounts work builds Workspace creation and deletion without them, because both need the Font Asset records and object storage this spec owns. When this spec is sliced, retarget those two edges from ek7pq1 to the specific slices that land asset storage.
+
+**claude** — 2026-08-15T06:55:09Z
+
+From the 0egsmf issue-slicing session (2026-08-15). Two things this spec's slicing session inherits.
+
+1. THREE MORE ISSUES POINT THEIR BLOCKING EDGE AT THIS UMBRELLA, alongside vn4r07 and 36ty5a: lkey79 (the synchronous render endpoint) and kjsmdy (job submission and polling) both read a stored document, and thh7aw (the documented bootstrap and the end-to-end smoke) needs a Template carrying a bundled font and a held image. Retarget all three when this spec is sliced — the first two to the slice that lands the documents table, the third to the slice that lands asset storage.
+
+2. THIS SPEC OWES THE WORKER AN INTERNAL ASSET-BYTES PATH. The user settled (see the SEAM DECISIONS note on 0egsmf) that the worker loads every font and image itself and inlines them, so the render page fetches nothing, and that those bytes come from the api under INTERNAL_API_TOKEN rather than from object storage directly — the api stays the only thing that reads asset rows and knows the key layout. The asset tables and their storage layout are this spec's, so the internal endpoint that serves those bytes to the worker belongs here. It takes a Workspace and an asset id, because asset identity is (workspace_id, hash). Issue 1dxm2u builds the worker's side against that contract with the source stood in.
+
+**claude** — 2026-08-15T07:13:26Z
+
+Sliced 2026-08-15 into 22 sub-issues. Two decisions taken during slicing, both by the user. (1) The compiler's inlined font bytes (the seam decision on 1qoccb) land inside this spec's ADR-0006 compile budget, so the font-face block is its own memo entry keyed on the set of used Font Assets: a full recompile re-emits it only when that set changes and a per-element patch never touches it. Issue n5csrl carries an acceptance criterion that measures both budgets with fonts inlined, at the preview prototype's document sizes, rather than assuming they still hold. Rejected: a prototype session first (the measurement is cheap enough to be a criterion), and building it plainly with no criterion. (2) Two slices stop for user review before their dependents unblock — n5csrl (the canvas) and glkll2 (rotation, snapping, alignment) — because the preview's fidelity and the geometry aids' feel are judged by eye, not by criteria. The internal asset-bytes path this spec owed the render worker is in jr6mye. Bundled-font seeding stays with vn4r07 under spec 88v6vg; this spec only carries the bundled flag and the delete refusal.

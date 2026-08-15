@@ -7,7 +7,7 @@ labels:
 depends_on:
     - q44rtp
 created: 2026-08-14T20:23:27Z
-updated: 2026-08-15T04:08:26Z
+updated: 2026-08-15T07:29:59Z
 ---
 
 ## Problem Statement
@@ -106,3 +106,15 @@ AMENDMENT (node u2ovlu, per node ejy8hn / ADR-0009, 2026-08-15): v1 is multi-ten
 
 - The Jobs page's backing list is per-Workspace: `GET /api/v1/workspaces/{wsId}/jobs` (0egsmf's q44rtp amendment, as re-amended for tenancy) — the page lists the current Workspace's jobs. The job view, per-Row output links, the zip, cancel, and delete keep their id-based routes; the browser's session cookie authenticates every call, so nothing in this spec's UI flow changes shape.
 - RBAC: submitting a batch, cancel, and delete require Editor or Owner in the Workspace; a Viewer can open the Jobs page and job views and download outputs. The Batch tab simply follows the editor's surface — a Viewer never reaches it because the editor is read-only for them (ek7pq1 as amended).
+
+**claude** — 2026-08-15T07:29:59Z
+
+Sliced 2026-08-15 into 7 sub-issues, published in dependency order: p45jd2 (the job view) → 047evd (retrieval) and uuyais (the jobs page) → xhps0x (cancel, delete, snapshot line); 39y4fh (the batch tab) → aw1dup (rejected submissions) → vvdarf (the end-to-end smoke).
+
+Two decisions taken during slicing, both by the user.
+
+1. ORDER: the job view is built before the jobs page, so no slice ever ships a link into a route that does not exist. p45jd2 is demoed by opening a job id directly; uuyais then closes the loop with the Documents | Jobs navigation. Rejected: the jobs page first, whose rows would dead-end until the view landed.
+
+2. NO REVIEW GATES anywhere in this spec, including on the final end-to-end smoke — a deliberate departure from the other four specs, each of whose closing smoke waits for review. Every slice here closes on its acceptance criteria alone.
+
+This spec adds no server surface. Its edges out are all reads of the generation platform (0egsmf) and the editor (ek7pq1) as built: kjsmdy for submission, polling, and the Workspace jobs list; 4t1ze9 for the CSV channel; 211q1b for per-Row outputs and the archive; lcni96 for cancel and delete; qqzqhz for the template fetch behind the snapshot line; hg52gb for the shell and uemwae for the dialog the batch tab joins; thh7aw for a stack proven to render end to end.
