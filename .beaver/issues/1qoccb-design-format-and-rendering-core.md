@@ -12,7 +12,7 @@ depends_on:
     - oxcf2v
     - ud46e4
 created: 2026-08-10T19:14:32Z
-updated: 2026-08-10T19:14:32Z
+updated: 2026-08-15T04:07:52Z
 ---
 
 # Design format and rendering core
@@ -233,3 +233,13 @@ Missing values, missing assets, and validation failures are functional tests at 
 - Throughput baseline to preserve: ~166 ms/render at 8 concurrent pages in one browser instance; ≈2.8 min per 1,000 assets on one host (node gqr8bf). A page pool of 8 in one browser was stable.
 - Bundled fonts (9 families, all SIL OFL, ~19 files, vendored in the repo): Inter, Montserrat, Lora, Playfair Display, Oswald, Bebas Neue, Pacifico, Dancing Script, JetBrains Mono (node oxcf2v). Uploaded fonts: uploader is responsible for rights; a docs note, no enforcement.
 - The editor renders the compiled SVG inline as its preview; editor-authored state lives only in the Design Document. Anything the editor can show that the compiler cannot express is a bug in the editor, not a feature.
+
+## Notes
+
+**claude** — 2026-08-15T04:07:52Z
+
+AMENDMENT (node u2ovlu, per node ejy8hn / ADR-0009, 2026-08-15): v1 is multi-tenant — Workspaces own documents, assets, and jobs. What changes in this spec:
+
+- Asset identity is (workspace_id, hash), not the bare hash: the same bytes uploaded in two Workspaces are two Font/Image Assets. Content-addressing, hash verification on load, and dedupe-on-upload all hold per Workspace. Inside a Design Document, `fontAssetId` and image `src` still carry the bare asset id (the hash); resolution is scoped to the document's own Workspace — the AssetResolver seam signature is unchanged.
+- Asset storage keys gain a workspace prefix, and serving URLs carry the Workspace (it is half the asset's identity). URLs remain immutable but are now authenticated — no anonymous asset bytes. The CORS `*` font carve-out (node 3ko2p7) is deleted: production is same-origin behind Caddy; dev uses credentialed CORS pinned to the editor origin.
+- Nothing in the schema, validation, compiler, or render seams changes. The core package stays tenancy-blind: workspace scoping is enforced by FastAPI at the routes, never inside core, and the worker keeps loading assets by immutable URL + hash check exactly as before.

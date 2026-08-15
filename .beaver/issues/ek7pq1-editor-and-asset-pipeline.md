@@ -11,7 +11,7 @@ depends_on:
     - 73rm0x
     - 8h50hu
 created: 2026-08-14T07:13:32Z
-updated: 2026-08-14T07:13:32Z
+updated: 2026-08-15T04:08:18Z
 ---
 
 ## Problem Statement
@@ -177,3 +177,16 @@ External behavior only at every seam. Prior art: none in-repo; the core spec's s
 - ADRs binding this spec: 0003 (TypeScript core), 0005 (api owns the schema), 0006 (immutable elements, memoized preview), 0007 (unindexed asset deletion), 0008 (no pasteboard).
 - Glossary terms exercised here: Design Document, Element, Template, Variable, Unknown Token, Canvas Preset, Preset Shape, Resize, Scale, Crop Mode, Undo Entry, Revision, Font Asset, Image Asset, Fit Mode.
 - The `layoutText` export and the two asset list endpoints are the only additions this spec makes to surfaces other specs own; both are additive and were raised here rather than silently implemented.
+
+## Notes
+
+**claude** — 2026-08-15T04:08:18Z
+
+AMENDMENT (node u2ovlu, per node ejy8hn / ADR-0009, 2026-08-15): v1 is multi-tenant — Workspaces own documents and assets. What changes in this spec:
+
+- Schema: `documents`, `font_assets`, `image_assets` each gain a NOT NULL `workspace_id` FK. Asset identity becomes (workspace_id, hash): dedupe-by-hash-returning-200 and "a re-upload revives every reference" hold within one Workspace only; the same bytes in two Workspaces are two rows and two stored objects.
+- Bundled fonts: because every `font_assets` row now carries `workspace_id` (no nullable carve-out in ejy8hn's note), the 9 bundled families are seeded per Workspace at Workspace creation (idempotent), not once at app startup. The `bundled` flag, the panel grouping, and the delete-409 `asset_is_bundled` behavior are unchanged. [Derived consequence, not in the ejy8hn note verbatim — flagged for the n60ho8 spec session to confirm.]
+- Routes: collection/create endpoints become Workspace-scoped — `POST/GET /api/v1/workspaces/{wsId}/documents`, `GET .../fonts`, `GET .../images`, and the font/image upload endpoints likewise. Item routes (document GET/PUT/DELETE, promote, asset serve/delete) stay id-based, authorized by the record's Workspace × the caller's Membership. Asset serving URLs carry the Workspace (it is half the asset's identity); they remain immutable, but authenticated.
+- Serving headers: the CORS `*` font carve-out (node 3ko2p7) is deleted. Production is same-origin behind Caddy; dev uses credentialed CORS pinned to the editor origin, with the SameSite=Lax session cookie — the editor fetches font bytes and images with credentials. Immutable caching survives as `Cache-Control: private, immutable`.
+- Web app: the shell gains a workspace switcher; the document list and Assets panel list the current Workspace's records (9eooei's no-pagination rule survives per Workspace). Sign-in, workspace creation, invites, members, and API-key UI belong to node n60ho8's spec, not here.
+- RBAC on this surface: document mutation (create, PUT, delete, promote, rename) and asset upload/delete require Editor or Owner; Viewer is read/download only.

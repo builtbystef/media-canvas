@@ -7,7 +7,7 @@ labels:
 depends_on:
     - q44rtp
 created: 2026-08-14T20:23:27Z
-updated: 2026-08-14T20:23:27Z
+updated: 2026-08-15T04:08:26Z
 ---
 
 ## Problem Statement
@@ -97,3 +97,12 @@ External behavior only at both seams. Server behavior (validation, idempotent re
 - Cadence rationale: at ~166 ms/render a 1,000-Row job finishes in ~3 minutes, so 2 s polling paints visibly moving progress without load; 5 s suffices for the list.
 - The Batch tab and job view surface the contract's vocabulary as-is: Generation Job, Row, `_name`, per-Row statuses. No new glossary terms (node q44rtp).
 - `GET /jobs/{id}` returns the full `rows` array every poll; at 1,000 Rows that is on the order of 100 KB every 2 s, which is fine for v1 and is why no partial-rows endpoint was added.
+
+## Notes
+
+**claude** — 2026-08-15T04:08:26Z
+
+AMENDMENT (node u2ovlu, per node ejy8hn / ADR-0009, 2026-08-15): v1 is multi-tenant. This spec stays a pure client; two touch points:
+
+- The Jobs page's backing list is per-Workspace: `GET /api/v1/workspaces/{wsId}/jobs` (0egsmf's q44rtp amendment, as re-amended for tenancy) — the page lists the current Workspace's jobs. The job view, per-Row output links, the zip, cancel, and delete keep their id-based routes; the browser's session cookie authenticates every call, so nothing in this spec's UI flow changes shape.
+- RBAC: submitting a batch, cancel, and delete require Editor or Owner in the Workspace; a Viewer can open the Jobs page and job views and download outputs. The Batch tab simply follows the editor's surface — a Viewer never reaches it because the editor is read-only for them (ek7pq1 as amended).

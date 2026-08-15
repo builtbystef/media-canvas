@@ -6,7 +6,7 @@ assignee: builtbystef
 labels:
     - roadmap
 created: 2026-08-08T07:08:13Z
-updated: 2026-08-15T04:03:36Z
+updated: 2026-08-15T04:08:51Z
 ---
 
 ## Goal
@@ -163,3 +163,7 @@ Amendment to the v1 sweep (2026-08-14): the user pulled auth into v1. The Fronti
 **claude** — 2026-08-15T04:03:36Z
 
 Extension after node ejy8hn (2026-08-15): the user reversed the multi-tenant exclusion — v1 is 'SaaS minus billing' (ADR-0009). Out of scope amended (billing/plans/quotas/metering stay out; password auth, instance admin/seed, and in-app signup allowlist added). Frontier gained OAuth/SSO, scoped API keys, and session-management-UI entries. New node u2ovlu (session:task, AFK): amend the published specs for workspace tenancy; spec node n60ho8 now also depends on it. Glossary gained an 'Accounts & access' section.
+
+**claude** — 2026-08-15T04:08:51Z
+
+Extension after node u2ovlu (2026-08-15): pure bookkeeping — the four published specs (1qoccb, 0egsmf, ek7pq1, wz3ev2) each carry a workspace-tenancy AMENDMENT note per ejy8hn/ADR-0009. No new Frontier entries, no exclusions. One derived decision flagged for review in the n60ho8 session: bundled fonts seed per Workspace at Workspace creation (forced by NOT NULL workspace_id on font_assets). Spec node n60ho8 is now unblocked.

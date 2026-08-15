@@ -9,7 +9,7 @@ depends_on:
     - jgo8tv
     - kjz6f0
 created: 2026-08-11T01:54:08Z
-updated: 2026-08-14T20:20:22Z
+updated: 2026-08-15T04:08:06Z
 ---
 
 ## Problem Statement
@@ -182,3 +182,13 @@ AMENDMENT (node q44rtp, 2026-08-14): the batch UI's global Jobs page needs a job
 **claude** — 2026-08-14T20:20:22Z
 
 AMENDMENT (node p1fkjl, 2026-08-14): the text/csv variant of POST /templates/{id}/jobs had no carrier for the output format or the idempotency key — the JSON body's fields have no CSV equivalent. For a text/csv submission both travel as flat query parameters: ?format=png&scale=2 | ?format=jpeg&quality=90 | ?format=pdf, plus &idempotencyKey=... (same optionality as the JSON field). One channel, no header-casing rules; the JSON variant is unchanged. The batch UI submits the raw CSV bytes this way — cell-typing stays server-side in core, so the browser never submits client-typed JSON.
+
+**claude** — 2026-08-15T04:08:06Z
+
+AMENDMENT (node u2ovlu, per node ejy8hn / ADR-0009, 2026-08-15): v1 is multi-tenant — Workspaces own templates, jobs, and outputs. What changes in this spec:
+
+- Schema: `generation_jobs` gains a NOT NULL `workspace_id` FK; `generation_rows` inherit the Workspace through `job_id`. The `UNIQUE (template_id, idempotency_key)` rule is unchanged — templates are Workspace-owned, so it is already tenant-safe.
+- Routes: `POST /templates/{id}/jobs` and `POST /documents/{id}/render` keep their shapes — the document's Workspace scopes the work. Item routes (`GET /jobs/{id}`, cancel, delete, outputs, zip) stay id-based. Authorization on every route = the record's Workspace × the caller's Membership (session cookie) or the API key's Workspace. The q44rtp jobs-list amendment becomes per-Workspace: `GET /api/v1/workspaces/{wsId}/jobs` — same payload (JobView minus rows, plus templateName), newest first, unpaginated.
+- Auth: the Out-of-Scope line "Auth and API keys — the contract is auth-agnostic (Frontier)" is superseded. Every public route requires a session cookie or an API key (`Authorization: Bearer mc_...`), except OTP request/verify, invite acceptance, and /health. API keys are Workspace-owned and Editor-equivalent on exactly this spec's surface (sync render, job submission/polling/cancel/delete, per-Row outputs, the zip) — jgo8tv's "retrieval is scriptable" now means with a key in the header. RBAC via cookie: Editor/Owner submit, cancel, delete; Viewer reads and downloads. The internal contracts (INTERNAL_API_TOKEN, worker↔api) are unchanged.
+- Storage: output keys gain a workspace scope — `{workspaceId}/jobs/{jobId}/{name}.{ext}`; job deletion removes that prefix.
+- The accounts surface itself (OTP, sessions, Workspaces, Memberships, invites, API-key management) is specified by node n60ho8's spec, not here.
