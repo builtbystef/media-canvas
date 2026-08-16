@@ -11,7 +11,7 @@ members = ["apps/api"]
 [tool.uv]
 package = false
 # setup-uv reads this, so CI runs this uv too. Dependabot misses it: bump by
-# hand, and only to a version 4+ days old (see pnpm-workspace.yaml).
+# hand.
 required-version = "==0.12.3"
 
 [dependency-groups]
