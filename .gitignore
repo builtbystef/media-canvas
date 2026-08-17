@@ -8,6 +8,9 @@ secrets.json
 
 # Dependencies
 node_modules/
+# The agent sandbox's pnpm store: its container home and the repository are
+# different filesystems, so pnpm keeps the store beside node_modules instead.
+.pnpm-store/
 
 # Build output
 dist/
