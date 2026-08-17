@@ -11,9 +11,30 @@ services:
       - postgres-data:/var/lib/postgresql/data
 
   redis:
-    image: redis:7
+    image: redis:8
     ports:
       - "6379:6379"
 
+  garage:
+    # Object storage behind the S3 API. `--single-node` builds the cluster
+    # layout on first boot and `--default-access-key` mints the credentials
+    # below, so there is no init container and no CLI step. The api creates
+    # its own buckets on startup — see issue jl1ew8.
+    image: dxflrs/garage:v2.3.0
+    command: /garage server --single-node --default-access-key
+    environment:
+      GARAGE_DEFAULT_ACCESS_KEY: media_canvas
+      # Garage rejects secret keys shorter than 16 characters.
+      GARAGE_DEFAULT_SECRET_KEY: media_canvas_dev_secret
+      # Node-to-node RPC only, but Garage refuses to start without it. A fixed
+      # dev value here; a deployment generates its own (openssl rand -hex 32).
+      GARAGE_RPC_SECRET: 0f3f92d4a3fbdd3f6a0fbdf5a9a2b1c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2
+    ports:
+      - "3900:3900"
+    volumes:
+      - ./infra/garage.toml:/etc/garage.toml:ro
+      - garage-data:/var/lib/garage
+
 volumes:
   postgres-data:
+  garage-data:

@@ -3,9 +3,11 @@ id: i3r0dx
 title: The infra compose profile and the example environment file
 state: todo
 priority: high
+depends_on:
+    - jl1ew8
 parent: 88v6vg
 created: 2026-08-15T06:21:37Z
-updated: 2026-08-15T06:21:37Z
+updated: 2026-08-17T01:09:53Z
 ---
 
 ## What to build
@@ -14,8 +16,8 @@ One compose command brings up the infrastructure the product runs on — Postgre
 
 ## Acceptance criteria
 
-- [ ] The default compose profile brings up Postgres 17, Redis 8, and a pinned MinIO, with named volumes for everything that must survive a restart.
-- [ ] Every infra service declares a healthcheck, and every published port binds to localhost only.
+- [ ] The default compose profile brings up Postgres 17, Redis 8, and a pinned Garage (`dxflrs/garage:v2.3.0`), with named volumes for everything that must survive a restart. Garage additionally needs its committed config file mounted read-only at `/etc/garage.toml`, and one volume at `/var/lib/garage` covers both its metadata and its data.
+- [ ] Every infra service declares a healthcheck, and every published port binds to localhost only. Worked example for Garage: its image is a single static binary with no shell, so a healthcheck must be exec form — `["CMD", "/garage", "status"]` exits 0 once the node serves; the alternative is the unauthenticated `GET /health` on the admin port, which then has to be published.
 - [ ] The committed example environment file lists every variable the product reads, marks each required or optional, gives the default for the optional ones, and states how to generate the secret values.
 - [ ] The real environment file is ignored by git, and copying the example plus filling in the required values is the entire setup.
 - [ ] CI checks that the compose file is valid. Worked example: a syntax error, or a reference to a variable the example file does not define, fails CI.

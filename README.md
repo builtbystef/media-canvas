@@ -12,7 +12,7 @@ Early build. The monorepo scaffold and checks are in place; the specs, decisions
 - **Backend** — FastAPI (`apps/api`); owns the database schema and is the only Postgres writer
 - **Render worker** — Node + Playwright driving a pinned headless Chromium, in TypeScript (`apps/worker`)
 - **Shared core** — one TypeScript package (`packages/core`) with the Design Document schema, validation, variable substitution, and the JSON→SVG compiler, used by both the editor and the worker
-- **Infrastructure** — Postgres (source of truth), Redis/BullMQ (work signal only), MinIO (object storage)
+- **Infrastructure** — Postgres (source of truth), Redis/BullMQ (work signal only), Garage (object storage, S3 API)
 
 ## Development
 
@@ -23,7 +23,7 @@ pnpm install        # TS dependencies
 uv sync             # Python venv + dependencies
 vp config           # once after cloning: activates the pre-commit hook
 
-docker compose up -d  # Postgres + Redis
+docker compose up -d  # Postgres + Redis + Garage
 pnpm dev            # FastAPI :8000 + Next.js :3000 + render worker
 pnpm check          # format + lint + typecheck, both languages
 pnpm check:fix

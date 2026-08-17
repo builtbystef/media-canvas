@@ -6,9 +6,10 @@ priority: high
 depends_on:
     - ilgj60
     - i3r0dx
+    - jl1ew8
 parent: 0egsmf
 created: 2026-08-15T06:54:15Z
-updated: 2026-08-15T06:54:15Z
+updated: 2026-08-17T01:09:53Z
 ---
 
 ## What to build

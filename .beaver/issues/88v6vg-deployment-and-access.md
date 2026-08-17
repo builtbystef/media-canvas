@@ -26,7 +26,7 @@ Access is email-OTP sign-in through a Mailer seam (console/resend/smtp drivers),
 
 1. As a deployer, I want to bring up the full stack with one compose command and a copied `.env`, so that a laptop or a rented box runs the same product.
 2. As a deployer, I want setting `DOMAIN` to be the only step for HTTPS, so that TLS never needs manual certificate work.
-3. As a deployer, I want a documented manual backup and restore procedure, so that Postgres and MinIO survive a host move.
+3. As a deployer, I want a documented manual backup and restore procedure, so that Postgres and the object store survive a host move.
 4. As a person with an email address, I want to sign in with a one-time code, so that no password ever exists.
 5. As a new User, I want my first sign-in to land me in Workspace creation, so that I reach a working editor without an admin.
 6. As an Owner, I want to invite an email with a Role, so that collaborators (or my other identity) join my Workspace self-serve.
@@ -38,12 +38,12 @@ Access is email-OTP sign-in through a Mailer seam (console/resend/smtp drivers),
 
 ### Compose topology
 
-- One root `docker-compose.yml` with profiles. Default profile: infra only — `postgres:17`, `redis:8`, pinned MinIO, ports bound to localhost, named volumes, healthchecks (kjz6f0's dev behavior unchanged). Profile `app` adds: `api`, `web`, `worker`, `caddy`, all `restart: unless-stopped`.
+- One root `docker-compose.yml` with profiles. Default profile: infra only — `postgres:17`, `redis:8`, `dxflrs/garage:v2.3.0`, ports bound to localhost, named volumes, healthchecks (kjz6f0's dev behavior unchanged, with Garage in MinIO's place per jl1ew8). Profile `app` adds: `api`, `web`, `worker`, `caddy`, all `restart: unless-stopped`.
 - `api` entrypoint runs `alembic upgrade head` before serving; `git pull && docker compose --profile app up -d --build` is the whole upgrade.
 - `worker` is the ADR-0002 pinned-Chromium image, one replica, internal concurrency 8. Its Dockerfile is the single home of the Chromium + fontconfig pin (goldens, CI, production).
 - Images build from the repo's Dockerfiles (`build:` sections); version identity is the git commit. No registry.
 - Caddy is the only service publishing ports. `DOMAIN` set → 80 + 443 with automatic Let's Encrypt (80 serves ACME + redirect); unset → HTTP only on `HTTP_PORT` (default 80). Routes: `/api`, `/assets`, `/jobs` → api; everything else → web.
-- Named volumes: postgres, minio, caddy (cert storage).
+- Named volumes: postgres, garage, caddy (cert storage). Garage keeps metadata and data as two directories under `/var/lib/garage`, so one volume mounted there covers both. Garage also needs its committed config file (`infra/garage.toml`) bind-mounted read-only at `/etc/garage.toml`; it refuses to start without one.
 
 ### Config
 
@@ -51,8 +51,9 @@ Access is email-OTP sign-in through a Mailer seam (console/resend/smtp drivers),
 
 ```
 POSTGRES_PASSWORD=            # required
-MINIO_ROOT_USER=              # required
-MINIO_ROOT_PASSWORD=          # required
+GARAGE_DEFAULT_ACCESS_KEY=    # required
+GARAGE_DEFAULT_SECRET_KEY=    # required — Garage rejects fewer than 16 characters
+GARAGE_RPC_SECRET=            # required — mandatory even on a single node
 INTERNAL_API_TOKEN=           # required
 DOMAIN=                       # optional — set to enable HTTPS
 HTTP_PORT=80                  # optional — HTTP-only port when DOMAIN unset
@@ -62,6 +63,8 @@ RESEND_API_KEY=               # required when MAILER=resend
 SMTP_HOST= SMTP_PORT= SMTP_USER= SMTP_PASSWORD=   # required when MAILER=smtp
 EMAIL_FROM=                   # required for resend and smtp
 ```
+
+The two `GARAGE_DEFAULT_*` values are one credential read from both ends: Garage mints the access key from them at first boot, and the api and worker authenticate with them over the S3 API. The bucket is not among them — the api creates and names its own buckets (0egsmf), so the name lives only in the api's own S3 configuration (92zwes).
 
 No session-signing secret exists: session and invite tokens are opaque random values, hashed at rest. Email-link base URL derivation: `https://{DOMAIN}` when set, else `PUBLIC_URL`, else `http://localhost:3000` (the dev editor origin).
 
@@ -119,7 +122,7 @@ Key format: `mc_` + 256-bit random; `prefix` is the first 8 characters after `mc
 
 ### Workspace delete cascade
 
-Owner-only, explicit confirm in the UI. Hard cascade: Postgres rows first (FK cascade from `workspaces`), then the Workspace's MinIO prefixes (assets and `{wsId}/jobs/...`). A crash between the two leaves orphaned objects — accepted, same as 3ko2p7 (Frontier sweeper). Mid-render Rows of a deleted Workspace: the worker's result report hits a deleted row → 404 → the worker acknowledges and moves on; no new state.
+Owner-only, explicit confirm in the UI. Hard cascade: Postgres rows first (FK cascade from `workspaces`), then the Workspace's object-storage prefixes (assets and `{wsId}/jobs/...`). A crash between the two leaves orphaned objects — accepted, same as 3ko2p7 (Frontier sweeper). Mid-render Rows of a deleted Workspace: the worker's result report hits a deleted row → 404 → the worker acknowledges and moves on; no new state.
 
 ### Mailer seam
 
@@ -174,6 +177,6 @@ Deployment carries no test seam: `docs/DEPLOYMENT.md` is the verification proced
 
 ## Further Notes
 
-- `docs/DEPLOYMENT.md` outline: prerequisites (docker, a box, optionally a DNS record) → first deploy (clone, `.env`, compose up, sign in, create Workspace) → upgrade (`git pull`, compose up --build) → backup (pg_dump via compose exec + MinIO volume copy) → restore → TLS notes (DOMAIN, ports 80/443 reachable).
+- `docs/DEPLOYMENT.md` outline: prerequisites (docker, a box, optionally a DNS record) → first deploy (clone, `.env`, compose up, sign in, create Workspace) → upgrade (`git pull`, compose up --build) → backup (pg_dump via compose exec + a copy of the Garage volume, both `meta/` and `data/`, taken with the container stopped so the LMDB metadata is consistent with the blocks it indexes) → restore → TLS notes (DOMAIN, ports 80/443 reachable).
 - Dev is unchanged: compose infra + `pnpm dev`, `MAILER=console` prints codes and invite links to the api log — sign-in works offline with zero setup.
 - Sessions/OTP hygiene: expired rows are deleted lazily on access; no scheduled sweeper.

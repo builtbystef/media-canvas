@@ -18,7 +18,7 @@ A Template exists, but producing assets from it is manual: one design, one expor
 
 ## Solution
 
-A generation API in front of a render worker fleet. A single render is one synchronous call that returns the file. A batch becomes a Generation Job: submission validates every Row atomically against the Template's Variables, workers render the Rows concurrently with per-Row failure isolation and one automatic retry on transient errors, progress is visible by polling, and finished outputs are downloadable per Row or as one zip. The Template is snapshotted at submission, so in-flight work is immune to later edits. The whole stack — API, worker, Postgres, Redis, MinIO — runs locally from one compose file plus `pnpm dev`.
+A generation API in front of a render worker fleet. A single render is one synchronous call that returns the file. A batch becomes a Generation Job: submission validates every Row atomically against the Template's Variables, workers render the Rows concurrently with per-Row failure isolation and one automatic retry on transient errors, progress is visible by polling, and finished outputs are downloadable per Row or as one zip. The Template is snapshotted at submission, so in-flight work is immune to later edits. The whole stack — API, worker, Postgres, Redis, Garage — runs locally from one compose file plus `pnpm dev`.
 
 ## User Stories
 
@@ -37,7 +37,7 @@ A generation API in front of a render worker fleet. A single render is one synch
 
 ### Services and responsibilities
 
-Five services. **api** (FastAPI): owns the Postgres schema and Alembic migrations, is the only Postgres writer (ADR-0005), enqueues Row tasks, serves the public API and all files by proxying MinIO — never presigned URLs. **worker** (Node, TypeScript): BullMQ consumer plus a small internal HTTP service; holds no DB client; uploads outputs directly to MinIO via the S3 SDK; the only service with Chromium. **Postgres** is the source of truth for all Job/Row state; **Redis** (BullMQ) carries only the work signal (ADR-0004); **MinIO** holds assets and outputs behind the S3 API.
+Five services. **api** (FastAPI): owns the Postgres schema and Alembic migrations, is the only Postgres writer (ADR-0005), enqueues Row tasks, serves the public API and all files by proxying object storage — never presigned URLs. **worker** (Node, TypeScript): BullMQ consumer plus a small internal HTTP service; holds no DB client; uploads outputs directly to object storage via the S3 SDK; the only service with Chromium. **Postgres** is the source of truth for all Job/Row state; **Redis** (BullMQ) carries only the work signal (ADR-0004); **Garage** holds assets and outputs behind the S3 API.
 
 Because `validate`/`resolve`/`compile`/`render` are TypeScript-only (ADR-0003) and the api treats Design Documents as opaque JSON, all document interpretation crosses to the worker: the api calls the worker's internal HTTP service for batch validation and synchronous renders. The BullMQ queue is used only for batch Rows.
 
@@ -109,7 +109,7 @@ POST /internal/jobs/{jobId}/rows/{rowId}/result
 
 ### Queue
 
-One BullMQ task per Row, payload ids-only: `{ jobId, rowId }`. `attempts: 2` with a transient-error filter (fetch failure, timeout) implements the contract's single automatic retry. Worker concurrency 8 — the pages-per-browser baseline. The worker's flow per task: fetch job bundle (cached) and row → `validate`/`resolve`/`compile` via core → `render` → upload bytes to MinIO at `jobs/{jobId}/{name}.{ext}` → report result. The synchronous `/render` path shares the same page pool of 8.
+One BullMQ task per Row, payload ids-only: `{ jobId, rowId }`. `attempts: 2` with a transient-error filter (fetch failure, timeout) implements the contract's single automatic retry. Worker concurrency 8 — the pages-per-browser baseline. The worker's flow per task: fetch job bundle (cached) and row → `validate`/`resolve`/`compile` via core → `render` → upload bytes to object storage at `jobs/{jobId}/{name}.{ext}` → report result. The synchronous `/render` path shares the same page pool of 8.
 
 ### Schema (owned by api, Alembic)
 
@@ -130,7 +130,9 @@ No denormalized counters — progress derives from one `GROUP BY status` over th
 
 ### Dev environment
 
-Root `docker-compose.yml`, infra only: `postgres:17`, `redis:8`, `minio/minio` at a pinned RELEASE tag; named volumes, healthchecks, default ports (5432, 6379, 9000 + 9001 console). `pnpm dev` runs api, web, and worker as local processes; the dev worker uses locally-installed Playwright Chromium — never valid for golden baselines. The pinned worker container image (ADR-0002) is for golden tests, CI, and production only. Bootstrap order, documented in the README: `docker compose up -d --wait` → `uv sync` → `alembic upgrade head` → `pnpm install` → `pnpm dev`. The api ensures its MinIO buckets on startup (idempotent); migrations run manually.
+Root `docker-compose.yml`, infra only: `postgres:17`, `redis:8`, `dxflrs/garage:v2.3.0`; named volumes, healthchecks, default ports (5432, 6379, 3900 — Garage's S3 port; no console exists to expose). Garage runs `server --single-node --default-access-key`, which builds the cluster layout on first boot and mints the credentials from `GARAGE_DEFAULT_ACCESS_KEY` / `GARAGE_DEFAULT_SECRET_KEY` — no init container and no CLI step. Two things Garage requires beyond the image: a committed config file mounted at `/etc/garage.toml` (`infra/garage.toml` — it will not start without one, and `metadata_dir`, `data_dir` and the bind addresses have no environment equivalents), and `GARAGE_RPC_SECRET`, which is mandatory even for one node. Its state lives under `/var/lib/garage`, holding `meta/` and `data/`, so one named volume covers both. `pnpm dev` runs api, web, and worker as local processes; the dev worker uses locally-installed Playwright Chromium — never valid for golden baselines. The pinned worker container image (ADR-0002) is for golden tests, CI, and production only. Bootstrap order, documented in the README: `docker compose up -d --wait` → `uv sync` → `alembic upgrade head` → `pnpm install` → `pnpm dev`.
+
+The api ensures its buckets on startup (idempotent), unchanged from the MinIO shape and verified against Garage v2.3.0: the key that `--default-access-key` mints carries `allow_create_bucket`, so the api's own `CreateBucket` succeeds and the bucket name lives in exactly one place — the api's configuration. Garage's `--default-bucket` flag is therefore not used; a second place naming the bucket could only disagree with the first. "Idempotent" means the api treats `BucketAlreadyOwnedByYou` and `BucketAlreadyExists` as success: Garage raises the former rather than returning 200, as does AWS S3 outside `us-east-1`. Migrations still run manually.
 
 ## Dependencies
 
@@ -147,7 +149,7 @@ Three seams, agreed:
 
 1. **Public API** (FastAPI test client; worker HTTP faked behind its contract, queue faked). Worked examples: a 3-row batch where row 1 omits a required Variable → 422 naming `rowIndex: 1` and the Variable, nothing enqueued; the same batch resubmitted with the same idempotency key → the existing Job, no new rows; CSV `price` column cell `"4.99"` with a number Variable → typed `4.99` reaches `/validate` (cells flag); `_name` collision → 422 at submission; cancel with 2 succeeded / 3 queued → Job `canceled`, 3 Rows `skipped`, 2 outputs still served; last Row result reported → Job flips to `completed` and progress counts match a `GROUP BY` of Row statuses.
 2. **Worker internal HTTP service** (Node-side contract tests against real core). Worked examples: `/validate` with `cells: true` and boolean cell `True` → error (case-sensitive literal); empty cell for a defaulted Variable → clean; `/render` with an unknown Variable in values → 422 named error, no browser launch.
-3. **Worker queue consumer** (faked internal api + MinIO-compatible store). Worked examples: happy path uploads to `jobs/{jobId}/{name}.png` and reports `succeeded` with that key; first fetch of a Row image URL times out, second succeeds → one retry consumed, Row `succeeded`, `attempts: 2`; a validation-shaped error → no retry, reported `failed` with the named-Variable error.
+3. **Worker queue consumer** (faked internal api + S3-compatible store). Worked examples: happy path uploads to `jobs/{jobId}/{name}.png` and reports `succeeded` with that key; first fetch of a Row image URL times out, second succeeds → one retry consumed, Row `succeeded`, `attempts: 2`; a validation-shaped error → no retry, reported `failed` with the named-Variable error.
 
 One compose-level smoke rides on seam 1: submit a 2-row batch against the real stack, poll to `completed`, download the zip. External behavior only at every seam; internal calls are observed via their contracts, never by reaching into the DB from tests on the other side of a seam. Prior art: none — this is the repository's first code; the golden-image harness on `prototype/render-fidelity` covers render fidelity and is out of scope here.
 

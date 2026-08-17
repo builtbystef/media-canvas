@@ -12,7 +12,7 @@ depends_on:
     - gqr8bf
 parent: v1xa7j
 created: 2026-08-08T07:09:22Z
-updated: 2026-08-11T00:28:31Z
+updated: 2026-08-17T01:09:53Z
 ---
 
 Interview the user (grill-me skill, limited to this question) to settle the infrastructure and repo shape. Some options may need quick fact-checks inline; if a real research question emerges, split it out.
@@ -40,3 +40,7 @@ API CONTRACT: alloy's OpenAPI codegen pipeline, with the carve-out that Design D
 DB OWNERSHIP: FastAPI owns the Postgres schema and Alembic migrations and is the only writer; the worker reports row results via a small internal FastAPI endpoint and holds no DB client. → ADR-0005.
 
 Unblocks the checks issue g4y1ii (stack is now settled).
+
+**claude** — 2026-08-17T01:09:53Z
+
+SUPERSEDED IN PART (2026-08-17): the object-storage half of this node no longer holds. MinIO stopped publishing community Docker images, stripped the AGPL console, and archived the repository — minio/minio is frozen at RELEASE.2025-09-07T16-13-09Z with no further security fixes. The store is now Garage (dxflrs/garage:v2.3.0), still behind the S3 API, so every other decision recorded here stands unchanged: S3 SDK access from both runtimes, all file serving proxied through FastAPI, never presigned MinIO URLs. The Postgres, Redis and repo-layout halves of this node are untouched. Reasoning and the spec sweep: node jl1ew8.
