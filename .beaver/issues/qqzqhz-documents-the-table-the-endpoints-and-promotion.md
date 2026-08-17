@@ -18,7 +18,7 @@ A design has somewhere to live. One table holds every document, design and templ
 ## Acceptance criteria
 
 - [ ] One table holds both kinds, carrying the document itself, its name, its kind, its revision, its schema version denormalized for operational queries, and the lineage of the document it was promoted from.
-- [ ] A document is created, listed, fetched, saved, and deleted through the Workspace-scoped surface; the list filters by kind, omits the document body, and orders by last update, newest first, unpaginated.
+- [ ] A document is created, listed, fetched, saved, and deleted through the Workspace-scoped surface; the fetch payload carries the document with its name, kind, revision, and last-update time (`updatedAt` — the batch UI's snapshot-staleness line reads it, xhps0x); the list filters by kind, omits the document body, and orders by last update, newest first, unpaginated.
 - [ ] A save states the revision it loaded. A matching revision saves and returns exactly one more; a stale one is refused and changes nothing. Worked example: loading revision 4, saving twice from two callers → the first returns 5, the second is refused with 409 and the stored document still reads 5.
 - [ ] Promoting a design creates a new row of kind template with the document copied, the lineage pointing back, its own revision starting at one, and the name copied verbatim. Worked example: promoting the same design twice yields two independent templates, and editing either changes neither the other nor the original.
 - [ ] Promoting a template is refused.

@@ -10,14 +10,12 @@ depends_on:
     - qqzqhz
 parent: 0egsmf
 created: 2026-08-15T06:54:29Z
-updated: 2026-08-15T07:13:26Z
+updated: 2026-08-17T04:00:24Z
 ---
 
 ## What to build
 
 A batch of rows meets a Template and becomes a Generation Job — or the whole batch is refused and nothing exists. Submission validates every Row first, copies the Template into the Job so later edits and deletions cannot change what the batch renders, records one Row per input row, and answers with the Job. Polling afterwards shows the Job's state and how many Rows sit in each status, and a Workspace's Jobs list gives the newest first. A resubmission carrying an idempotency key that was already used returns the Job that exists rather than rendering everything twice.
-
-The Template this route reads belongs to the editor spec (ek7pq1), which is not sliced yet; this issue's blocking edge points at that spec's umbrella. Retarget it to the slice that lands the documents table when that spec is sliced.
 
 ## Acceptance criteria
 
@@ -36,3 +34,7 @@ The Template this route reads belongs to the editor spec (ek7pq1), which is not 
 **claude** — 2026-08-15T07:13:26Z
 
 Retargeted 2026-08-15 (ek7pq1 issue-slicing session): the placeholder edge on the ek7pq1 umbrella is replaced by edges on the slices that actually gate this work. No umbrella edges remain anywhere in the tracker.
+
+**claude** — 2026-08-17T04:00:24Z
+
+Cross-reference 2026-08-16: the queued-to-rendering transition that polling reflects is carried by the internal Row fetch, decided on 4dpprd.

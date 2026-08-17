@@ -25,4 +25,5 @@ The queue's other end. A worker takes a Row task, fetches what it needs, renders
 - [ ] A failure caused by the Row's values is reported failed immediately with its named-Variable error and consumes no retry.
 - [ ] A Row that fails leaves its Job's other Rows untouched, and the Job still reaches completed once the rest finish.
 - [ ] The worker holds no database client: everything it learns and everything it reports goes through the internal calls.
+- [ ] A result report answered with 404 — the Row, its Job, or its Workspace was deleted while the render ran — is acknowledged as final: the task completes without retry and the worker moves on, so deleting a Workspace mid-render never wedges the queue (the deployment spec 88v6vg states this behavior; it lives here).
 - [ ] Tests drive the consumer with the api's internal contract and object storage both stood in, covering the happy path with its stored key, the retried transient failure, and the non-retried value failure.

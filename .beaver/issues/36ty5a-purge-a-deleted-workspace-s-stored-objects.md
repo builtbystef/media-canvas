@@ -7,16 +7,15 @@ depends_on:
     - sazdn4
     - jr6mye
     - 92zwes
+    - 211q1b
 parent: 88v6vg
 created: 2026-08-15T06:23:48Z
-updated: 2026-08-15T07:13:26Z
+updated: 2026-08-17T03:56:03Z
 ---
 
 ## What to build
 
 Deleting a Workspace takes its files with it, not just its database rows. The Owner who deletes a Workspace should not leave uploaded images, fonts, and generated outputs sitting in storage forever.
-
-Blocking edge note: this depends on the editor-and-asset-pipeline spec for object storage and the Workspace's storage layout. When that spec is sliced, retarget this edge from the spec issue to the slice that lands them.
 
 ## Acceptance criteria
 

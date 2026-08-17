@@ -8,9 +8,10 @@ depends_on:
     - r0w3w6
     - f2hjkt
     - zycblh
+    - d2v61j
 parent: 1qoccb
 created: 2026-08-15T05:49:36Z
-updated: 2026-08-15T05:49:36Z
+updated: 2026-08-17T04:00:39Z
 ---
 
 ## What to build
@@ -23,9 +24,15 @@ Closure waits for user review.
 
 - [ ] A golden check resolves, compiles, and renders a fixture inside the pinned worker image, and compares the output against a committed baseline with pixelmatch at `threshold: 0.1`.
 - [ ] Worker-output goldens require zero differing pixels — a ratio of 0, not a count — so the pinned contract has no slack in it.
-- [ ] One named cross-flavor parity fixture, comparing full Chromium against the headless shell, is the single fixture with a nonzero tolerance, at a maximum differing-pixel ratio of 0.006. Worked example: the measured 0.534% of pixels differing at glyph edges passes; a one-line layout shift or a changed fill color does not.
+- [ ] One named cross-flavor parity fixture, comparing full Chromium against the `chrome-headless-shell` build that ships inside the same pinned image (6sfpv3), is the single fixture with a nonzero tolerance, at a maximum differing-pixel ratio of 0.006 — both flavors run inside the one image, so the comparison never spans environments. Worked example: the measured 0.534% of pixels differing at glyph edges passes; a one-line layout shift or a changed fill color does not.
 - [ ] Baking baselines is a separate command that refuses to run outside the pinned image or against a mismatched environment tuple, and never runs as a consequence of a failing check.
 - [ ] Baselines are committed to the repository as lossless PNGs, in ordinary Git — no LFS.
 - [ ] The composite fixture from the render-fidelity prototype passes: linear gradient, shadow, alpha, ellipse clip, image crop, rotation, group opacity, vector, and wrapped text in one document.
 - [ ] The re-bake policy is written down: the whole suite is re-baked only after a deliberate environment-tuple change, reviewed and committed together with the old and new tuples; an intended rendering change updates only the fixtures it affects, after review.
 - [ ] Missing values, missing assets, and validation failures are covered by functional tests at the validation and compile seams, not by golden images.
+
+## Notes
+
+**claude** — 2026-08-17T04:00:39Z
+
+Decision: both flavors of the parity fixture run inside the one pinned image - 6sfpv3 now ships the paired chrome-headless-shell alongside full Chromium, so the comparison never spans environments.

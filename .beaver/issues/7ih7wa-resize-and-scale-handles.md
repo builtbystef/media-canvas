@@ -7,7 +7,7 @@ depends_on:
     - e5zpf3
 parent: ek7pq1
 created: 2026-08-15T07:12:37Z
-updated: 2026-08-15T07:12:37Z
+updated: 2026-08-17T04:00:56Z
 ---
 
 ## What to build
@@ -24,3 +24,9 @@ Handles, and the fact that resizing and scaling are not the same operation. A re
 - [ ] Groups scale uniformly and recursively from their corners only, multiplying every descendant's position, size, font size, letter spacing, border width, corner radius and shadow offsets and blur by one factor. Worked example: a group scaled by two doubles a nested text element's font size and its shadow blur, not only its box.
 - [ ] A multiple selection offers move and uniform corner handles only — no side handles — because scaling a rotated member non-uniformly would need a skew the schema cannot store.
 - [ ] Each handle drag is one undo entry, and the numbers it produces match what the inspector shows for the same element.
+
+## Notes
+
+**claude** — 2026-08-17T04:00:56Z
+
+Constants bind verbatim from the closure note on ep90f3 (the editor's canvas interactions and tool set): key bindings, modifier keys, the snap threshold, nudge and duplicate offsets, and new-element defaults. Read that note (beaver show ep90f3) before building - do not invent values the decision already fixed.

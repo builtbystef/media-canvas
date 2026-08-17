@@ -16,8 +16,6 @@ updated: 2026-08-15T07:13:26Z
 
 A Workspace is usable the moment it is created: the nine bundled font families are already in it, so the first design a member opens has type to set. Because every Font Asset belongs to exactly one Workspace, seeding happens per Workspace at creation rather than once for the instance.
 
-Blocking edge note: this depends on the editor-and-asset-pipeline spec for the Font Asset records and their storage. When that spec is sliced, retarget this edge from the spec issue to the slice that lands them.
-
 ## Acceptance criteria
 
 - [ ] Creating a Workspace seeds the bundled font families into it, marked as bundled.

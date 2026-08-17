@@ -17,8 +17,6 @@ updated: 2026-08-15T07:13:26Z
 
 A fresh clone becomes a running stack that renders a batch, by following the README and nothing else. The bootstrap sequence is executed, not merely written; then one test drives the real stack the way a user would — submit a two-row batch, poll it to completion, download the archive — which proves that the api, the worker, the queue, the database, and object storage are wired to each other and not only to their stand-ins.
 
-The Template this smoke needs carries a bundled font and a held image, both of which the asset pipeline in the editor spec (ek7pq1) owns; this issue's blocking edge points at that spec's umbrella. Retarget it when that spec is sliced.
-
 closure waits for user review
 
 ## Acceptance criteria

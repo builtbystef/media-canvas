@@ -10,7 +10,7 @@ depends_on:
     - gxwr7t
 parent: ek7pq1
 created: 2026-08-15T07:12:07Z
-updated: 2026-08-15T07:12:07Z
+updated: 2026-08-17T04:00:56Z
 ---
 
 ## What to build
@@ -27,3 +27,9 @@ A font enters the system. Bytes are hashed, and if that Workspace already holds 
 - [ ] An accepted font is stored first and its row written second, so a row never points at bytes that are not there.
 - [ ] The record carries a flag marking bundled fonts apart from uploaded ones; seeding the bundled families into a Workspace is tracked as its own issue and is not part of this slice.
 - [ ] Uploading is Editor-level in the Workspace; a Viewer is refused.
+
+## Notes
+
+**claude** — 2026-08-17T04:00:56Z
+
+Constants bind verbatim from the closure note on 3ko2p7 (the asset upload pipeline): size and pixel limits, error codes and their messages, and the 422 error envelope. Read that note (beaver show 3ko2p7) before building - do not invent values the decision already fixed.

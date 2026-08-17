@@ -9,7 +9,7 @@ depends_on:
     - ejy8hn
     - u2ovlu
 created: 2026-08-15T04:37:51Z
-updated: 2026-08-15T04:37:51Z
+updated: 2026-08-17T04:00:56Z
 ---
 
 ## Problem Statement
@@ -180,3 +180,9 @@ Deployment carries no test seam: `docs/DEPLOYMENT.md` is the verification proced
 - `docs/DEPLOYMENT.md` outline: prerequisites (docker, a box, optionally a DNS record) → first deploy (clone, `.env`, compose up, sign in, create Workspace) → upgrade (`git pull`, compose up --build) → backup (pg_dump via compose exec + a copy of the Garage volume, both `meta/` and `data/`, taken with the container stopped so the LMDB metadata is consistent with the blocks it indexes) → restore → TLS notes (DOMAIN, ports 80/443 reachable).
 - Dev is unchanged: compose infra + `pnpm dev`, `MAILER=console` prints codes and invite links to the api log — sign-in works offline with zero setup.
 - Sessions/OTP hygiene: expired rows are deleted lazily on access; no scheduled sweeper.
+
+## Notes
+
+**claude** — 2026-08-17T04:00:56Z
+
+Amendment 2026-08-16: the invites surface gains one route - GET /api/v1/invites/{token}, unauthenticated, returning the Workspace name, offered Role, and invited email for a pending invite, refusing exactly as accept does (404 used/revoked/unknown, 410 expired). Accepting signs the caller in as the invite's User, replacing any existing session. Contracts and consumers: k7wegl and 50gsoy. The session-exemption list is therefore: OTP request, OTP verify, health, invite preview, invite accept.

@@ -9,7 +9,7 @@ depends_on:
     - hjniam
 parent: ek7pq1
 created: 2026-08-15T07:12:59Z
-updated: 2026-08-15T07:12:59Z
+updated: 2026-08-17T04:00:39Z
 ---
 
 ## What to build
@@ -26,3 +26,9 @@ closure waits for user review
 - [ ] It runs in a Chromium-based browser only, matching the product's stated support.
 - [ ] A failure names the step it failed at, so the run is diagnostic rather than a single red mark.
 - [ ] The run was executed and its output reported in the session that closes this issue.
+
+## Notes
+
+**claude** — 2026-08-17T04:00:39Z
+
+Confirmed: the review gate on this smoke is intentional and stays. The slicing note authorized two in-editor review gates (n5csrl, glkll2); this one is the corpus-wide closing-smoke pattern every spec except wz3ev2 follows, not a third in-editor gate.

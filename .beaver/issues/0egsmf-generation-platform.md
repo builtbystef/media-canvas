@@ -9,7 +9,7 @@ depends_on:
     - jgo8tv
     - kjz6f0
 created: 2026-08-11T01:54:08Z
-updated: 2026-08-15T06:54:47Z
+updated: 2026-08-17T04:00:56Z
 ---
 
 ## Problem Statement
@@ -208,3 +208,7 @@ SEAM DECISIONS (issue-slicing session, user decided 2026-08-15) — two gaps the
 2. ASSET BYTES COME FROM THE API, OVER THE INTERNAL CREDENTIAL. The api exposes internal asset-bytes access to the worker under INTERNAL_API_TOKEN, so the api remains the only thing that reads asset rows and knows the storage key layout. Rejected: the worker reading object storage directly by Workspace plus hash (it already has S3 credentials for uploads, but that couples this spec to the editor spec's key layout and duplicates hash verification).
 
 CONSEQUENT CONTRACT CHANGE: the worker's internal /validate and /render payloads gain the Workspace id. They carried no tenant context at all, and an asset's identity is (workspace_id, hash) — without it the worker cannot resolve a single font or image. The endpoint the worker calls for those bytes belongs to the asset pipeline (spec ek7pq1); this spec builds against its contract and exercises it for real in the end-to-end smoke.
+
+**claude** — 2026-08-17T04:00:56Z
+
+Amendment 2026-08-16 to the internal contracts: (1) the queued-to-rendering transition is carried by the internal Row fetch - fetching a Row marks it rendering and stamps started_at in the same request, the first flip moving the Job to running (4dpprd). (2) The worker-facing asset-bytes route this spec builds against is now written down on jr6mye: GET /internal/workspaces/{workspaceId}/assets/{assetId}. (3) The validate payload carries the Workspace id (gxwr7t), completing the 2026-08-15 seam decision.

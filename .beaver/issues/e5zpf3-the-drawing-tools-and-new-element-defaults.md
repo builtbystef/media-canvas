@@ -7,7 +7,7 @@ depends_on:
     - 8919ix
 parent: ek7pq1
 created: 2026-08-15T07:12:30Z
-updated: 2026-08-15T07:12:30Z
+updated: 2026-08-17T04:00:56Z
 ---
 
 ## What to build
@@ -23,3 +23,9 @@ Elements can be made, not only moved. Five tools, armed by key or button: select
 - [ ] A new text element carries the default bundled font, a default size, line height, letter spacing, left alignment, top anchor, and black colour, and opens with its caret active.
 - [ ] Images and preset shapes are not tools: they arrive from their panels, which are tracked as their own issues.
 - [ ] Creating an element is one undo entry, and the new element is selected when the tool returns to select.
+
+## Notes
+
+**claude** — 2026-08-17T04:00:56Z
+
+Constants bind verbatim from the closure note on ep90f3 (the editor's canvas interactions and tool set): key bindings, modifier keys, the snap threshold, nudge and duplicate offsets, and new-element defaults. Read that note (beaver show ep90f3) before building - do not invent values the decision already fixed.

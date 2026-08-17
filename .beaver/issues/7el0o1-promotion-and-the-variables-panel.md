@@ -18,7 +18,7 @@ A design becomes a Template, and a Template gets its Variables. Promotion is the
 
 ## Acceptance criteria
 
-- [ ] A promote action in the editor's top bar for an open design, and on a design's row in the list, creates the template copy and navigates straight into it. There is no naming dialog; the name is copied and renamed in place afterwards.
+- [ ] A promote action in the editor's top bar for an open design, and on a design's row in the list, creates the template copy and navigates straight into it. There is no naming dialog; the name is copied and renamed in place afterwards. The list-row control itself is built by the shell slice (hg52gb); this issue owns the editor's top-bar action and the shared promote flow both controls land in.
 - [ ] A template shows a small link back to the document it was promoted from, and nothing else follows from that lineage.
 - [ ] The Variables panel appears only for templates, as a sibling of the other left-hand panels, with one row per Variable: name, type, a default edited with that type's own control, the length bounds for text, and a usage count so dead Variables are visible.
 - [ ] Variable names must start with a letter and continue with letters, digits or underscores, case-sensitively, enforced at creation and at rename. Worked example: the name `2price` is refused, `price_2` is accepted.

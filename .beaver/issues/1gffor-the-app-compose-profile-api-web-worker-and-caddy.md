@@ -7,9 +7,11 @@ depends_on:
     - i3r0dx
     - ilgj60
     - 6sfpv3
+    - sycz8o
+    - jmpc8g
 parent: 88v6vg
 created: 2026-08-15T06:23:15Z
-updated: 2026-08-15T06:23:15Z
+updated: 2026-08-17T03:56:03Z
 ---
 
 ## What to build
@@ -19,6 +21,7 @@ One command turns a cloned repository into the running product. The infra profil
 ## Acceptance criteria
 
 - [ ] Bringing up the app profile starts the api, the web app, the render worker, and the proxy alongside the infra services, all restarting unless explicitly stopped, all built from the repository itself — no registry, no published images.
+- [ ] The api and web Dockerfiles are created by this issue and live in the repository; the render worker's image is the pinned one from the rendering-core work (6sfpv3) and is not rebuilt or re-pinned here.
 - [ ] The proxy is the only service publishing ports. It routes the api paths, the asset paths, and the job paths to the api, and everything else to the web app.
 - [ ] With a domain configured, the proxy serves HTTPS with automatic certificates and keeps plain HTTP only for the certificate challenge and a redirect. With no domain, it serves HTTP on the configured port. Worked example: setting the domain variable and bringing the stack up again is the entire change — no certificate files are handled by hand.
 - [ ] The api container applies migrations before it serves, so upgrading is pulling the repository and bringing the stack up again.

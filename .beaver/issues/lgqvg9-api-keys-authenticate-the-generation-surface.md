@@ -7,16 +7,16 @@ depends_on:
     - t3n0fj
     - lkey79
     - kjsmdy
+    - lcni96
+    - 211q1b
 parent: 88v6vg
 created: 2026-08-15T06:24:01Z
-updated: 2026-08-15T06:54:56Z
+updated: 2026-08-17T03:56:03Z
 ---
 
 ## What to build
 
 The point of an API key: a script renders and generates without a browser session. This closes the loop the key work could only half-prove — the permitted case, on the routes that generate assets, scoped to the key's own Workspace.
-
-Blocking edge note: this depends on the generation-platform spec for the render and job routes. When that spec is sliced, retarget this edge from the spec issue to the slice that lands them.
 
 ## Acceptance criteria
 

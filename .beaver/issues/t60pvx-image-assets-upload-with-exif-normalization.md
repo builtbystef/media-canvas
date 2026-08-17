@@ -9,7 +9,7 @@ depends_on:
     - 92zwes
 parent: ek7pq1
 created: 2026-08-15T07:12:07Z
-updated: 2026-08-15T07:12:07Z
+updated: 2026-08-17T04:00:56Z
 ---
 
 ## What to build
@@ -26,3 +26,9 @@ An image enters the system, and what is stored is what will be rendered. A phone
 - [ ] Image Asset identity is the Workspace together with the hash, matching Font Assets.
 - [ ] The original uploaded bytes are not kept anywhere.
 - [ ] Uploading is Editor-level in the Workspace; a Viewer is refused.
+
+## Notes
+
+**claude** — 2026-08-17T04:00:56Z
+
+Constants bind verbatim from the closure note on 3ko2p7 (the asset upload pipeline): size and pixel limits, error codes and their messages, and the 422 error envelope. Read that note (beaver show 3ko2p7) before building - do not invent values the decision already fixed.

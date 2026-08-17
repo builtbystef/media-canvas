@@ -8,7 +8,7 @@ depends_on:
     - 8919ix
 parent: ek7pq1
 created: 2026-08-15T07:12:24Z
-updated: 2026-08-15T07:12:30Z
+updated: 2026-08-17T04:00:24Z
 ---
 
 ## What to build
@@ -23,4 +23,10 @@ Work is not lost and not clobbered. Every completed gesture is one undo step —
 - [ ] The document autosaves about a second after the last change, flushes immediately when the tab is hidden or closed, offers a flush-now shortcut, and shows a saving or saved indicator throughout.
 - [ ] A save that fails for any reason other than a conflict never interrupts editing: it retries with a widening delay up to a cap, and the indicator warns until a save lands.
 - [ ] A conflicting save shows a blocking notice that the document changed elsewhere and must be reloaded. Nothing is merged, and no further save overwrites it.
-- [ ] A document whose schema version is not the one the core understands is refused at load with a named error rather than opened and re-saved. Migration is where the core spec puts it, and there is nothing to migrate until the schema first moves.
+- [ ] A stored document older than the current schema version migrates forward at load through the core package, and the next autosave persists the current version — the spec's rule, per the closed decision 73rm0x and ADR-0001. A document whose schema version is newer than the core understands is refused at load with a named error rather than opened and re-saved. Until the schema first moves there is nothing to migrate, so today the load path exercises only the refusal; the migration hook exists the day version 2 does.
+
+## Notes
+
+**claude** — 2026-08-17T04:00:24Z
+
+Decision 2026-08-16: the load path follows the spec and 73rm0x - a stored document older than the current schemaVersion migrates forward at load via the core package; only a newer or unknown version is refused with a named error. The criterion that previously required refusing every mismatched version drifted from the spec and has been rewritten.

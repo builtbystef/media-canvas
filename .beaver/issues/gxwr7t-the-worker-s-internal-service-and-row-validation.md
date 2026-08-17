@@ -7,7 +7,7 @@ depends_on:
     - d2v61j
 parent: 0egsmf
 created: 2026-08-15T06:54:15Z
-updated: 2026-08-15T06:54:15Z
+updated: 2026-08-17T04:00:24Z
 ---
 
 ## What to build
@@ -23,4 +23,11 @@ The api can ask the worker whether a batch is good before anything renders. The 
 - [ ] Asked to type cells first, string cells become typed values before validation: a number cell follows the JSON number grammar, a boolean cell is the literal lowercase `true` or `false`, and an empty cell means the Variable was omitted. Worked examples: cell `4.99` against a number Variable → the number 4.99, clean; cell `True` against a boolean Variable → an error, because the literal is case-sensitive; cell `4.99x` → an error naming the Variable.
 - [ ] An empty cell means omitted for every Variable type, text included: the declared default applies, and a Variable with no default is an error naming it. Supplying an explicit empty string is possible only through the JSON channel.
 - [ ] Cell typing lives in the shared core beside validation and is exercised only through this call, so no other service can grow a second interpretation of a cell.
+- [ ] The validate payload carries the Workspace id alongside the Template and the Rows, per the 0egsmf seam decision of 2026-08-15 — an asset's identity is its Workspace together with its hash, and the render call (1dxm2u) carries the same field for the same reason. Validation itself resolves no assets today; the field is part of the payload shape so the two internal calls stay one shape.
 - [ ] Contract tests drive the service over HTTP against the real core, covering the clean batch, a Row-level error, and both cell-typing outcomes.
+
+## Notes
+
+**claude** — 2026-08-17T04:00:24Z
+
+Amended 2026-08-16: the validate payload carries the Workspace id, aligning with the 0egsmf seam decision of 2026-08-15 so both internal worker calls share one payload shape.

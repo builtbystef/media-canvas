@@ -23,7 +23,7 @@ Anyone with an email address signs in by asking for a code, reading the six digi
 - [ ] The first successful verification for an unknown email creates the User, with the email stored lowercased. Worked example: verifying as `Alice@Example.COM` and later as `alice@example.com` reaches the same User.
 - [ ] The session cookie carries an opaque random token, HTTP-only and SameSite=Lax; only its hash is stored. Its expiry rolls 30 days forward when the session is used, and that write happens at most once a day per session.
 - [ ] `GET /me` returns the signed-in User together with its memberships (an empty list until Workspaces exist). Logging out deletes the session, after which the same cookie answers 401.
-- [ ] Every route requires a session except requesting a code, verifying a code, and health. Worked examples: `/me` with no cookie → 401; `/me` with a cookie whose session was deleted → 401.
+- [ ] Every route requires a session except requesting a code, verifying a code, and health — plus, once invites exist, previewing and accepting an invite (k7wegl widens the list; nothing else ever joins it). Worked examples: `/me` with no cookie → 401; `/me` with a cookie whose session was deleted → 401.
 - [ ] Expired sessions and codes are removed when next touched; nothing scheduled sweeps them.
 - [ ] The Mailer is one interface with exactly two messages — the sign-in code and the Workspace Invite — with a console driver that prints them to the api log as the default, and a recording fake that the tests assert against.
 - [ ] The web app's development origin can sign in cross-origin with credentials; in production, where everything is served from one origin, no cross-origin headers are sent.

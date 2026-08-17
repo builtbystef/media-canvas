@@ -16,8 +16,6 @@ updated: 2026-08-15T07:13:26Z
 
 Anyone with the rights to a document can turn it into a file in one call. A Template is given one value per Variable and answers with the rendered bytes; a plain design is given nothing and answers with its own export. There is no job, no polling, and nothing stored — the response is the delivery. This is the call the editor's Generate dialog makes, and the first end-to-end path through this system: request, validation, compile, browser, bytes.
 
-The document this route reads belongs to the editor spec (ek7pq1), which is not sliced yet; this issue's blocking edge points at that spec's umbrella. Retarget it to the slice that lands the documents table when that spec is sliced.
-
 ## Acceptance criteria
 
 - [ ] Rendering a document returns the file bytes with the content type of the requested format: png at scale one, two, or three; jpeg with an optional quality defaulting to 90; pdf.

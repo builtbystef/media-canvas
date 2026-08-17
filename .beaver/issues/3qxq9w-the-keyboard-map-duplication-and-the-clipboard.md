@@ -7,7 +7,7 @@ depends_on:
     - 7ih7wa
 parent: ek7pq1
 created: 2026-08-15T07:12:43Z
-updated: 2026-08-15T07:12:43Z
+updated: 2026-08-17T04:00:56Z
 ---
 
 ## What to build
@@ -24,3 +24,9 @@ The keyboard, and the operations that only reach the canvas through it: nudging,
 - [ ] Z-order shortcuts move the selection forward, backward, to the front, and to the back within its own level.
 - [ ] Select-all takes everything at the current level: the top level, or the entered group's children.
 - [ ] Escape unwinds one step at a time in order — cancel the active tool, then leave text editing, then leave the entered group, then deselect — rather than jumping to a clean slate.
+
+## Notes
+
+**claude** — 2026-08-17T04:00:56Z
+
+Constants bind verbatim from the closure note on ep90f3 (the editor's canvas interactions and tool set): key bindings, modifier keys, the snap threshold, nudge and duplicate offsets, and new-element defaults. Read that note (beaver show ep90f3) before building - do not invent values the decision already fixed.
