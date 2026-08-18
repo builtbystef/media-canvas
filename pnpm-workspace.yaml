@@ -13,6 +13,8 @@ catalog:
   # the coupling through the npm: alias, so update both by hand.
   vite: npm:@voidzero-dev/vite-plus-core@0.2.8
   vite-plus: 0.2.8
+  "@types/opentype.js": ^1.3.10
+  opentype.js: ^1.3.4
   zod: ^4.4.3
 overrides:
   vite: "catalog:"

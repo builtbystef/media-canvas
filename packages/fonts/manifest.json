@@ -1,0 +1,151 @@
+{
+  "fonts": [
+    {
+      "id": "3e5f90a0138b38de4cf4d779ad78391974ea1df776b9164842bdcbb60ce383c5",
+      "file": "inter/Inter_18pt-Regular.ttf",
+      "family": "Inter",
+      "weight": 400,
+      "style": "normal"
+    },
+    {
+      "id": "1fe26d47c840ef8767635967acaa50ee43a57794fa00a03bf042ee4aab2792c4",
+      "file": "inter/Inter_18pt-Italic.ttf",
+      "family": "Inter",
+      "weight": 400,
+      "style": "italic"
+    },
+    {
+      "id": "30a5c45ec23a594af2effe8d3b589ad22c2dede27441050a1604d00ff82fd0dc",
+      "file": "inter/Inter_18pt-Bold.ttf",
+      "family": "Inter",
+      "weight": 700,
+      "style": "normal"
+    },
+    {
+      "id": "faef7d798934e94c9d6b0871c54900b270e3d1930c0b096ab690d974dfef806c",
+      "file": "inter/Inter_18pt-BoldItalic.ttf",
+      "family": "Inter",
+      "weight": 700,
+      "style": "italic"
+    },
+    {
+      "id": "ef9cf99f0175bef530b88934bd904fcf56f773cec6fd4dfb8ccaf7ce2bbd395e",
+      "file": "montserrat/Montserrat-Regular.ttf",
+      "family": "Montserrat",
+      "weight": 400,
+      "style": "normal"
+    },
+    {
+      "id": "7fa93d7daa5c2f881a6727229c211782de6b76008fbd6346b3d7664e8fc83f43",
+      "file": "montserrat/Montserrat-Bold.ttf",
+      "family": "Montserrat",
+      "weight": 700,
+      "style": "normal"
+    },
+    {
+      "id": "b48e6741b9889ede4ffe3d8acfda3e6917c62127537b19fe7206cba04e6ebb63",
+      "file": "montserrat/Montserrat-Black.ttf",
+      "family": "Montserrat",
+      "weight": 900,
+      "style": "normal"
+    },
+    {
+      "id": "7ed00e7c9cdf16ab7e2fd2361fe45d4f0b61263cd60aae398b27b7ee08108827",
+      "file": "lora/Lora-Regular.ttf",
+      "family": "Lora",
+      "weight": 400,
+      "style": "normal"
+    },
+    {
+      "id": "be627e595184e8afe521f08da0607eee613f1997d423bc8dadc5798995581377",
+      "file": "lora/Lora-Italic.ttf",
+      "family": "Lora",
+      "weight": 400,
+      "style": "italic"
+    },
+    {
+      "id": "7d74015e950c2fb66519c7295b8155621d22200ae2ca2a4c6b43ce3c490cac87",
+      "file": "lora/Lora-Bold.ttf",
+      "family": "Lora",
+      "weight": 700,
+      "style": "normal"
+    },
+    {
+      "id": "861f838d481d28cbbd4793e45dc02f01d04c81e06ed98ab2779ca152ace9f27b",
+      "file": "playfair-display/PlayfairDisplay-Regular.ttf",
+      "family": "Playfair Display",
+      "weight": 400,
+      "style": "normal"
+    },
+    {
+      "id": "4f3b87b5aa297eed5e5a48dbd9941356ca0313d4725b02c29a298cb042b7b31b",
+      "file": "playfair-display/PlayfairDisplay-Bold.ttf",
+      "family": "Playfair Display",
+      "weight": 700,
+      "style": "normal"
+    },
+    {
+      "id": "33951b6bbeddb44347f1dbf0fe4e4d30f759a0048c7d5a5d900c5e1c90565ce0",
+      "file": "playfair-display/PlayfairDisplay-Black.ttf",
+      "family": "Playfair Display",
+      "weight": 900,
+      "style": "normal"
+    },
+    {
+      "id": "147373bfe10a9b1e0eb649bcf6408566d0cb7334271845f24d4c224cca1c4412",
+      "file": "oswald/Oswald-Regular.ttf",
+      "family": "Oswald",
+      "weight": 400,
+      "style": "normal"
+    },
+    {
+      "id": "21843a0ccca2e97030da1330961646510ed6e9b8bb39620974c1195b9803034a",
+      "file": "oswald/Oswald-Bold.ttf",
+      "family": "Oswald",
+      "weight": 700,
+      "style": "normal"
+    },
+    {
+      "id": "830ea186acffc2316ed1a4e42319246ba3b46b04e33a211079249bf901193f04",
+      "file": "bebas-neue/BebasNeue-Regular.ttf",
+      "family": "Bebas Neue",
+      "weight": 400,
+      "style": "normal"
+    },
+    {
+      "id": "4dac9db3fa9ca072f7861fd916bf04bdceac6069d0f3a886f5e523d922e918f1",
+      "file": "pacifico/Pacifico-Regular.ttf",
+      "family": "Pacifico",
+      "weight": 400,
+      "style": "normal"
+    },
+    {
+      "id": "9ef04a03a7e36872dbb179ed3fbb11fde004bd01e35416c3270023f7a91dd4f4",
+      "file": "dancing-script/DancingScript-Regular.ttf",
+      "family": "Dancing Script",
+      "weight": 400,
+      "style": "normal"
+    },
+    {
+      "id": "2bd1f21937334ffd94c3879b6032c04df6390833432dfc7a79d0020eae80d038",
+      "file": "dancing-script/DancingScript-Bold.ttf",
+      "family": "Dancing Script",
+      "weight": 700,
+      "style": "normal"
+    },
+    {
+      "id": "b6b1ff4ddefe36d7f2a6174e1d001cab374e594519ee9049af028d577b64c5f5",
+      "file": "jetbrains-mono/JetBrainsMono-Regular.ttf",
+      "family": "JetBrains Mono",
+      "weight": 400,
+      "style": "normal"
+    },
+    {
+      "id": "a2349098b9e45419e7bf0e2958d6c4937a049dded37387b08be725be4c7615f3",
+      "file": "jetbrains-mono/JetBrainsMono-Bold.ttf",
+      "family": "JetBrains Mono",
+      "weight": 700,
+      "style": "normal"
+    }
+  ]
+}

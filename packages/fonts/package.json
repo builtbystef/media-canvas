@@ -1,0 +1,15 @@
+{
+  "name": "@media-canvas/fonts",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/opentype.js": "catalog:",
+    "opentype.js": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

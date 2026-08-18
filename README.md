@@ -12,6 +12,7 @@ Early build. The monorepo scaffold and checks are in place; the specs, decisions
 - **Backend** — FastAPI (`apps/api`); owns the database schema and is the only Postgres writer
 - **Render worker** — Node + Playwright driving a pinned headless Chromium, in TypeScript (`apps/worker`)
 - **Shared core** — one TypeScript package (`packages/core`) with the Design Document schema, validation, variable substitution, and the JSON→SVG compiler, used by both the editor and the worker
+- **Bundled fonts** — nine SIL OFL families vendored with a hash-verified manifest (`packages/fonts`)
 - **Infrastructure** — Postgres (source of truth), Redis/BullMQ (work signal only), Garage (object storage, S3 API)
 
 ## Development
@@ -58,3 +59,9 @@ uv run alembic revision --autogenerate -m "add the widgets table"
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+The bundled fonts in `packages/fonts` are not covered by that license: every
+one of them is licensed under the SIL Open Font License 1.1, and each family
+directory carries the license text it shipped with. A font uploaded to a
+Workspace is the uploader's responsibility — the app does not check whether
+they hold the rights to it.
