@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "./globals.css";
+import { RecheckOnRestore } from "./recheck-on-restore";
 
 export const metadata: Metadata = {
-  title: "media-canvas",
-  description: "Next.js + FastAPI template",
+  title: "Media Canvas",
+  description: "Design static visual assets, and generate them in bulk.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ fontFamily: "system-ui, sans-serif", margin: "2rem" }}>{children}</body>
+      <body>
+        <RecheckOnRestore />
+        {children}
+      </body>
     </html>
   );
 }

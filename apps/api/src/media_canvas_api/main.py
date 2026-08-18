@@ -20,9 +20,36 @@ from media_canvas_api.storage import ObjectStore
 
 logger = logging.getLogger(__name__)
 
+# Everything the api logs lives under the package name, so configuring the one
+# logger configures the lot.
+PACKAGE = __name__.split(".")[0]
+
 # One writer at a time: two api processes starting together would otherwise
 # run the same pending migrations twice. Any constant identifies the lock.
 MIGRATION_LOCK = 4_170_235_001
+
+
+def configure_logging() -> None:
+    """Give the api's own log lines somewhere to go.
+
+    uvicorn configures its own loggers and leaves the root logger alone, so an
+    application `logger.info(...)` finds no handler at all and falls back to
+    the last-resort one, which drops anything below a warning. That is not a
+    cosmetic loss: the console Mailer is the default driver, and the sign-in
+    code it prints here is the whole of signing in on a machine with no mail
+    service configured.
+
+    Propagation is deliberately left on, so that anything watching the root —
+    pytest's `caplog`, or a deployment that configures its own handlers — goes
+    on seeing these records. Nothing is logged twice, because the last-resort
+    handler is only reached when no handler was found anywhere.
+    """
+    package = logging.getLogger(PACKAGE)
+    package.setLevel(logging.INFO)
+    if not package.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s:     %(message)s"))
+        package.addHandler(handler)
 
 
 @asynccontextmanager
@@ -35,6 +62,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     *is* reachable does stop it — that is a broken deployment, not a wait. So
     does an object store that cannot be reached, which nothing reports.
     """
+    configure_logging()
     settings = get_settings()
     engine = create_database_engine(settings)
     app.state.settings = settings

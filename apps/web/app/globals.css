@@ -1,0 +1,150 @@
+/* The plain styling the first screens need. The product's own look — light and
+   dark, the shell, the canvas — is hg52gb's; nothing here is a design system. */
+
+:root {
+  color-scheme: light dark;
+  --ink: light-dark(#18181b, #ededf0);
+  --quiet: light-dark(#5a5a63, #a1a1ac);
+  --page: light-dark(#f6f6f7, #131315);
+  --card: light-dark(#ffffff, #1c1c1f);
+  --edge: light-dark(#d8d8dd, #35353b);
+  --accent: light-dark(#1a56db, #7aa2f7);
+  --alarm: light-dark(#b42318, #f97066);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+  background: var(--page);
+  color: var(--ink);
+  font:
+    1rem/1.55 system-ui,
+    sans-serif;
+}
+
+.panel {
+  width: min(26rem, 100%);
+  padding: 2rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.75rem;
+  background: var(--card);
+}
+
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.4rem;
+}
+
+.lead,
+.aside {
+  color: var(--quiet);
+}
+
+.lead {
+  margin: 0 0 1.5rem;
+}
+
+.aside {
+  margin: 1.5rem 0 0;
+  font-size: 0.85rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+input {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+}
+
+input:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+button[type="submit"] {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+button.plain,
+a {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* The live region is always in the document so that a message inserted into it
+   is announced, and out of the layout while it holds nothing. */
+.problem {
+  margin: 0.6rem 0 0;
+  color: var(--alarm);
+  font-size: 0.9rem;
+}
+
+.problem:empty {
+  display: none;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0 0;
+  font-size: 0.9rem;
+}
+
+.workspaces {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspaces li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--edge);
+}
+
+.role {
+  color: var(--quiet);
+  font-size: 0.85rem;
+  text-transform: capitalize;
+}
