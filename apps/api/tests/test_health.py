@@ -1,9 +1,8 @@
 import pytest
+from conftest import Accounts
 from fastapi.testclient import TestClient
-from media_canvas_api.mailer import RecordingMailer
 from media_canvas_api.main import app
 from media_canvas_api.settings import get_settings
-from test_auth import sign_in
 
 
 def test_health_reports_a_reachable_and_migrated_database(client: TestClient) -> None:
@@ -45,8 +44,8 @@ def test_health_reports_an_unreachable_database_and_keeps_serving(
         get_settings.cache_clear()
 
 
-def test_greeting(client: TestClient, mailer: RecordingMailer) -> None:
-    sign_in(client, mailer, "alice@example.com")
+def test_greeting(client: TestClient, accounts: Accounts) -> None:
+    accounts.sign_in("alice@example.com")
 
     response = client.get("/api/hello/media-canvas")
 

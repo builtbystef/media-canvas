@@ -6,8 +6,9 @@ settings.
 """
 
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 os.environ["POSTGRES_DB"] = "media_canvas_test"
@@ -17,6 +18,7 @@ from fastapi.testclient import TestClient
 from media_canvas_api.clock import utc_now
 from media_canvas_api.mailer import RecordingMailer
 from media_canvas_api.main import app
+from media_canvas_api.sessions import COOKIE_NAME
 from media_canvas_api.settings import Settings, get_settings
 from sqlalchemy import Connection, Engine, create_engine, text
 from sqlalchemy.exc import OperationalError
@@ -92,6 +94,76 @@ def client(mailer: RecordingMailer, clock: FakeClock) -> Iterator[TestClient]:
         started.app.state.mailer = mailer
         started.app.state.clock = clock
         yield started
+
+
+type Join = Callable[[str, "Account", str], None]
+
+
+@dataclass(frozen=True)
+class Account:
+    """Someone who has signed in, and the cookie that proves it."""
+
+    id: str
+    email: str
+    token: str
+
+
+class Accounts:
+    """Signs people in, and decides which of them the client is right now.
+
+    One client carries one cookie, so a test with several people in it says
+    whose turn it is rather than opening a browser each.
+    """
+
+    def __init__(self, client: TestClient, mailer: RecordingMailer) -> None:
+        self.client = client
+        self.mailer = mailer
+
+    def sign_in(self, email: str) -> Account:
+        """Take an address all the way to a session, and act as it."""
+        self.client.cookies.clear()
+        self.client.post("/api/v1/auth/otp/request", json={"email": email})
+        verified = self.client.post(
+            "/api/v1/auth/otp/verify",
+            json={"email": email, "code": self.mailer.otps[-1].code},
+        )
+        assert verified.status_code == 204, verified.text
+        user = self.client.get("/api/v1/me").json()["user"]
+        return Account(
+            id=user["id"], email=user["email"], token=self.client.cookies[COOKIE_NAME]
+        )
+
+    def acting_as(self, account: Account) -> None:
+        self.client.cookies.clear()
+        self.client.cookies.set(COOKIE_NAME, account.token)
+
+
+@pytest.fixture
+def accounts(client: TestClient, mailer: RecordingMailer) -> Accounts:
+    return Accounts(client, mailer)
+
+
+@pytest.fixture
+def joining(stored: Engine) -> Join:
+    """Put someone into a Workspace with a Role, directly.
+
+    A Workspace Invite is the product's only way in, and it is a slice of its
+    own; until it exists, a test that needs a second member writes the
+    Membership itself. Arrangement only — every claim is still made at the
+    HTTP seam.
+    """
+
+    def join(workspace_id: str, account: Account, role: str) -> None:
+        with stored.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO memberships (workspace_id, user_id, role, created_at)"
+                    " VALUES (:workspace, :user, :role, now())"
+                ),
+                {"workspace": workspace_id, "user": account.id, "role": role},
+            )
+
+    return join
 
 
 @pytest.fixture

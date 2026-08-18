@@ -96,7 +96,7 @@
           "auth"
         ],
         "summary": "Get Current User",
-        "description": "The signed-in User, and the Workspaces they are a member of.",
+        "description": "The signed-in User, and the Workspaces they are a member of.\n\nThe list is empty for someone signing in for the first time, which is the\nsignal the editor lands them on Workspace creation with.",
         "operationId": "getCurrentUser",
         "responses": {
           "200": {
@@ -105,6 +105,331 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Identity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces": {
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Create Workspace",
+        "description": "Create a Workspace. The caller is its Owner, with nobody's permission.",
+        "operationId": "createWorkspace",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceDetails"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}": {
+      "patch": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Rename Workspace",
+        "description": "Give the Workspace another name. Only an Owner may.",
+        "operationId": "renameWorkspace",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceDetails"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Delete Workspace",
+        "description": "Delete the Workspace and its contents. Only an Owner may, and it ends\nthe Workspace for every member of it at once.",
+        "operationId": "deleteWorkspace",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/members": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "List Workspace Members",
+        "description": "Everyone in the Workspace. Any member may see who they work with.",
+        "operationId": "listWorkspaceMembers",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberView"
+                  },
+                  "title": "Response Listworkspacemembers"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/members/{userId}": {
+      "patch": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Change Member Role",
+        "description": "Give one member a different Role. Only an Owner may.",
+        "operationId": "changeMemberRole",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Userid"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Remove Workspace Member",
+        "description": "Take somebody out of the Workspace. Only an Owner may.",
+        "operationId": "removeWorkspaceMember",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Userid"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/leave": {
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Leave Workspace",
+        "description": "Give up your own Membership. Every member may, the last Owner aside.",
+        "operationId": "leaveWorkspace",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -294,19 +619,30 @@
         ],
         "title": "Identity"
       },
+      "MemberView": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserView"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "role"
+        ],
+        "title": "MemberView",
+        "description": "A User in one Workspace, from the Workspace's side."
+      },
       "MembershipView": {
         "properties": {
           "workspace": {
             "$ref": "#/components/schemas/WorkspaceView"
           },
           "role": {
-            "type": "string",
-            "enum": [
-              "owner",
-              "editor",
-              "viewer"
-            ],
-            "title": "Role"
+            "$ref": "#/components/schemas/Role"
           }
         },
         "type": "object",
@@ -314,7 +650,30 @@
           "workspace",
           "role"
         ],
-        "title": "MembershipView"
+        "title": "MembershipView",
+        "description": "A Workspace one User is in, from that User's side."
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "viewer",
+          "editor",
+          "owner"
+        ],
+        "title": "Role",
+        "description": "What one Membership may do inside its Workspace.\n\nThe v1 set is closed, and the declaration order is the ladder: each Role\ncovers everything the ones above it in this list may do, which is what\nlets a route name the least Role that is enough for it."
+      },
+      "RoleChange": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "RoleChange"
       },
       "UserView": {
         "properties": {
@@ -374,6 +733,21 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WorkspaceDetails": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "WorkspaceDetails"
       },
       "WorkspaceView": {
         "properties": {

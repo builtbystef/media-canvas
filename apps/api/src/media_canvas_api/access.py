@@ -1,15 +1,17 @@
-"""Who may reach a route at all.
+"""Who may reach a route at all, and what they may do once they are in.
 
-The rule is default-deny: nothing is reachable without a session unless it is
-on the list below, and that list is closed by the deployment-and-access spec.
-Enforcement is middleware rather than a dependency because a dependency only
-covers the routes that declare it — a route added without a thought about
-access would be an open route, and here it is a closed one.
+Two questions, two mechanisms. Is the caller signed in at all is the middleware
+below: default-deny, because a dependency only covers the routes that declare
+it — a route added without a thought about access would be an open route, and
+here it is a closed one. May this caller do *this*, in *this* Workspace, is
+`requiring()`: one gate every Workspace-scoped route in the product declares
+instead of writing the Role check out again.
 """
 
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Path, Request, params
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse
@@ -17,6 +19,8 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from media_canvas_api.clock import Clock
 from media_canvas_api.mailer import Mailer
+from media_canvas_api.memberships import membership_in
+from media_canvas_api.models import Membership, Role
 from media_canvas_api.sessions import (
     COOKIE_NAME,
     SignedIn,
@@ -157,3 +161,37 @@ CurrentSession = Annotated[SignedIn, Depends(request_signed_in)]
 SendMail = Annotated[Mailer, Depends(request_mailer)]
 Now = Annotated[Clock, Depends(request_clock)]
 Configuration = Annotated[Settings, Depends(request_settings)]
+
+
+# The same answer for a Workspace that does not exist and for one the caller
+# is simply not in: a stranger learns nothing from asking either way.
+UNREACHABLE = "No such workspace."
+
+
+def requiring(role: Role) -> params.Depends:
+    """The gate a Workspace-scoped route declares, in place of a Role check.
+
+    It resolves the caller's Membership in the Workspace the path names, and
+    hands it to the route — so a route that has run at all has already been
+    checked, and cannot have been checked wrongly. `role` is the least Role
+    that is enough: an Owner passes an Editor's gate, an Editor a Viewer's.
+    """
+
+    async def resolve(
+        workspace_id: Annotated[UUID, Path(alias="workspaceId")],
+        database: Database,
+        signed_in: CurrentSession,
+    ) -> Membership:
+        membership = await membership_in(database, workspace_id, signed_in.user.id)
+        if membership is None:
+            raise HTTPException(404, UNREACHABLE)
+        if not membership.role.covers(role):
+            raise HTTPException(403, f"This action needs the {role} role.")
+        return membership
+
+    return Depends(resolve)
+
+
+Viewing = Annotated[Membership, requiring(Role.viewer)]
+Editing = Annotated[Membership, requiring(Role.editor)]
+Owning = Annotated[Membership, requiring(Role.owner)]

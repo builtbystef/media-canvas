@@ -85,14 +85,41 @@ export type Identity = {
 };
 
 /**
+ * MemberView
+ *
+ * A User in one Workspace, from the Workspace's side.
+ */
+export type MemberView = {
+    user: UserView;
+    role: Role;
+};
+
+/**
  * MembershipView
+ *
+ * A Workspace one User is in, from that User's side.
  */
 export type MembershipView = {
     workspace: WorkspaceView;
-    /**
-     * Role
-     */
-    role: 'owner' | 'editor' | 'viewer';
+    role: Role;
+};
+
+/**
+ * Role
+ *
+ * What one Membership may do inside its Workspace.
+ *
+ * The v1 set is closed, and the declaration order is the ladder: each Role
+ * covers everything the ones above it in this list may do, which is what
+ * lets a route name the least Role that is enough for it.
+ */
+export type Role = 'viewer' | 'editor' | 'owner';
+
+/**
+ * RoleChange
+ */
+export type RoleChange = {
+    role: Role;
 };
 
 /**
@@ -135,6 +162,16 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * WorkspaceDetails
+ */
+export type WorkspaceDetails = {
+    /**
+     * Name
+     */
+    name: string;
 };
 
 /**
@@ -232,6 +269,221 @@ export type GetCurrentUserResponses = {
 };
 
 export type GetCurrentUserResponse = GetCurrentUserResponses[keyof GetCurrentUserResponses];
+
+export type CreateWorkspaceData = {
+    body: WorkspaceDetails;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces';
+};
+
+export type CreateWorkspaceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateWorkspaceError = CreateWorkspaceErrors[keyof CreateWorkspaceErrors];
+
+export type CreateWorkspaceResponses = {
+    /**
+     * Successful Response
+     */
+    201: WorkspaceView;
+};
+
+export type CreateWorkspaceResponse = CreateWorkspaceResponses[keyof CreateWorkspaceResponses];
+
+export type DeleteWorkspaceData = {
+    body?: never;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}';
+};
+
+export type DeleteWorkspaceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteWorkspaceError = DeleteWorkspaceErrors[keyof DeleteWorkspaceErrors];
+
+export type DeleteWorkspaceResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteWorkspaceResponse = DeleteWorkspaceResponses[keyof DeleteWorkspaceResponses];
+
+export type RenameWorkspaceData = {
+    body: WorkspaceDetails;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}';
+};
+
+export type RenameWorkspaceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RenameWorkspaceError = RenameWorkspaceErrors[keyof RenameWorkspaceErrors];
+
+export type RenameWorkspaceResponses = {
+    /**
+     * Successful Response
+     */
+    200: WorkspaceView;
+};
+
+export type RenameWorkspaceResponse = RenameWorkspaceResponses[keyof RenameWorkspaceResponses];
+
+export type ListWorkspaceMembersData = {
+    body?: never;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/members';
+};
+
+export type ListWorkspaceMembersErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListWorkspaceMembersError = ListWorkspaceMembersErrors[keyof ListWorkspaceMembersErrors];
+
+export type ListWorkspaceMembersResponses = {
+    /**
+     * Response Listworkspacemembers
+     *
+     * Successful Response
+     */
+    200: Array<MemberView>;
+};
+
+export type ListWorkspaceMembersResponse = ListWorkspaceMembersResponses[keyof ListWorkspaceMembersResponses];
+
+export type RemoveWorkspaceMemberData = {
+    body?: never;
+    path: {
+        /**
+         * Userid
+         */
+        userId: string;
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/members/{userId}';
+};
+
+export type RemoveWorkspaceMemberErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RemoveWorkspaceMemberError = RemoveWorkspaceMemberErrors[keyof RemoveWorkspaceMemberErrors];
+
+export type RemoveWorkspaceMemberResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RemoveWorkspaceMemberResponse = RemoveWorkspaceMemberResponses[keyof RemoveWorkspaceMemberResponses];
+
+export type ChangeMemberRoleData = {
+    body: RoleChange;
+    path: {
+        /**
+         * Userid
+         */
+        userId: string;
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/members/{userId}';
+};
+
+export type ChangeMemberRoleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ChangeMemberRoleError = ChangeMemberRoleErrors[keyof ChangeMemberRoleErrors];
+
+export type ChangeMemberRoleResponses = {
+    /**
+     * Successful Response
+     */
+    200: MemberView;
+};
+
+export type ChangeMemberRoleResponse = ChangeMemberRoleResponses[keyof ChangeMemberRoleResponses];
+
+export type LeaveWorkspaceData = {
+    body?: never;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/leave';
+};
+
+export type LeaveWorkspaceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LeaveWorkspaceError = LeaveWorkspaceErrors[keyof LeaveWorkspaceErrors];
+
+export type LeaveWorkspaceResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type LeaveWorkspaceResponse = LeaveWorkspaceResponses[keyof LeaveWorkspaceResponses];
 
 export type GetHealthData = {
     body?: never;

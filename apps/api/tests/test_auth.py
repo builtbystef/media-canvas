@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from conftest import FakeClock
+from conftest import Accounts, FakeClock
 from fastapi.testclient import TestClient
 from media_canvas_api.mailer import RecordingMailer
 from media_canvas_api.otp import BURST_WINDOW
@@ -143,20 +143,20 @@ def test_asking_for_a_code_answers_the_same_way_for_a_known_and_an_unknown_addre
 
 
 def test_one_address_is_one_user_however_it_was_typed(
-    client: TestClient, mailer: RecordingMailer, clock: FakeClock
+    accounts: Accounts, clock: FakeClock
 ) -> None:
-    shouted = sign_in(client, mailer, "Alice@Example.COM")
+    shouted = accounts.sign_in("Alice@Example.COM")
     clock.advance(BURST_WINDOW + timedelta(seconds=1))
-    quiet = sign_in(client, mailer, "alice@example.com")
+    quiet = accounts.sign_in("alice@example.com")
 
-    assert shouted == quiet
-    assert quiet["email"] == "alice@example.com"
+    assert shouted.id == quiet.id
+    assert quiet.email == "alice@example.com"
 
 
 def test_me_answers_with_the_signed_in_user_and_no_memberships_yet(
-    client: TestClient, mailer: RecordingMailer
+    client: TestClient, accounts: Accounts
 ) -> None:
-    sign_in(client, mailer, "alice@example.com")
+    accounts.sign_in("alice@example.com")
 
     response = client.get("/api/v1/me")
 
@@ -166,27 +166,15 @@ def test_me_answers_with_the_signed_in_user_and_no_memberships_yet(
 
 
 def test_logging_out_leaves_the_cookie_meaningless(
-    client: TestClient, mailer: RecordingMailer
+    client: TestClient, accounts: Accounts
 ) -> None:
-    sign_in(client, mailer, "alice@example.com")
+    accounts.sign_in("alice@example.com")
     token = client.cookies["media_canvas_session"]
 
     client.post("/api/v1/auth/logout")
     client.cookies.set("media_canvas_session", token)
 
     assert client.get("/api/v1/me").status_code == 401
-
-
-def sign_in(client: TestClient, mailer: RecordingMailer, email: str) -> dict[str, str]:
-    """Take an address all the way to a session, and answer with its User."""
-    client.post("/api/v1/auth/otp/request", json={"email": email})
-    verified = client.post(
-        "/api/v1/auth/otp/verify",
-        json={"email": email, "code": mailer.otps[-1].code},
-    )
-    assert verified.status_code == 204, verified.text
-    user: dict[str, str] = client.get("/api/v1/me").json()["user"]
-    return user
 
 
 def test_the_session_cookie_is_opaque_http_only_and_same_site_lax(
@@ -206,9 +194,9 @@ def test_the_session_cookie_is_opaque_http_only_and_same_site_lax(
 
 
 def test_using_a_session_rolls_it_thirty_days_on_but_writes_once_a_day(
-    client: TestClient, mailer: RecordingMailer, clock: FakeClock
+    client: TestClient, accounts: Accounts, clock: FakeClock
 ) -> None:
-    sign_in(client, mailer, "alice@example.com")
+    accounts.sign_in("alice@example.com")
 
     same_day = client.get("/api/v1/me")
     clock.advance(timedelta(days=29))
@@ -222,9 +210,9 @@ def test_using_a_session_rolls_it_thirty_days_on_but_writes_once_a_day(
 
 
 def test_a_session_left_alone_for_thirty_days_stops_working(
-    client: TestClient, mailer: RecordingMailer, clock: FakeClock
+    client: TestClient, accounts: Accounts, clock: FakeClock
 ) -> None:
-    sign_in(client, mailer, "alice@example.com")
+    accounts.sign_in("alice@example.com")
 
     clock.advance(timedelta(days=30, seconds=1))
 

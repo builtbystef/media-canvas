@@ -5,12 +5,30 @@ everything with a deadline reads the same `Clock` the tests control.
 """
 
 from datetime import datetime
+from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from media_canvas_api.db import Base
+
+
+class Role(StrEnum):
+    """What one Membership may do inside its Workspace.
+
+    The v1 set is closed, and the declaration order is the ladder: each Role
+    covers everything the ones above it in this list may do, which is what
+    lets a route name the least Role that is enough for it.
+    """
+
+    viewer = "viewer"
+    editor = "editor"
+    owner = "owner"
+
+    def covers(self, needed: Role) -> bool:
+        ladder = list(Role)
+        return ladder.index(self) >= ladder.index(needed)
 
 
 class User(Base):
@@ -67,3 +85,37 @@ class OtpCode(Base):
     consumed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), default=None
     )
+
+
+class Workspace(Base):
+    """The tenant: the container every owned record belongs to.
+
+    It has no owner column — ownership is a Role on a Membership, so a
+    Workspace can have more than one Owner and never fewer than one.
+    """
+
+    __tablename__ = "workspaces"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Membership(Base):
+    """One User's place in one Workspace, and the Role they hold there.
+
+    The pair is the key: a User is in a Workspace once or not at all. Both
+    sides cascade, so deleting a Workspace takes its Memberships with it in
+    the same statement.
+    """
+
+    __tablename__ = "memberships"
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    role: Mapped[Role] = mapped_column(Enum(Role, name="role"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -1,8 +1,5 @@
 """The routes that sign someone in, sign them out, and say who they are."""
 
-from typing import Literal
-from uuid import UUID
-
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
 
@@ -13,6 +10,7 @@ from media_canvas_api.access import (
     Now,
     SendMail,
 )
+from media_canvas_api.memberships import workspaces_of
 from media_canvas_api.otp import (
     CodeUnusable,
     TooManyRequests,
@@ -26,6 +24,7 @@ from media_canvas_api.sessions import (
     set_session_cookie,
     start_session,
 )
+from media_canvas_api.views import MembershipView, UserView, WorkspaceView
 
 router = APIRouter(prefix="/api/v1", tags=["auth"])
 
@@ -41,21 +40,6 @@ class CodeRequest(BaseModel):
 class CodeVerification(BaseModel):
     email: str = EMAIL
     code: str = Field(min_length=6, max_length=6)
-
-
-class UserView(BaseModel):
-    id: UUID
-    email: str
-
-
-class WorkspaceView(BaseModel):
-    id: UUID
-    name: str
-
-
-class MembershipView(BaseModel):
-    workspace: WorkspaceView
-    role: Literal["owner", "editor", "viewer"]
 
 
 class Identity(BaseModel):
@@ -116,11 +100,19 @@ async def sign_out(
 
 
 @router.get("/me", operation_id="getCurrentUser")
-async def get_current_user(signed_in: CurrentSession) -> Identity:
-    """The signed-in User, and the Workspaces they are a member of."""
+async def get_current_user(signed_in: CurrentSession, database: Database) -> Identity:
+    """The signed-in User, and the Workspaces they are a member of.
+
+    The list is empty for someone signing in for the first time, which is the
+    signal the editor lands them on Workspace creation with.
+    """
     return Identity(
         user=UserView(id=signed_in.user.id, email=signed_in.user.email),
-        # Empty until Workspaces exist: a User with no Membership is exactly
-        # what someone signing in for the first time is.
-        memberships=[],
+        memberships=[
+            MembershipView(
+                workspace=WorkspaceView(id=workspace.id, name=workspace.name),
+                role=role,
+            )
+            for workspace, role in await workspaces_of(database, signed_in.user)
+        ],
     )

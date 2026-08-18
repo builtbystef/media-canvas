@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetCurrentUserData, GetCurrentUserResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SignOutData, SignOutResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
+import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SignOutData, SignOutResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -62,8 +62,82 @@ export const signOut = <ThrowOnError extends boolean = false>(options?: Options<
  * Get Current User
  *
  * The signed-in User, and the Workspaces they are a member of.
+ *
+ * The list is empty for someone signing in for the first time, which is the
+ * signal the editor lands them on Workspace creation with.
  */
 export const getCurrentUser = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentUserData, ThrowOnError>): RequestResult<GetCurrentUserResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetCurrentUserResponses, unknown, ThrowOnError>({ url: '/api/v1/me', ...options });
+
+/**
+ * Create Workspace
+ *
+ * Create a Workspace. The caller is its Owner, with nobody's permission.
+ */
+export const createWorkspace = <ThrowOnError extends boolean = false>(options: Options<CreateWorkspaceData, ThrowOnError>): RequestResult<CreateWorkspaceResponses, CreateWorkspaceErrors, ThrowOnError> => (options.client ?? client).post<CreateWorkspaceResponses, CreateWorkspaceErrors, ThrowOnError>({
+    url: '/api/v1/workspaces',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Workspace
+ *
+ * Delete the Workspace and its contents. Only an Owner may, and it ends
+ * the Workspace for every member of it at once.
+ */
+export const deleteWorkspace = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceData, ThrowOnError>): RequestResult<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}', ...options });
+
+/**
+ * Rename Workspace
+ *
+ * Give the Workspace another name. Only an Owner may.
+ */
+export const renameWorkspace = <ThrowOnError extends boolean = false>(options: Options<RenameWorkspaceData, ThrowOnError>): RequestResult<RenameWorkspaceResponses, RenameWorkspaceErrors, ThrowOnError> => (options.client ?? client).patch<RenameWorkspaceResponses, RenameWorkspaceErrors, ThrowOnError>({
+    url: '/api/v1/workspaces/{workspaceId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Workspace Members
+ *
+ * Everyone in the Workspace. Any member may see who they work with.
+ */
+export const listWorkspaceMembers = <ThrowOnError extends boolean = false>(options: Options<ListWorkspaceMembersData, ThrowOnError>): RequestResult<ListWorkspaceMembersResponses, ListWorkspaceMembersErrors, ThrowOnError> => (options.client ?? client).get<ListWorkspaceMembersResponses, ListWorkspaceMembersErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/members', ...options });
+
+/**
+ * Remove Workspace Member
+ *
+ * Take somebody out of the Workspace. Only an Owner may.
+ */
+export const removeWorkspaceMember = <ThrowOnError extends boolean = false>(options: Options<RemoveWorkspaceMemberData, ThrowOnError>): RequestResult<RemoveWorkspaceMemberResponses, RemoveWorkspaceMemberErrors, ThrowOnError> => (options.client ?? client).delete<RemoveWorkspaceMemberResponses, RemoveWorkspaceMemberErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/members/{userId}', ...options });
+
+/**
+ * Change Member Role
+ *
+ * Give one member a different Role. Only an Owner may.
+ */
+export const changeMemberRole = <ThrowOnError extends boolean = false>(options: Options<ChangeMemberRoleData, ThrowOnError>): RequestResult<ChangeMemberRoleResponses, ChangeMemberRoleErrors, ThrowOnError> => (options.client ?? client).patch<ChangeMemberRoleResponses, ChangeMemberRoleErrors, ThrowOnError>({
+    url: '/api/v1/workspaces/{workspaceId}/members/{userId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Leave Workspace
+ *
+ * Give up your own Membership. Every member may, the last Owner aside.
+ */
+export const leaveWorkspace = <ThrowOnError extends boolean = false>(options: Options<LeaveWorkspaceData, ThrowOnError>): RequestResult<LeaveWorkspaceResponses, LeaveWorkspaceErrors, ThrowOnError> => (options.client ?? client).post<LeaveWorkspaceResponses, LeaveWorkspaceErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/leave', ...options });
 
 /**
  * Get Health

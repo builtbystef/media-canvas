@@ -7,11 +7,10 @@ query, because there is no response that could carry it.
 
 from datetime import timedelta
 
-from conftest import FakeClock
+from conftest import Accounts, FakeClock
 from fastapi.testclient import TestClient
 from media_canvas_api.mailer import RecordingMailer
 from sqlalchemy import Engine, text
-from test_auth import sign_in
 
 
 def test_neither_a_code_nor_a_session_token_is_stored_in_the_clear(
@@ -40,9 +39,9 @@ def test_a_codes_row_goes_once_it_can_no_longer_count_for_anything(
 
 
 def test_an_expired_session_row_goes_when_its_cookie_is_next_presented(
-    client: TestClient, mailer: RecordingMailer, clock: FakeClock, stored: Engine
+    client: TestClient, accounts: Accounts, clock: FakeClock, stored: Engine
 ) -> None:
-    sign_in(client, mailer, "alice@example.com")
+    accounts.sign_in("alice@example.com")
     clock.advance(timedelta(days=30, seconds=1))
 
     client.get("/api/v1/me")
