@@ -9,7 +9,7 @@ depends_on:
     - ejy8hn
     - u2ovlu
 created: 2026-08-15T04:37:51Z
-updated: 2026-08-17T04:00:56Z
+updated: 2026-08-18T22:49:56Z
 ---
 
 ## Problem Statement
@@ -186,3 +186,22 @@ Deployment carries no test seam: `docs/DEPLOYMENT.md` is the verification proced
 **claude** — 2026-08-17T04:00:56Z
 
 Amendment 2026-08-16: the invites surface gains one route - GET /api/v1/invites/{token}, unauthenticated, returning the Workspace name, offered Role, and invited email for a pending invite, refusing exactly as accept does (404 used/revoked/unknown, 410 expired). Accepting signs the caller in as the invite's User, replacing any existing session. Contracts and consumers: k7wegl and 50gsoy. The session-exemption list is therefore: OTP request, OTP verify, health, invite preview, invite accept.
+
+**claude** — 2026-08-18T22:49:56Z
+
+Amendment 2026-08-18 (kjgubg): the web app's test seam, decided.
+
+Third seam — **the web app's pure modules, at the vitest run this repo already has.** No DOM, no component harness, no new dependency. `apps/web` gains `vitest` as a devDependency, the same catalog entry `packages/core` and `packages/fonts` already declare; nothing else is added.
+
+The rule this seam carries, and which binds every later web slice: **behaviour worth testing is extracted into a module and tested there, rather than reached through a rendered tree.** A page component stays a gate and a hand-off — it fetches, it decides with a pure function, it hands the result on. The editor's canvas work follows the same rule into `packages/core` under ADR-0003: selection, transforms, undo, and the compile step are unit-testable logic, and belong where the logic is, not behind a canvas.
+
+Rejected, with reasons, so the question stays closed:
+
+- **Testing Library + jsdom.** Three devDependencies to assert markup that a person sees the moment they open the page. Every rule with teeth — attempt limits, expiry, rate limits, last-Owner, RBAC — is enforced by the api and covered at seam 1; the web app's own share is a status-to-sentence table, three route constants, one pure decision, and `useState`. The affordance criteria (a Viewer is not offered delete, an Editor's panel is inert) are UX, not access control: the api refuses those calls regardless, and does so under test.
+- **A browser-driven seam, now.** ADR-0002's Playwright is a pinned render dependency inside the worker's container; borrowing it here would couple the web app's test run to the render pin, and would need a running stack that no check currently assumes.
+
+**Deliberately not under test, and verified by hand instead:** the server-side redirect gates, the whole-document navigations after a cookie changes, and the back/forward-cache recheck in `app/recheck-on-restore.tsx`. jsdom would not have covered any of them either — the one real web defect this project has hit, jmpc8g's back-after-sign-out, is in exactly that class. They are the case for a browser smoke suite, not for a component harness.
+
+**The browser suite, when.** After ex95f4 lands the `app` compose profile, a real browser against a real stack costs one command. Roughly five paths, not a pyramid: signed-out redirect from an app page, sign-in through to landing, sign-out then back, a signed-in visit to /sign-in, invite link to product. Published as its own issue.
+
+**Revisit the decision** when editor logic appears that genuinely cannot be extracted from layout or pointer behaviour. Adding jsdom then is three devDependencies and nothing to migrate; unwinding an established component suite is not that cheap, which is why it is not being added first.

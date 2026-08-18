@@ -1,11 +1,12 @@
 ---
 id: kjgubg
 title: Decide the web app's test seam
-state: todo
+state: done
+assignee: claude
 priority: high
 parent: 88v6vg
 created: 2026-08-18T10:37:31Z
-updated: 2026-08-18T10:37:31Z
+updated: 2026-08-18T22:50:33Z
 ---
 
 ## What to build
@@ -26,3 +27,25 @@ The decision binds every later web slice: the settings area (hddsdp), the invite
 - [ ] Any dependency the choice adds is named with its reason, as `docs/CODING_STANDARDS.md` requires.
 - [ ] The seam is proven on jmpc8g's pages rather than described: the sign-in flow, the failure states, and the routing decisions get their tests, so the slices that follow have a worked example to copy.
 - [ ] `pnpm test` runs them.
+
+## Notes
+
+**claude** — 2026-08-18T22:50:33Z
+
+Done. The web app's seam is its pure modules, at the vitest run this repo already has — no DOM, no component harness.
+
+**The decision, and where it lives.** Amended into 88v6vg's Testing Decisions as a third seam, with the two rejected options and their reasons, so the question stays closed. The rule that travels with it: behaviour worth testing is extracted into a module and tested there, rather than reached through a rendered tree — a page stays a gate and a hand-off, and the editor's canvas logic goes to packages/core under ADR-0003.
+
+**Why not jsdom, in one line.** Every rule with teeth is enforced by the api and covered at seam 1; what is left in apps/web is a status-to-sentence table, three route constants, one pure decision, and useState. And the one real web defect this project has hit — jmpc8g's back-after-sign-out — is invisible to jsdom too, so a component harness would have bought the appearance of coverage over exactly the paths that broke.
+
+**Dependencies.** None new to the project. `apps/web` declares `vitest: catalog:`, the same entry packages/core and packages/fonts already carry; the typecheck required it once test files existed in that package.
+
+**What landed.** `apps/web/lib/failures.test.ts` (6 tests) and `apps/web/lib/identity.test.ts` (2). They cover jmpc8g's classifiable behaviour: the three sign-in refusals stay distinct and each names its next move, a spent code is the only one worth asking again for, an unrecognised or absent status falls back to unreachable on all three calls, a refusal one call knows is not borrowed by another, and a signed-in person goes to the product or to Workspace creation by their memberships. The destination is asserted as the literal page paths, so rewiring a route constant fails here rather than in a browser.
+
+No production code changed. `lib/identity.ts` imports cleanly in the node environment despite `next/headers`, so `destinationFor` needed no extraction.
+
+**Mutation-checked rather than assumed.** Flipping `memberships.length > 0` to `>= 0`, and pointing the 410 message at the 401 wording, each turned a test red; both were reverted.
+
+**Deliberately not covered, and said so in the amendment:** the server-side redirect gates, the whole-document navigations after a cookie change, and the back/forward-cache recheck. Those are now **5wbz53** — a browser smoke suite of about five paths, blocked on ex95f4's `app` compose profile, with the recheck's silent failure mode named as its reason.
+
+**Checks.** `pnpm check` green. `pnpm test` green: 71 TS tests (was 63) and 64 api tests. No route changed, so openapi.json and the generated client are untouched.
