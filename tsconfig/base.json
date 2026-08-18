@@ -13,6 +13,12 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
+    // Workspace packages export TypeScript source, and Node runs it by
+    // stripping types — so a relative import inside a package carries its
+    // `.ts` extension, exactly as Node's ESM resolver requires. Every project
+    // here sets noEmit, which is what this option needs.
+    "allowImportingTsExtensions": true,
+
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
