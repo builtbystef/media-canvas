@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 
-import type { DesignDocument, Element, VarRef } from "./document.ts";
+import type { DesignDocument, Element, VarRef, VariableType } from "./document.ts";
 
 /** One problem with a document or a value, naming what it is about. */
 export type ValidationError = {
@@ -14,12 +14,18 @@ export type ValidationError = {
   message: string;
 };
 
-const COLOR_PATTERN = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+/** The one color syntax v1 accepts, wherever a color appears: `#RRGGBB` or
+ *  `#RRGGBBAA`. Variable values are held to the same pattern. */
+export const COLOR_PATTERN = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
-/** `{{name}}` interpolation tokens, in the order they appear. v1 has no escape
- *  syntax for a literal `{{`, so every match is a token. */
+/** The interpolation token syntax, `{{name}}`. v1 has no escape syntax for a
+ *  literal `{{`, so every match is a token — the one place that is written
+ *  down, since validation finds tokens and resolution substitutes them. */
+export const INTERPOLATION_TOKEN = /\{\{([^{}]*)\}\}/g;
+
+/** The `{{name}}` tokens a string holds, in the order they appear. */
 export function interpolationTokens(content: string): string[] {
-  return [...content.matchAll(/\{\{([^{}]*)\}\}/g)].map((match) => match[1] ?? "");
+  return [...content.matchAll(INTERPOLATION_TOKEN)].map((match) => match[1] ?? "");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -409,29 +415,83 @@ function duplicateVariableErrors(doc: DesignDocument): ValidationError[] {
   return errors;
 }
 
-type Reference = { name: string; site: string; elementId?: string };
+/** One place a document names a Variable, and the Variable types that place
+ *  can take: v1 binds a Variable to text content tokens, image source, solid
+ *  colors, and visibility, and each of those takes one kind of Variable. */
+type Reference = {
+  name: string;
+  site: string;
+  elementId?: string;
+  accepts: readonly VariableType[];
+};
+
+const SOLID_COLOR: readonly VariableType[] = ["color"];
+/** A token interpolates into a string, which text and numbers are spelled as
+ *  and nothing else is (the Out of Scope list: no formatting, no localization). */
+const TOKEN: readonly VariableType[] = ["text", "number"];
 
 function references(doc: DesignDocument): Reference[] {
   const found: Reference[] = [];
-  const add = (value: unknown, site: string, elementId?: string): void => {
+  const add = (
+    value: unknown,
+    site: string,
+    accepts: readonly VariableType[],
+    elementId?: string,
+  ): void => {
     if (!isVarRef(value)) return;
-    found.push({ name: value.$var, site, ...(elementId === undefined ? {} : { elementId }) });
+    found.push({
+      name: value.$var,
+      site,
+      accepts,
+      ...(elementId === undefined ? {} : { elementId }),
+    });
   };
-  add(doc.canvas.background, "canvas background");
+  add(doc.canvas.background, "canvas background", SOLID_COLOR);
   walkElements(doc.elements, (element) => {
-    add(element.visible, "visible", element.id);
-    if ("fill" in element) add(element.fill, "fill", element.id);
+    add(element.visible, "visible", ["boolean"], element.id);
+    if ("fill" in element) add(element.fill, "fill", SOLID_COLOR, element.id);
     if ("border" in element && element.border)
-      add(element.border.color, "border color", element.id);
-    if (element.type === "image") add(element.src, "image source", element.id);
+      add(element.border.color, "border color", SOLID_COLOR, element.id);
+    if (element.type === "image") add(element.src, "image source", ["image"], element.id);
     if (element.type === "text") {
-      add(element.color, "text color", element.id);
+      add(element.color, "text color", SOLID_COLOR, element.id);
       for (const token of interpolationTokens(element.content)) {
-        found.push({ name: token, site: `content token {{${token}}}`, elementId: element.id });
+        found.push({
+          name: token,
+          site: `content token {{${token}}}`,
+          accepts: TOKEN,
+          elementId: element.id,
+        });
       }
     }
   });
   return found;
+}
+
+/** "a text", "a color or a number" — the types a site names in its error. */
+function listTypes(types: readonly VariableType[]): string {
+  const named = types.map((type) => `a ${type}`);
+  return named.length < 2
+    ? (named[0] ?? "no")
+    : `${named.slice(0, -1).join(", ")} or ${String(named.at(-1))}`;
+}
+
+/** A site takes the kind of Variable it can paint. Without this, a row of
+ *  values could pass validation and still reach the compiler with a number
+ *  where a color belongs. */
+function referenceTypeErrors(doc: DesignDocument): ValidationError[] {
+  const declared = new Map((doc.variables ?? []).map((decl) => [decl.name, decl.type]));
+  const errors: ValidationError[] = [];
+  for (const reference of references(doc)) {
+    const type = declared.get(reference.name);
+    if (type === undefined || reference.accepts.includes(type)) continue;
+    errors.push({
+      variable: reference.name,
+      ...(reference.elementId === undefined ? {} : { elementId: reference.elementId }),
+      message: `${reference.site} names the Variable "${reference.name}", which is declared ${type} — that site takes ${listTypes(reference.accepts)} Variable`,
+    });
+  }
+  return errors;
 }
 
 function unknownVariableErrors(doc: DesignDocument): ValidationError[] {
@@ -466,5 +526,6 @@ export function validateDocument(doc: unknown): ValidationError[] {
     ...duplicateIdErrors(document),
     ...duplicateVariableErrors(document),
     ...unknownVariableErrors(document),
+    ...referenceTypeErrors(document),
   ];
 }

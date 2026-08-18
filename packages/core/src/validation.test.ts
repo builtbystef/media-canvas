@@ -346,3 +346,43 @@ test("a Variable's declared default matches its declared type", () => {
     expect(errors[0]?.variable).toBe(declaration.name);
   }
 });
+
+test("a Variable's declared type must suit every site that references it", () => {
+  const variables = [
+    { name: "brand", type: "color" },
+    { name: "shown", type: "boolean" },
+    { name: "photo", type: "image" },
+    { name: "headline", type: "text" },
+    { name: "price", type: "number" },
+  ];
+
+  expect(
+    validateDocument(
+      documentWith(
+        [
+          rect({ fill: { $var: "brand" }, visible: { $var: "shown" } }),
+          text({ content: "{{headline}}: {{price}}", color: { $var: "brand" } }),
+        ],
+        variables,
+      ),
+    ),
+  ).toEqual([]);
+
+  const mismatched: Record<string, unknown>[] = [
+    { fill: { $var: "price" } },
+    { visible: { $var: "headline" } },
+    { border: { color: { $var: "photo" }, width: 1 } },
+  ];
+  for (const overrides of mismatched) {
+    const errors = validateDocument(documentWith([rect({ id: "box", ...overrides })], variables));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.elementId).toBe("box");
+  }
+
+  const token = validateDocument(
+    documentWith([text({ id: "headline", content: "{{brand}}" })], variables),
+  );
+  expect(token).toHaveLength(1);
+  expect(token[0]?.variable).toBe("brand");
+});

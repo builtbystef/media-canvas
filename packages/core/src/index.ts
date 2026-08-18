@@ -7,3 +7,5 @@ export { compile } from "./compile.ts";
 export * from "./document.ts";
 export { interpolationTokens, validateDocument } from "./validation.ts";
 export type { ValidationError } from "./validation.ts";
+export { resolve, validate } from "./values.ts";
+export type { ResolveMode } from "./values.ts";
