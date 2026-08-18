@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from media_canvas_api import auth, workspaces
+from media_canvas_api import auth, documents, workspaces
 from media_canvas_api.access import AccessMiddleware, DevelopmentCors
 from media_canvas_api.clock import utc_now
 from media_canvas_api.db import create_database_engine, create_session_factory
@@ -64,6 +64,7 @@ async def migrate(engine: AsyncEngine) -> None:
 app = FastAPI(title="media-canvas-api", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(workspaces.router)
+app.include_router(documents.router)
 # Outermost last: a browser's preflight carries no cookie, so cross-origin
 # handling has to answer it before access refuses it.
 app.add_middleware(AccessMiddleware)

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SignOutData, SignOutResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
+import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, SignOutData, SignOutResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -138,6 +138,75 @@ export const changeMemberRole = <ThrowOnError extends boolean = false>(options: 
  * Give up your own Membership. Every member may, the last Owner aside.
  */
 export const leaveWorkspace = <ThrowOnError extends boolean = false>(options: Options<LeaveWorkspaceData, ThrowOnError>): RequestResult<LeaveWorkspaceResponses, LeaveWorkspaceErrors, ThrowOnError> => (options.client ?? client).post<LeaveWorkspaceResponses, LeaveWorkspaceErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/leave', ...options });
+
+/**
+ * List Documents
+ *
+ * This Workspace's documents, newest change first, without their bodies.
+ *
+ * The whole list, every time: a Workspace holds the documents one team
+ * authors by hand, which is a number a person scrolls.
+ */
+export const listDocuments = <ThrowOnError extends boolean = false>(options: Options<ListDocumentsData, ThrowOnError>): RequestResult<ListDocumentsResponses, ListDocumentsErrors, ThrowOnError> => (options.client ?? client).get<ListDocumentsResponses, ListDocumentsErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/documents', ...options });
+
+/**
+ * Create Document
+ *
+ * Create a design in this Workspace, at revision one.
+ */
+export const createDocument = <ThrowOnError extends boolean = false>(options: Options<CreateDocumentData, ThrowOnError>): RequestResult<CreateDocumentResponses, CreateDocumentErrors, ThrowOnError> => (options.client ?? client).post<CreateDocumentResponses, CreateDocumentErrors, ThrowOnError>({
+    url: '/api/v1/workspaces/{workspaceId}/documents',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Document
+ *
+ * Delete a document.
+ *
+ * A template promoted from it stands on its own — it holds a copy, not a
+ * reference — and loses only the lineage back to what is gone.
+ */
+export const deleteDocument = <ThrowOnError extends boolean = false>(options: Options<DeleteDocumentData, ThrowOnError>): RequestResult<DeleteDocumentResponses, DeleteDocumentErrors, ThrowOnError> => (options.client ?? client).delete<DeleteDocumentResponses, DeleteDocumentErrors, ThrowOnError>({ url: '/api/v1/documents/{documentId}', ...options });
+
+/**
+ * Get Document
+ *
+ * One document, whole. Any member of its Workspace may read it.
+ */
+export const getDocument = <ThrowOnError extends boolean = false>(options: Options<GetDocumentData, ThrowOnError>): RequestResult<GetDocumentResponses, GetDocumentErrors, ThrowOnError> => (options.client ?? client).get<GetDocumentResponses, GetDocumentErrors, ThrowOnError>({ url: '/api/v1/documents/{documentId}', ...options });
+
+/**
+ * Save Document
+ *
+ * Store a new version of a document against the Revision it was loaded at.
+ *
+ * The Revision is checked by the write itself rather than before it, so two
+ * saves that arrive together cannot both find the revision they expect.
+ */
+export const saveDocument = <ThrowOnError extends boolean = false>(options: Options<SaveDocumentData, ThrowOnError>): RequestResult<SaveDocumentResponses, SaveDocumentErrors, ThrowOnError> => (options.client ?? client).put<SaveDocumentResponses, SaveDocumentErrors, ThrowOnError>({
+    url: '/api/v1/documents/{documentId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Promote Document
+ *
+ * Copy a design into a new template, and answer with the copy.
+ *
+ * A copy, not a reference: from this moment the template and the design it
+ * came from change without each other, which is the whole point of
+ * promoting one.
+ */
+export const promoteDocument = <ThrowOnError extends boolean = false>(options: Options<PromoteDocumentData, ThrowOnError>): RequestResult<PromoteDocumentResponses, PromoteDocumentErrors, ThrowOnError> => (options.client ?? client).post<PromoteDocumentResponses, PromoteDocumentErrors, ThrowOnError>({ url: '/api/v1/documents/{documentId}/promote', ...options });
 
 /**
  * Get Health

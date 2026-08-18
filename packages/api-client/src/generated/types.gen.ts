@@ -43,6 +43,97 @@ export type DatabaseHealth = {
 };
 
 /**
+ * DocumentKind
+ *
+ * Which of the two things a stored document is.
+ *
+ * One table holds both, so opening one is a single code path; this column is
+ * the only thing that tells them apart. A design becomes a template by being
+ * copied into one, never by changing this value.
+ */
+export type DocumentKind = 'design' | 'template';
+
+/**
+ * DocumentSummary
+ *
+ * A stored document without the document — what one list row carries.
+ */
+export type DocumentSummary = {
+    /**
+     * Id
+     */
+    id: string;
+    kind: DocumentKind;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Schemaversion
+     */
+    schemaVersion: number;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Promotedfromid
+     */
+    promotedFromId: string | null;
+    /**
+     * Createdat
+     */
+    createdAt: string;
+    /**
+     * Updatedat
+     */
+    updatedAt: string;
+};
+
+/**
+ * DocumentView
+ *
+ * A stored document, whole.
+ */
+export type DocumentView = {
+    /**
+     * Id
+     */
+    id: string;
+    kind: DocumentKind;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Schemaversion
+     */
+    schemaVersion: number;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Promotedfromid
+     */
+    promotedFromId: string | null;
+    /**
+     * Createdat
+     */
+    createdAt: string;
+    /**
+     * Updatedat
+     */
+    updatedAt: string;
+    /**
+     * Document
+     */
+    document: {
+        [key: string]: unknown;
+    };
+};
+
+/**
  * Greeting
  */
 export type Greeting = {
@@ -105,6 +196,28 @@ export type MembershipView = {
 };
 
 /**
+ * NewDocument
+ *
+ * What creating takes. Only a design: promotion is the door to a template.
+ */
+export type NewDocument = {
+    /**
+     * Kind
+     */
+    kind: 'design';
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Document
+     */
+    document: {
+        [key: string]: unknown;
+    };
+};
+
+/**
  * Role
  *
  * What one Membership may do inside its Workspace.
@@ -120,6 +233,44 @@ export type Role = 'viewer' | 'editor' | 'owner';
  */
 export type RoleChange = {
     role: Role;
+};
+
+/**
+ * Save
+ *
+ * What saving takes, including the Revision the caller loaded.
+ */
+export type Save = {
+    /**
+     * Document
+     */
+    document: {
+        [key: string]: unknown;
+    };
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Name
+     */
+    name?: string | null;
+};
+
+/**
+ * Saved
+ *
+ * What a save answers with: the revision it produced, and when.
+ */
+export type Saved = {
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Updatedat
+     */
+    updatedAt: string;
 };
 
 /**
@@ -484,6 +635,193 @@ export type LeaveWorkspaceResponses = {
 };
 
 export type LeaveWorkspaceResponse = LeaveWorkspaceResponses[keyof LeaveWorkspaceResponses];
+
+export type ListDocumentsData = {
+    body?: never;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: {
+        /**
+         * Kind
+         */
+        kind?: DocumentKind | null;
+    };
+    url: '/api/v1/workspaces/{workspaceId}/documents';
+};
+
+export type ListDocumentsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListDocumentsError = ListDocumentsErrors[keyof ListDocumentsErrors];
+
+export type ListDocumentsResponses = {
+    /**
+     * Response Listdocuments
+     *
+     * Successful Response
+     */
+    200: Array<DocumentSummary>;
+};
+
+export type ListDocumentsResponse = ListDocumentsResponses[keyof ListDocumentsResponses];
+
+export type CreateDocumentData = {
+    body: NewDocument;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/documents';
+};
+
+export type CreateDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateDocumentError = CreateDocumentErrors[keyof CreateDocumentErrors];
+
+export type CreateDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    201: DocumentView;
+};
+
+export type CreateDocumentResponse = CreateDocumentResponses[keyof CreateDocumentResponses];
+
+export type DeleteDocumentData = {
+    body?: never;
+    path: {
+        /**
+         * Documentid
+         */
+        documentId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{documentId}';
+};
+
+export type DeleteDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteDocumentError = DeleteDocumentErrors[keyof DeleteDocumentErrors];
+
+export type DeleteDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteDocumentResponse = DeleteDocumentResponses[keyof DeleteDocumentResponses];
+
+export type GetDocumentData = {
+    body?: never;
+    path: {
+        /**
+         * Documentid
+         */
+        documentId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{documentId}';
+};
+
+export type GetDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetDocumentError = GetDocumentErrors[keyof GetDocumentErrors];
+
+export type GetDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: DocumentView;
+};
+
+export type GetDocumentResponse = GetDocumentResponses[keyof GetDocumentResponses];
+
+export type SaveDocumentData = {
+    body: Save;
+    path: {
+        /**
+         * Documentid
+         */
+        documentId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{documentId}';
+};
+
+export type SaveDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SaveDocumentError = SaveDocumentErrors[keyof SaveDocumentErrors];
+
+export type SaveDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: Saved;
+};
+
+export type SaveDocumentResponse = SaveDocumentResponses[keyof SaveDocumentResponses];
+
+export type PromoteDocumentData = {
+    body?: never;
+    path: {
+        /**
+         * Documentid
+         */
+        documentId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{documentId}/promote';
+};
+
+export type PromoteDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PromoteDocumentError = PromoteDocumentErrors[keyof PromoteDocumentErrors];
+
+export type PromoteDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    201: DocumentView;
+};
+
+export type PromoteDocumentResponse = PromoteDocumentResponses[keyof PromoteDocumentResponses];
 
 export type GetHealthData = {
     body?: never;

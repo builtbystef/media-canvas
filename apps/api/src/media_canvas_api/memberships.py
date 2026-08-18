@@ -143,9 +143,9 @@ async def close_workspace(database: AsyncSession, workspace_id: UUID) -> None:
     """Delete a Workspace and everything the database holds for it.
 
     One statement: every table that belongs to a Workspace references it with
-    `ON DELETE CASCADE`, so this row going takes its Memberships — and, as the
-    later slices add them, its documents, assets, and jobs — with it. What
-    lives outside the database is another slice's to remove.
+    `ON DELETE CASCADE`, so this row going takes its Memberships and its
+    documents — and, as the later slices add them, its assets and jobs —
+    with it. What lives outside the database is another slice's to remove.
     """
     await database.execute(delete(Workspace).where(Workspace.id == workspace_id))
     await database.commit()

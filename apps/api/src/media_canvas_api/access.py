@@ -185,11 +185,20 @@ def requiring(role: Role) -> params.Depends:
         membership = await membership_in(database, workspace_id, signed_in.user.id)
         if membership is None:
             raise HTTPException(404, UNREACHABLE)
-        if not membership.role.covers(role):
-            raise HTTPException(403, f"This action needs the {role} role.")
+        refuse_unless(membership, role)
         return membership
 
     return Depends(resolve)
+
+
+def refuse_unless(membership: Membership, role: Role) -> None:
+    """Refuse the caller unless the Role they hold covers the one needed.
+
+    Being told which Role a thing wants gives away nothing: the caller is
+    already inside the Workspace, and the routes it has reached name it.
+    """
+    if not membership.role.covers(role):
+        raise HTTPException(403, f"This action needs the {role} role.")
 
 
 Viewing = Annotated[Membership, requiring(Role.viewer)]

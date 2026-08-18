@@ -437,6 +437,297 @@
         }
       }
     },
+    "/api/v1/workspaces/{workspaceId}/documents": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Create Document",
+        "description": "Create a design in this Workspace, at revision one.",
+        "operationId": "createDocument",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewDocument"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "List Documents",
+        "description": "This Workspace's documents, newest change first, without their bodies.\n\nThe whole list, every time: a Workspace holds the documents one team\nauthors by hand, which is a number a person scrolls.",
+        "operationId": "listDocuments",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/DocumentKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentSummary"
+                  },
+                  "title": "Response Listdocuments"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{documentId}": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Document",
+        "description": "One document, whole. Any member of its Workspace may read it.",
+        "operationId": "getDocument",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Documentid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Save Document",
+        "description": "Store a new version of a document against the Revision it was loaded at.\n\nThe Revision is checked by the write itself rather than before it, so two\nsaves that arrive together cannot both find the revision they expect.",
+        "operationId": "saveDocument",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Documentid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Save"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Saved"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Delete Document",
+        "description": "Delete a document.\n\nA template promoted from it stands on its own \u2014 it holds a copy, not a\nreference \u2014 and loses only the lineage back to what is gone.",
+        "operationId": "deleteDocument",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Documentid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{documentId}/promote": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Promote Document",
+        "description": "Copy a design into a new template, and answer with the copy.\n\nA copy, not a reference: from this moment the template and the design it\ncame from change without each other, which is the whole point of\npromoting one.",
+        "operationId": "promoteDocument",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Documentid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Get Health",
@@ -552,6 +843,139 @@
         ],
         "title": "DatabaseHealth"
       },
+      "DocumentKind": {
+        "type": "string",
+        "enum": [
+          "design",
+          "template"
+        ],
+        "title": "DocumentKind",
+        "description": "Which of the two things a stored document is.\n\nOne table holds both, so opening one is a single code path; this column is\nthe only thing that tells them apart. A design becomes a template by being\ncopied into one, never by changing this value."
+      },
+      "DocumentSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DocumentKind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "title": "Schemaversion"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "promotedFromId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promotedfromid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "schemaVersion",
+          "revision",
+          "promotedFromId",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "DocumentSummary",
+        "description": "A stored document without the document \u2014 what one list row carries."
+      },
+      "DocumentView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DocumentKind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "title": "Schemaversion"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "promotedFromId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promotedfromid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updatedat"
+          },
+          "document": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Document"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "schemaVersion",
+          "revision",
+          "promotedFromId",
+          "createdAt",
+          "updatedAt",
+          "document"
+        ],
+        "title": "DocumentView",
+        "description": "A stored document, whole."
+      },
       "Greeting": {
         "properties": {
           "message": {
@@ -653,6 +1077,34 @@
         "title": "MembershipView",
         "description": "A Workspace one User is in, from that User's side."
       },
+      "NewDocument": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "design",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "document": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Document"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "document"
+        ],
+        "title": "NewDocument",
+        "description": "What creating takes. Only a design: promotion is the door to a template."
+      },
       "Role": {
         "type": "string",
         "enum": [
@@ -674,6 +1126,59 @@
           "role"
         ],
         "title": "RoleChange"
+      },
+      "Save": {
+        "properties": {
+          "document": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Document"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document",
+          "revision"
+        ],
+        "title": "Save",
+        "description": "What saving takes, including the Revision the caller loaded."
+      },
+      "Saved": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "revision",
+          "updatedAt"
+        ],
+        "title": "Saved",
+        "description": "What a save answers with: the revision it produced, and when."
       },
       "UserView": {
         "properties": {

@@ -1,4 +1,4 @@
-"""The tables the api owns for accounts and access (ADR-0005, ADR-0009).
+"""The tables the api owns (ADR-0005): accounts and access, and content.
 
 Timestamps are written by the application rather than by the database, so that
 everything with a deadline reads the same `Clock` the tests control.
@@ -6,9 +6,11 @@ everything with a deadline reads the same `Clock` the tests control.
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from media_canvas_api.db import Base
@@ -119,3 +121,45 @@ class Membership(Base):
     )
     role: Mapped[Role] = mapped_column(Enum(Role, name="role"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class DocumentKind(StrEnum):
+    """Which of the two things a stored document is.
+
+    One table holds both, so opening one is a single code path; this column is
+    the only thing that tells them apart. A design becomes a template by being
+    copied into one, never by changing this value.
+    """
+
+    design = "design"
+    template = "template"
+
+
+class Document(Base):
+    """One stored Design Document, design or template.
+
+    The api treats `document` as opaque JSON (ADR-0003) — `schema_version` is
+    denormalized out of it so that operational queries never have to open it,
+    and nothing else here is read from inside.
+
+    `promoted_from_id` is lineage, not ownership: it points at the design a
+    template was copied from, and it is cleared rather than followed when that
+    design is deleted, so a template outlives whatever it came from.
+    """
+
+    __tablename__ = "documents"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[DocumentKind] = mapped_column(Enum(DocumentKind, name="document_kind"))
+    name: Mapped[str] = mapped_column(String(200))
+    document: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    schema_version: Mapped[int]
+    revision: Mapped[int]
+    promoted_from_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="SET NULL"), default=None
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
