@@ -45,3 +45,11 @@ export const bundledFonts: readonly BundledFont[] = manifest.fonts;
 export function bundledFontPath(font: BundledFont): string {
   return join(bundledFontsDirectory, font.file);
 }
+
+/** One bundled file's bytes, as the buffer every reader of a Font Asset takes:
+ *  the compiler parses one for metrics and inlines one into compiled markup,
+ *  and Workspace seeding uploads one. */
+export function bundledFontBytes(font: BundledFont): ArrayBuffer {
+  const bytes = readFileSync(bundledFontPath(font));
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}

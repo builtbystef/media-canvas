@@ -3,6 +3,9 @@
 // screenshots that same string, so neither side has room to disagree with the
 // other about what a document looks like.
 
+import type { Font } from "opentype.js";
+import { parse as parseFont } from "opentype.js";
+
 import type { AssetResolver } from "./assets.ts";
 import type {
   Border,
@@ -12,16 +15,29 @@ import type {
   Fill,
   GradientStop,
   Shadow,
+  TextElement,
   VarRef,
 } from "./document.ts";
+import type { TextLayout, TextPiece } from "./text.ts";
+import { layoutText } from "./text.ts";
 
 /** What one element is painted into: its geometry in canvas coordinates. */
 type Box = { x: number; y: number; width: number; height: number };
 
+/** One Font Asset, held once per compilation: its bytes go into the markup as
+ *  an `@font-face` source, and the parsed font answers every text metric. */
+type LoadedFont = { bytes: ArrayBuffer; font: Font };
+
 /** The state one compilation threads through the element tree. `defs` collects
  *  gradients and filters in the order elements ask for them, so that the same
- *  document always yields the same `<defs>` block. */
-type Context = { assets: AssetResolver; defs: string[] };
+ *  document always yields the same `<defs>` block; `usedFonts` collects, in the
+ *  same way, the Font Assets that something drawn actually asks for. */
+type Context = {
+  assets: AssetResolver;
+  defs: string[];
+  fonts: Map<string, LoadedFont>;
+  usedFonts: Set<string>;
+};
 
 /** ` name="value"`, skipping every attribute whose value is absent. */
 type Attribute = [name: string, value: string | undefined];
@@ -39,6 +55,11 @@ function escapeAttribute(value: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+/** Character data, which needs less escaping than an attribute value does. */
+function escapeText(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
 /** Numbers reach the markup through here alone: rounded to a fixed precision so
@@ -261,16 +282,110 @@ function shadowFilter(shadow: Shadow, id: string, box: Box, border: Border | und
   ])}/></filter>`;
 }
 
+/** The CSS family name one Font Asset is drawn under. It comes from the asset
+ *  id, so two assets can never collide on one name and no family name a font
+ *  file happens to carry can be picked up by accident. */
+function fontFamily(fontAssetId: string): string {
+  return `font-${xmlId(fontAssetId)}`;
+}
+
+/** The sfnt version tag the file opens with says which of the two formats the
+ *  bytes are — `OTTO` is CFF outlines, anything else the compiler accepts is
+ *  TrueType — which is what the `src` has to declare. */
+function fontFormat(bytes: ArrayBuffer): { mime: string; format: string } {
+  const otto = 0x4f_54_54_4f;
+  return new DataView(bytes).getUint32(0) === otto
+    ? { mime: "font/otf", format: "opentype" }
+    : { mime: "font/ttf", format: "truetype" };
+}
+
+/** The bytes as base64, in chunks small enough that the argument list stays
+ *  inside what `String.fromCharCode` takes. `btoa` is the encoder the browser
+ *  and Node both have, so the core needs no encoder of its own. */
+function base64(bytes: ArrayBuffer): string {
+  const view = new Uint8Array(bytes);
+  const chunks: string[] = [];
+  for (let index = 0; index < view.length; index += 0x80_00) {
+    chunks.push(String.fromCharCode(...view.subarray(index, index + 0x80_00)));
+  }
+  return btoa(chunks.join(""));
+}
+
+/** The rule that carries a Font Asset's own bytes into the markup. It is what
+ *  makes the compiled string self-contained: whatever draws it — the editor's
+ *  inline `<svg>` or the worker's page — needs no font wiring of its own, and
+ *  asks no font host for anything. */
+function fontFace(fontAssetId: string, context: Context): string {
+  const { bytes } = loadedFont(fontAssetId, context);
+  const { mime, format } = fontFormat(bytes);
+  return (
+    `@font-face{font-family:"${fontFamily(fontAssetId)}";` +
+    `src:url(data:${mime};base64,${base64(bytes)}) format("${format}")}`
+  );
+}
+
+function loadedFont(fontAssetId: string, context: Context): LoadedFont {
+  const loaded = context.fonts.get(fontAssetId);
+  if (!loaded) throw new Error(`compile holds no bytes for the Font Asset "${fontAssetId}"`);
+  return loaded;
+}
+
+/** Every text element in the document, grouped by the Font Asset it names, so
+ *  that a font the resolver cannot supply is reported once, against all of the
+ *  elements that wanted it. */
+function textElementsByFont(elements: Element[], into: Map<string, string[]>): void {
+  for (const element of elements) {
+    if (element.type === "text")
+      into.set(element.fontAssetId, [...(into.get(element.fontAssetId) ?? []), element.id]);
+    else if (element.type === "group") textElementsByFont(element.children, into);
+  }
+}
+
+/** Load and parse every Font Asset the document names, before anything is
+ *  drawn. A font the resolver cannot supply fails the whole compilation: there
+ *  is no fallback face to fall back to, and skipping the text would ship an
+ *  asset missing its words. */
+function loadFonts(doc: DesignDocument, assets: AssetResolver): Map<string, LoadedFont> {
+  const referenced = new Map<string, string[]>();
+  textElementsByFont(doc.elements, referenced);
+  const loaded = new Map<string, LoadedFont>();
+  const failures: string[] = [];
+  for (const [fontAssetId, elementIds] of referenced) {
+    try {
+      const bytes = assets.fontBytes(fontAssetId);
+      loaded.set(fontAssetId, { bytes, font: parseFont(bytes) });
+    } catch (cause) {
+      const elements = elementIds.map((id) => `"${id}"`).join(", ");
+      const reason = cause instanceof Error ? cause.message : String(cause);
+      failures.push(`"${fontAssetId}", referenced by ${elements}: ${reason}`);
+    }
+  }
+  if (failures.length > 0) {
+    throw new Error(
+      `compile could not load every Font Asset the document references — ${failures.join("; ")}`,
+    );
+  }
+  return loaded;
+}
+
 /** Rotation, opacity, and shadow belong to the element rather than to its
  *  geometry, so they ride on a wrapper — which also keeps the shadow's filter
  *  outside any transform the shape itself needs. An element that asks for none
  *  of the three is emitted bare. */
-function wrap(element: Element, shape: string, box: Box, context: Context): string {
+function wrap(
+  element: Element,
+  shape: string,
+  box: Box,
+  context: Context,
+  /** What the shadow's filter region has to cover, when the element's own box
+   *  is not it — a text block's glyphs reach past their line boxes. */
+  inkBox: Box = box,
+): string {
   const shadow = "shadow" in element ? element.shadow : undefined;
   const border = "border" in element ? element.border : undefined;
   if (element.rotation === 0 && element.opacity === 1 && !shadow) return shape;
   const filterId = `shadow-${xmlId(element.id)}`;
-  if (shadow) context.defs.push(shadowFilter(shadow, filterId, box, border));
+  if (shadow) context.defs.push(shadowFilter(shadow, filterId, inkBox, border));
   const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   return `<g${attributes([
     [
@@ -282,6 +397,64 @@ function wrap(element: Element, shape: string, box: Box, context: Context): stri
     ["opacity", element.opacity === 1 ? undefined : num(element.opacity)],
     ["filter", shadow ? `url(#${filterId})` : undefined],
   ])}>${shape}</g>`;
+}
+
+/** A character the Font Asset has no glyph for is drawn as that font's own
+ *  `.notdef` outline. Left in the text, the browser would answer it with some
+ *  other face — a different one in the editor than in the worker's image — and
+ *  a font whose `.notdef` is blank draws nothing, which is its own answer. */
+function notdefPath(
+  piece: TextPiece,
+  baseline: number,
+  element: TextElement,
+  font: Font,
+  painting: Attribute[],
+): string {
+  const outline = font.glyphs.get(0).getPath(piece.x, baseline, element.fontSize).toPathData(4);
+  return outline === "" ? "" : `<path${attributes([["d", outline], ...painting])}/>`;
+}
+
+/** Each line is written at the position the compiler computed for it, so the
+ *  browser has nothing left to decide: it draws the characters it is given,
+ *  where it is told, and never wraps a line of its own. */
+function compileTextLines(
+  layout: TextLayout,
+  element: TextElement,
+  font: Font,
+  painting: Attribute[],
+): string {
+  const spans = layout.lines
+    .flatMap((line) =>
+      line.pieces
+        .filter((piece) => !piece.missing)
+        .map(
+          (piece) =>
+            `<tspan${attributes([
+              ["x", num(piece.x)],
+              ["y", num(line.baseline)],
+            ])}>${escapeText(piece.text)}</tspan>`,
+        ),
+    )
+    .join("");
+  const notdefs = layout.lines
+    .flatMap((line) =>
+      line.pieces
+        .filter((piece) => piece.missing)
+        .map((piece) => notdefPath(piece, line.baseline, element, font, painting)),
+    )
+    .join("");
+  if (spans === "") return notdefs;
+  return (
+    `<text${attributes([
+      ["font-family", fontFamily(element.fontAssetId)],
+      ["font-size", num(element.fontSize)],
+      ["letter-spacing", element.letterSpacing === 0 ? undefined : num(element.letterSpacing)],
+      ...painting,
+      // The compiler measured the spaces it wrote, so the markup keeps every
+      // one of them rather than letting SVG collapse a run into a single space.
+      ["xml:space", "preserve"],
+    ])}>${spans}</text>` + notdefs
+  );
 }
 
 /** An invisible element compiles to nothing at all: no markup, and no
@@ -329,6 +502,31 @@ function compileElement(element: Element, context: Context): string {
       ])}/>`;
       return wrap(element, shape, box, context);
     }
+    case "text": {
+      if (isVarRef(element.color)) unresolved(element.color);
+      const { font } = loadedFont(element.fontAssetId, context);
+      const layout = layoutText(element, font);
+      const first = layout.lines[0];
+      const last = layout.lines.at(-1);
+      // Empty content collapses the box to no content height, so there is
+      // nothing to draw and no Font Asset to carry into the markup for it.
+      if (!first || !last) return "";
+      const painting = solidFillAttributes(element.color);
+      const shape = compileTextLines(layout, element, font, painting);
+      if (shape === "") return "";
+      context.usedFonts.add(element.fontAssetId);
+      const box = { x: element.x, y: layout.top, width: element.width, height: layout.height };
+      const left = Math.min(...layout.lines.map((line) => line.x));
+      const right = Math.max(...layout.lines.map((line) => line.x + line.width));
+      const top = first.baseline - layout.ascent;
+      const ink = {
+        x: left,
+        y: top,
+        width: right - left,
+        height: last.baseline + layout.descent - top,
+      };
+      return wrap(element, shape, box, context, ink);
+    }
     default:
       throw new Error(`compiling a "${element.type}" element is not implemented yet`);
   }
@@ -340,7 +538,12 @@ function compileElement(element: Element, context: Context): string {
  * at the bottom. The same document compiles to the same string every time.
  */
 export function compile(doc: DesignDocument, assets: AssetResolver): string {
-  const context: Context = { assets, defs: [] };
+  const context: Context = {
+    assets,
+    defs: [],
+    fonts: loadFonts(doc, assets),
+    usedFonts: new Set(),
+  };
   const canvasBox = { x: 0, y: 0, width: doc.canvas.width, height: doc.canvas.height };
   const background = `<rect${attributes([
     ["width", num(doc.canvas.width)],
@@ -350,7 +553,12 @@ export function compile(doc: DesignDocument, assets: AssetResolver): string {
   const elements = doc.elements
     .map((element) => compileElement(element, context))
     .filter((markup) => markup !== "");
-  const defs = context.defs.length === 0 ? [] : ["<defs>", ...context.defs, "</defs>"];
+  // The font faces come first, and only for the Font Assets something drawn
+  // actually asked for, so that nothing invisible drags its bytes along.
+  const faces = [...context.usedFonts].map((fontAssetId) => fontFace(fontAssetId, context));
+  const styles = faces.length === 0 ? [] : [`<style>${faces.join("")}</style>`];
+  const definitions = [...styles, ...context.defs];
+  const defs = definitions.length === 0 ? [] : ["<defs>", ...definitions, "</defs>"];
   return [
     `<svg${attributes([
       ["xmlns", "http://www.w3.org/2000/svg"],

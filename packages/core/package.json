@@ -6,9 +6,12 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "opentype.js": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@media-canvas/fonts": "workspace:*",
+    "@types/opentype.js": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

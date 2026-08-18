@@ -108,10 +108,19 @@ importers:
 
   packages/core:
     dependencies:
+      opentype.js:
+        specifier: 'catalog:'
+        version: 1.3.4
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
+      '@media-canvas/fonts':
+        specifier: workspace:*
+        version: link:../fonts
+      '@types/opentype.js':
+        specifier: 'catalog:'
+        version: 1.3.10
       typescript:
         specifier: 'catalog:'
         version: 7.0.2

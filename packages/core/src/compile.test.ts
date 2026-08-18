@@ -1,3 +1,4 @@
+import { bundledFontBytes, bundledFonts } from "@media-canvas/fonts";
 import { expect, test } from "vitest";
 
 import type {
@@ -7,6 +8,7 @@ import type {
   EllipseElement,
   Fill,
   RectElement,
+  TextElement,
   VarRef,
   VectorElement,
 } from "./index.ts";
@@ -456,4 +458,283 @@ test("an authored string cannot break out of the attribute it is written into", 
 
   expect(compiled).toContain('d="M0 0 L1 1&quot; onload=&quot;alert(1)"');
   expect(compiled).not.toContain('onload="alert');
+});
+
+/** The bundled bold font the spec's worked examples are measured against:
+ *  Oswald Bold, the one bundled bold face for which `LIMITED OFFER` at
+ *  `fontSize: 30` still fits `LIMITED` on a 120-wide line. */
+const oswaldBold = bundledFonts.find(
+  (font) => font.family === "Oswald" && font.weight === 700 && font.style === "normal",
+)!;
+
+/** A resolver that serves the bundled font set, so that the metrics under test
+ *  are a real font's own and not a stand-in's. */
+function fontAssets(): AssetResolver {
+  return {
+    ...assets(),
+    fontBytes(fontAssetId) {
+      const font = bundledFonts.find((candidate) => candidate.id === fontAssetId);
+      if (!font) throw new Error(`no bundled font ${fontAssetId}`);
+      return bundledFontBytes(font);
+    },
+  };
+}
+
+function text(overrides: Partial<TextElement> = {}): TextElement {
+  return {
+    id: "t",
+    type: "text",
+    x: 0,
+    y: 0,
+    width: 290,
+    rotation: 0,
+    opacity: 1,
+    visible: true,
+    content: "LIMITED OFFER",
+    fontAssetId: oswaldBold.id,
+    fontSize: 30,
+    lineHeight: 1.2,
+    letterSpacing: 0,
+    align: "left",
+    anchor: "top",
+    color: "#000000",
+    ...overrides,
+  };
+}
+
+/** The `x`/`y` of every line the compiled markup positions, in order. */
+function lines(compiled: string): { x: string; y: string; text: string }[] {
+  return [...compiled.matchAll(/<tspan x="([^"]*)" y="([^"]*)">([^<]*)<\/tspan>/g)].map(
+    ([, x, y, content]) => ({ x: x!, y: y!, text: content! }),
+  );
+}
+
+test("the wrap width alone decides where a line breaks", () => {
+  const wide = compile(document([text({ width: 290 })]), fontAssets());
+  const narrow = compile(document([text({ width: 120 })]), fontAssets());
+
+  expect(lines(wide).map((line) => line.text)).toEqual(["LIMITED OFFER"]);
+  expect(lines(narrow).map((line) => line.text)).toEqual(["LIMITED", "OFFER"]);
+});
+
+test("a word too wide for a line of its own breaks between characters", () => {
+  const compiled = compile(document([text({ content: "LIMITED", width: 60 })]), fontAssets());
+
+  expect(lines(compiled).map((line) => line.text)).toEqual(["LIMI", "TED"]);
+});
+
+test("a line is measured with the font's kerning applied", () => {
+  const kerned = compile(document([text({ content: "AV", align: "right" })]), fontAssets());
+  const apart = compile(document([text({ content: "A V", align: "right" })]), fontAssets());
+
+  // Oswald kerns A against V by -1.02 px at this size: right-aligning the pair
+  // puts it further right than its two unkerned advances would.
+  expect(lines(kerned)[0]?.x).toBe("258.71");
+  expect(lines(apart)[0]?.x).toBe("250.01");
+});
+
+test("letter spacing lands in the gaps between glyphs, not after the last one", () => {
+  const compiled = compile(
+    document([text({ content: "OFFER", letterSpacing: 2, align: "right" })]),
+    fontAssets(),
+  );
+
+  // Five glyphs, four gaps: 75.03 + 4 × 2 = 83.03 wide inside a 290 wrap width.
+  expect(lines(compiled)[0]?.x).toBe("206.97");
+});
+
+test("align places each line within the wrap width", () => {
+  const placed = (align: TextElement["align"]): string | undefined =>
+    lines(compile(document([text({ content: "OFFER", align })]), fontAssets()))[0]?.x;
+
+  expect(placed("left")).toBe("0");
+  expect(placed("center")).toBe("107.485");
+  expect(placed("right")).toBe("214.97");
+});
+
+test("the line advance is the font size times the line height", () => {
+  const compiled = compile(
+    document([text({ content: "LIMITED OFFER", width: 120, lineHeight: 2 })]),
+    fontAssets(),
+  );
+
+  // A 60 px line box: 15 of half-leading, then the 35.79 ascent, then 60 on.
+  expect(lines(compiled).map((line) => line.y)).toEqual(["50.79", "110.79"]);
+});
+
+test("a baseline sits half the leading plus the font's own ascent below its line box", () => {
+  const half = compile(document([text({ content: "OFFER", lineHeight: 1.2 })]), fontAssets());
+  const flush = compile(document([text({ content: "OFFER", lineHeight: 1 })]), fontAssets());
+
+  // Oswald Bold's ascender is 1193/1000 em, so 35.79 px at this font size; a
+  // line height of 1.2 adds (36 − 30) / 2 of half-leading above it.
+  expect(lines(half)[0]?.y).toBe("38.79");
+  expect(lines(flush)[0]?.y).toBe("35.79");
+});
+
+test("anchor moves the whole block of line boxes, and nothing within it", () => {
+  const block = (anchor: TextElement["anchor"], y: number): string =>
+    compile(
+      document([text({ content: "LIMITED OFFER LIMITED", width: 120, y, anchor })]),
+      fontAssets(),
+    );
+
+  // Three lines of 36 px each: the block is 108 tall, so middle at 400 and
+  // bottom at 454 have to draw exactly what top at 346 draws.
+  expect(block("middle", 400)).toBe(block("top", 346));
+  expect(block("bottom", 454)).toBe(block("top", 346));
+});
+
+test("a middle-anchored block is centered on the element's y, first baseline above it", () => {
+  const compiled = compile(
+    document([text({ content: "LIMITED OFFER LIMITED", width: 120, y: 400, anchor: "middle" })]),
+    fontAssets(),
+  );
+
+  const baselines = lines(compiled).map((line) => Number(line.y));
+  expect(baselines).toEqual([384.79, 420.79, 456.79]);
+  // Half-leading plus ascent below the block's top, three 36 px boxes tall.
+  expect(baselines[0]! - 3 - 35.79 + 108 / 2).toBe(400);
+});
+
+test("the compiled markup carries the Font Asset's own bytes and asks no host for a font", () => {
+  const compiled = compile(document([text()]), fontAssets());
+
+  expect(compiled).toContain(
+    `<style>@font-face{font-family:"font-${oswaldBold.id}";src:url(data:font/ttf;base64,`,
+  );
+  const encoded = /base64,([^)]*)\)/.exec(compiled)?.[1] ?? "";
+  expect(Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0))).toEqual(
+    new Uint8Array(bundledFontBytes(oswaldBold)),
+  );
+  expect(compiled).toContain('format("truetype")}</style>');
+  expect(compiled).toContain(`<text font-family="font-${oswaldBold.id}"`);
+  // The bytes are the only source there is: nothing the markup loads comes
+  // from anywhere but the markup itself.
+  expect(compiled).not.toMatch(/url\((?!data:)/);
+});
+
+test("one Font Asset is carried once, however many elements draw with it", () => {
+  const compiled = compile(
+    document([text({ id: "a" }), text({ id: "b", y: 50, content: "OFFER" })]),
+    fontAssets(),
+  );
+
+  expect(compiled.match(/@font-face/g)).toHaveLength(1);
+});
+
+test("a Font Asset nothing draws with is not carried into the markup", () => {
+  const compiled = compile(
+    document([text({ visible: false }), text({ id: "empty", content: "" })]),
+    fontAssets(),
+  );
+
+  expect(compiled).toBe(svg('<rect width="200" height="100" fill="#FFFFFF"/>'));
+});
+
+test("a character the Font Asset has no glyph for is drawn as that font's .notdef", () => {
+  const compiled = compile(document([text({ content: "A☃" })]), fontAssets());
+
+  expect(lines(compiled).map((line) => line.text)).toEqual(["A"]);
+  expect(compiled).not.toContain("☃");
+  // Oswald Bold's own .notdef: the hollow box it draws for glyph 0.
+  expect(compiled).toContain(
+    '<path d="M34.0500 38.7900L18.9900 38.7900L18.9900 14.4900L34.0500 14.4900L34.0500 38.7900Z' +
+      'M22.0800 17.1900L22.0800 36.0900L30.9600 36.0900L30.9600 17.1900L22.0800 17.1900Z" ' +
+      'fill="#000000"/>',
+  );
+});
+
+test("a Font Asset the resolver cannot supply fails the compilation, naming it and its elements", () => {
+  const document_ = document([
+    text({ id: "headline", fontAssetId: "missing-font" }),
+    text({ id: "price", fontAssetId: "missing-font", y: 50 }),
+  ]);
+
+  expect(() => compile(document_, fontAssets())).toThrow(
+    /"missing-font", referenced by "headline", "price"/,
+  );
+});
+
+test("a text element paints in its own color and casts its own shadow", () => {
+  const compiled = compile(
+    document([
+      text({
+        content: "Price: 4.99",
+        color: "#FF008080",
+        shadow: { dx: 2, dy: 3, blur: 4, color: "#000000", opacity: 0.5 },
+      }),
+    ]),
+    fontAssets(),
+  );
+
+  expect(compiled).toContain('fill="#FF0080" fill-opacity="0.502" xml:space="preserve"');
+  expect(compiled).toContain('<tspan x="0" y="38.79">Price: 4.99</tspan>');
+  expect(compiled).toContain('<g filter="url(#shadow-t)">');
+  expect(compiled).toContain(
+    '<feDropShadow dx="2" dy="3" stdDeviation="2" flood-color="#000000" flood-opacity="0.5"/>',
+  );
+});
+
+test("a text shadow's filter region covers the glyphs, not just the line boxes", () => {
+  const compiled = compile(
+    document([
+      text({
+        content: "OFFER",
+        shadow: { dx: 0, dy: 0, blur: 0, color: "#000000", opacity: 1 },
+      }),
+    ]),
+    fontAssets(),
+  );
+
+  // The ink runs from the baseline's ascent (38.79 − 35.79) to its descent
+  // (38.79 + 8.67), which is taller than the 36 px line box it sits in.
+  expect(compiled).toContain('x="0" y="3" width="75.03" height="44.46"');
+});
+
+test("text growing past the canvas edge is cut by the canvas, not by the compiler", () => {
+  const compiled = compile(
+    document([text({ content: "LIMITED OFFER LIMITED", width: 120, y: 60 })]),
+    fontAssets(),
+  );
+
+  expect(compiled).toContain(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100">',
+  );
+  expect(compiled).not.toContain("overflow");
+  // The compiler drops no line and moves none: the canvas viewport does the
+  // cutting, so the editor's preview and the exported file cut identically.
+  expect(lines(compiled).map((line) => line.y)).toEqual(["98.79", "134.79", "170.79"]);
+});
+
+test("a document with text compiles to the same string every time", () => {
+  const build = (): DesignDocument =>
+    document([text({ content: "LIMITED OFFER ☃", width: 120, align: "center" })]);
+
+  expect(compile(build(), fontAssets())).toBe(compile(build(), fontAssets()));
+});
+
+test("a newline in the content is a break the author wrote, kept as one", () => {
+  const compiled = compile(document([text({ content: "OFFER\r\nNOW\n\nENDS" })]), fontAssets());
+
+  expect(lines(compiled).map((line) => line.text)).toEqual(["OFFER", "NOW", "ENDS"]);
+  // The empty paragraph draws nothing, and still takes its own 36 px line box:
+  // the line after it starts three boxes down, not two.
+  expect(lines(compiled).map((line) => line.y)).toEqual(["38.79", "74.79", "146.79"]);
+});
+
+test("the spaces inside a line are the ones the compiler measured", () => {
+  const compiled = compile(document([text({ content: "A  B\tC" })]), fontAssets());
+
+  // A tab measures and draws as the space SVG's own whitespace handling turns
+  // it into, rather than as the .notdef of a font that has no tab glyph.
+  expect(lines(compiled).map((line) => line.text)).toEqual(["A  B C"]);
+  expect(compiled).toContain('xml:space="preserve"');
+  expect(compiled).not.toContain("<path");
+});
+
+test("an unresolved text color is a compile error, never something painted", () => {
+  expect(() => compile(document([text({ color: { $var: "ink" } })]), fontAssets())).toThrow(
+    /Variable "ink"/,
+  );
 });
