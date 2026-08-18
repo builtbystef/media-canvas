@@ -55,12 +55,20 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ty check
 
-      # The api's tests run against a real Postgres — the one the compose file
-      # starts in development. The example leaves required values empty, and
-      # compose interpolates the whole file even for a single service, so the
-      # placeholders stand in for the ones this job never starts.
-      - run: sed -E 's/^([A-Z][A-Z0-9_]*)=$/\1=ci-placeholder/' .env.example > .env
-      - run: docker compose up -d --wait postgres
+      # The api's tests run against a real Postgres and a real object store —
+      # the ones the compose file starts in development. The example leaves
+      # required values empty, and compose interpolates the whole file even
+      # for a single service, so the placeholders stand in for the ones this
+      # job never starts. Garage checks its own two secrets, so those are
+      # generated instead: it rejects a secret key shorter than 16 characters,
+      # and an RPC secret that is not 32 bytes of hex.
+      - run: |
+          sed -E 's/^([A-Z][A-Z0-9_]*)=$/\1=ci-placeholder/' .env.example > .env
+          {
+            echo "GARAGE_DEFAULT_SECRET_KEY=$(openssl rand -hex 16)"
+            echo "GARAGE_RPC_SECRET=$(openssl rand -hex 32)"
+          } >> .env
+      - run: docker compose up -d --wait postgres garage
 
       - run: uv run pytest
 

@@ -5,6 +5,7 @@ description = "FastAPI backend"
 requires-python = ">=3.14"
 dependencies = [
   "alembic>=1.16",
+  "boto3>=1.35",
   "fastapi>=0.115",
   "psycopg[binary]>=3.2",
   "pydantic-settings>=2.7",

@@ -7,7 +7,7 @@ needs attention — not at the first request that happens to need it.
 from functools import cache
 from pathlib import Path
 
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
@@ -23,18 +23,32 @@ class SettingsError(RuntimeError):
 class Settings(BaseSettings):
     """Every value the api reads from its environment.
 
-    Only the Postgres password is required: the rest default to the compose
-    stack's own Postgres, so a developer who has started the infra containers
-    needs nothing else.
+    Only the Postgres password and the object storage credential are
+    required: the rest default to the compose stack, so a developer who has
+    started the infra containers needs nothing else.
     """
 
-    model_config = SettingsConfigDict(case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(
+        case_sensitive=False, extra="ignore", populate_by_name=True
+    )
 
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_user: str = "media_canvas"
     postgres_password: str
     postgres_db: str = "media_canvas"
+
+    # The credential is the pair the object store itself is booted with, under
+    # the names it reads: one credential, set once, used from both ends. Every
+    # other detail is the api's own, and the defaults describe the compose
+    # stack — a hosted deployment points the same code at another S3 by
+    # setting the endpoint and the region.
+    storage_access_key: str = Field(validation_alias="garage_default_access_key")
+    storage_secret_key: str = Field(validation_alias="garage_default_secret_key")
+    storage_endpoint: str = "http://localhost:3900"
+    storage_region: str = "garage"
+    assets_bucket: str = "media-canvas-assets"
+    outputs_bucket: str = "media-canvas-outputs"
 
     domain: str | None = None
     public_url: str | None = None

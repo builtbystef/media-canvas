@@ -16,6 +16,7 @@ from media_canvas_api.health import DatabaseHealth, check_database
 from media_canvas_api.mailer import ConsoleMailer
 from media_canvas_api.migrator import upgrade_to_head
 from media_canvas_api.settings import get_settings
+from media_canvas_api.storage import ObjectStore
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     A database that cannot be reached does not stop the api: it comes up and
     reports the problem at `/api/health`, which is the one route that answers
     without a working database. A migration that fails against a database that
-    *is* reachable does stop it — that is a broken deployment, not a wait.
+    *is* reachable does stop it — that is a broken deployment, not a wait. So
+    does an object store that cannot be reached, which nothing reports.
     """
     settings = get_settings()
     engine = create_database_engine(settings)
@@ -42,6 +44,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # The default driver, and the only one this issue ships: sign-in works
     # offline, with the code in the api log.
     app.state.mailer = ConsoleMailer()
+    storage = ObjectStore(settings)
+    # Unlike the database, an object store that cannot be reached stops
+    # startup: there is nowhere for the api to report the problem afterwards,
+    # and every byte it holds is unreachable until someone notices.
+    storage.ensure_buckets()
+    app.state.storage = storage
     try:
         await migrate(engine)
     except OperationalError:

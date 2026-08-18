@@ -1,8 +1,8 @@
-"""Test fixtures: a real Postgres, and a clean database for every test.
+"""Test fixtures: a real Postgres and a real object store, both empty.
 
-The tests talk to the Postgres the compose stack starts. They never touch the
-development database — the name is overridden here, before anything reads the
-settings.
+The tests talk to the Postgres and the object storage the compose stack
+starts. They never touch what development leaves behind — the database name
+and the bucket names are overridden here, before anything reads the settings.
 """
 
 import os
@@ -12,20 +12,31 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 os.environ["POSTGRES_DB"] = "media_canvas_test"
+os.environ["ASSETS_BUCKET"] = "media-canvas-test-assets"
+os.environ["OUTPUTS_BUCKET"] = "media-canvas-test-outputs"
 
+import boto3
 import pytest
+from botocore.client import BaseClient
+from botocore.exceptions import BotoCoreError, ClientError
 from fastapi.testclient import TestClient
 from media_canvas_api.clock import utc_now
 from media_canvas_api.mailer import RecordingMailer
 from media_canvas_api.main import app
 from media_canvas_api.sessions import COOKIE_NAME
 from media_canvas_api.settings import Settings, get_settings
+from media_canvas_api.storage import ObjectStore
 from sqlalchemy import Connection, Engine, create_engine, text
 from sqlalchemy.exc import OperationalError
 
 UNREACHABLE = (
     "Postgres is not reachable at {host}:{port}. The tests run against the "
     "compose stack's database: `docker compose up -d`."
+)
+
+NO_STORE = (
+    "Object storage is not reachable at {endpoint}. The tests run against the "
+    "compose stack's store: `docker compose up -d`."
 )
 
 
@@ -223,3 +234,48 @@ def truncate_all_tables(connection: Connection) -> None:
     tables = ", ".join(f'"{name}"' for name in names)
     if tables:
         connection.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+
+
+@pytest.fixture
+def objects(client: TestClient) -> ObjectStore:
+    """The store the api built for itself, with its buckets already made."""
+    return client.app.state.storage
+
+
+@pytest.fixture
+def s3(settings: Settings) -> BaseClient:
+    """The object store itself, for the claims the seam cannot make about it."""
+    return storage_client(settings)
+
+
+@pytest.fixture(autouse=True)
+def clean_storage(settings: Settings) -> Iterator[None]:
+    """Leave every test empty buckets.
+
+    The emptying goes to the store directly rather than through the seam, so
+    that a broken prefix delete fails its own test instead of hiding in the
+    fixture that cleans up after it.
+    """
+    yield
+    client = storage_client(settings)
+    for bucket in (settings.assets_bucket, settings.outputs_bucket):
+        try:
+            listing = client.list_objects_v2(Bucket=bucket)
+        except ClientError:
+            continue
+        except BotoCoreError as unreachable:
+            raise pytest.UsageError(
+                NO_STORE.format(endpoint=settings.storage_endpoint)
+            ) from unreachable
+        for stored in listing.get("Contents", ()):
+            client.delete_object(Bucket=bucket, Key=stored["Key"])
+
+
+def storage_client(settings: Settings) -> BaseClient:
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.storage_endpoint,
+        region_name=settings.storage_region,
+        aws_access_key_id=settings.storage_access_key,
+        aws_secret_access_key=settings.storage_secret_key,
+    )
