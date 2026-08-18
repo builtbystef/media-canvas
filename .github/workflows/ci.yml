@@ -82,3 +82,22 @@ jobs:
       - run: pnpm --filter api run build
       - run: pnpm --filter @media-canvas/api-client run build
       - run: git diff --exit-code
+
+  # The compose file must parse, and must not read a variable that .env.example
+  # does not define.
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # The example leaves required values empty; validation only needs them
+      # set. A variable the example does not define stays unset, and compose
+      # refuses it.
+      - run: sed -E 's/^([A-Z][A-Z0-9_]*)=$/\1=ci-placeholder/' .env.example > "$RUNNER_TEMP/.env"
+
+      # `--profile "*"` validates the services of every profile, not only the
+      # default one.
+      - run: docker compose --env-file "$RUNNER_TEMP/.env" --profile "*" config --quiet

@@ -1,19 +1,40 @@
+# The infrastructure the product runs on: Postgres, Redis and object storage.
+# This is the default profile — bring it up, then `pnpm dev` runs the api, the
+# web app and the worker on the host. Every published port binds to the
+# loopback address, so the stack is reachable only from the host that started
+# it.
+#
+# Values come from `.env`: copy `.env.example` and fill in what it marks
+# required.
 services:
   postgres:
     image: postgres:17
     environment:
       POSTGRES_USER: media_canvas
-      POSTGRES_PASSWORD: media_canvas
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set it in .env, copied from .env.example}"
       POSTGRES_DB: media_canvas
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U media_canvas -d media_canvas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   redis:
+    # No volume: Redis carries only the work signal, and a lost queue is
+    # reconcilable from Postgres (ADR-0004).
     image: redis:8
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   garage:
     # Object storage behind the S3 API. `--single-node` builds the cluster
@@ -23,17 +44,26 @@ services:
     image: dxflrs/garage:v2.3.0
     command: /garage server --single-node --default-access-key
     environment:
-      GARAGE_DEFAULT_ACCESS_KEY: media_canvas
-      # Garage rejects secret keys shorter than 16 characters.
-      GARAGE_DEFAULT_SECRET_KEY: media_canvas_dev_secret
-      # Node-to-node RPC only, but Garage refuses to start without it. A fixed
-      # dev value here; a deployment generates its own (openssl rand -hex 32).
-      GARAGE_RPC_SECRET: 0f3f92d4a3fbdd3f6a0fbdf5a9a2b1c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2
+      GARAGE_DEFAULT_ACCESS_KEY: "${GARAGE_DEFAULT_ACCESS_KEY:?set it in .env, copied from .env.example}"
+      GARAGE_DEFAULT_SECRET_KEY: "${GARAGE_DEFAULT_SECRET_KEY:?set it in .env, copied from .env.example}"
+      # Node-to-node RPC only, but Garage refuses to start without it.
+      GARAGE_RPC_SECRET: "${GARAGE_RPC_SECRET:?set it in .env, copied from .env.example}"
     ports:
-      - "3900:3900"
+      - "127.0.0.1:3900:3900"
     volumes:
+      # Garage will not start without a config file, and metadata_dir,
+      # data_dir and the bind addresses have no environment equivalents.
       - ./infra/garage.toml:/etc/garage.toml:ro
+      # One volume covers both meta/ and data/ under /var/lib/garage.
       - garage-data:/var/lib/garage
+    healthcheck:
+      # The image is a single static binary with no shell, so the test must be
+      # exec form. `garage status` exits 0 once the node serves.
+      test: ["CMD", "/garage", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   postgres-data:

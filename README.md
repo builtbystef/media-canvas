@@ -23,6 +23,7 @@ pnpm install        # TS dependencies
 uv sync             # Python venv + dependencies
 vp config           # once after cloning: activates the pre-commit hook
 
+cp .env.example .env  # then fill in the values it marks required
 docker compose up -d  # Postgres + Redis + Garage
 pnpm dev            # FastAPI :8000 + Next.js :3000 + render worker
 pnpm check          # format + lint + typecheck, both languages
