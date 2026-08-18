@@ -33,6 +33,18 @@ pnpm build          # export schema → generate client → next build
 pnpm run ci         # everything CI runs
 ```
 
+Those containers are the whole setup: the api reads its configuration from
+`.env` and applies its own migrations when it starts, so a fresh database
+never needs a step of its own. `pnpm test` runs the api's tests against that
+same Postgres, in a database of their own that is recreated for each run.
+
+Adding a table is adding a migration:
+
+```sh
+cd apps/api
+uv run alembic revision --autogenerate -m "add the widgets table"
+```
+
 ## Documentation
 
 | Document                                               | What it holds                                                                         |

@@ -65,6 +65,24 @@
   },
   "components": {
     "schemas": {
+      "DatabaseHealth": {
+        "properties": {
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "schema_at_head": {
+            "type": "boolean",
+            "title": "Schema At Head"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connected",
+          "schema_at_head"
+        ],
+        "title": "DatabaseHealth"
+      },
       "Greeting": {
         "properties": {
           "message": {
@@ -95,12 +113,20 @@
         "properties": {
           "status": {
             "type": "string",
+            "enum": [
+              "ok",
+              "degraded"
+            ],
             "title": "Status"
+          },
+          "database": {
+            "$ref": "#/components/schemas/DatabaseHealth"
           }
         },
         "type": "object",
         "required": [
-          "status"
+          "status",
+          "database"
         ],
         "title": "Health"
       },

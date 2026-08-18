@@ -5,6 +5,20 @@ export type ClientOptions = {
 };
 
 /**
+ * DatabaseHealth
+ */
+export type DatabaseHealth = {
+    /**
+     * Connected
+     */
+    connected: boolean;
+    /**
+     * Schema At Head
+     */
+    schema_at_head: boolean;
+};
+
+/**
  * Greeting
  */
 export type Greeting = {
@@ -31,7 +45,8 @@ export type Health = {
     /**
      * Status
      */
-    status: string;
+    status: 'ok' | 'degraded';
+    database: DatabaseHealth;
 };
 
 /**

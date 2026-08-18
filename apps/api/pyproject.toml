@@ -3,7 +3,14 @@ name = "media-canvas-api"
 version = "0.1.0"
 description = "FastAPI backend"
 requires-python = ">=3.14"
-dependencies = ["fastapi>=0.115", "uvicorn[standard]>=0.52.1"]
+dependencies = [
+  "alembic>=1.16",
+  "fastapi>=0.115",
+  "psycopg[binary]>=3.2",
+  "pydantic-settings>=2.7",
+  "sqlalchemy>=2.0",
+  "uvicorn[standard]>=0.52.1",
+]
 
 [dependency-groups]
 dev = ["httpx>=0.28"]

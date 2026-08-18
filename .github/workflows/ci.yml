@@ -54,6 +54,14 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run ty check
+
+      # The api's tests run against a real Postgres — the one the compose file
+      # starts in development. The example leaves required values empty, and
+      # compose interpolates the whole file even for a single service, so the
+      # placeholders stand in for the ones this job never starts.
+      - run: sed -E 's/^([A-Z][A-Z0-9_]*)=$/\1=ci-placeholder/' .env.example > .env
+      - run: docker compose up -d --wait postgres
+
       - run: uv run pytest
 
   # The committed openapi.json and generated client must match the FastAPI app.
