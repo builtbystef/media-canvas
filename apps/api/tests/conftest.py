@@ -8,11 +8,14 @@ settings.
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import datetime, timedelta
 
 os.environ["POSTGRES_DB"] = "media_canvas_test"
 
 import pytest
 from fastapi.testclient import TestClient
+from media_canvas_api.clock import utc_now
+from media_canvas_api.mailer import RecordingMailer
 from media_canvas_api.main import app
 from media_canvas_api.settings import Settings, get_settings
 from sqlalchemy import Connection, Engine, create_engine, text
@@ -51,11 +54,52 @@ def unmigrated_database(test_database: None, settings: Settings) -> None:
     recreate_database(settings, settings.postgres_db)
 
 
+class FakeClock:
+    """A clock the test moves by hand.
+
+    Everything sign-in refuses, it refuses because of a deadline, and no test
+    can afford to wait for one.
+    """
+
+    def __init__(self) -> None:
+        self.reading = utc_now()
+
+    def __call__(self) -> datetime:
+        return self.reading
+
+    def advance(self, by: timedelta) -> None:
+        self.reading += by
+
+
 @pytest.fixture
-def client() -> Iterator[TestClient]:
-    """The api, started as it starts in production — migrations included."""
+def mailer() -> RecordingMailer:
+    return RecordingMailer()
+
+
+@pytest.fixture
+def clock() -> FakeClock:
+    return FakeClock()
+
+
+@pytest.fixture
+def client(mailer: RecordingMailer, clock: FakeClock) -> Iterator[TestClient]:
+    """The api, started as it starts in production — migrations included.
+
+    Only the two things the outside world would otherwise supply are replaced:
+    the mail it sends, and the time it reads.
+    """
     with TestClient(app) as started:
+        started.app.state.mailer = mailer
+        started.app.state.clock = clock
         yield started
+
+
+@pytest.fixture
+def stored(settings: Settings) -> Iterator[Engine]:
+    """The test database, for the claims that only the tables can answer."""
+    engine = create_engine(settings.database_url)
+    yield engine
+    engine.dispose()
 
 
 @pytest.fixture

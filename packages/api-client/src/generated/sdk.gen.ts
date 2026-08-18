@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses } from './types.gen';
+import type { GetCurrentUserData, GetCurrentUserResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SignOutData, SignOutResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,53 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Request Sign In Code
+ *
+ * Mail a sign-in code to an address.
+ *
+ * The answer is the same whether or not that address has an account, so
+ * nobody can ask this endpoint who is registered.
+ */
+export const requestSignInCode = <ThrowOnError extends boolean = false>(options: Options<RequestSignInCodeData, ThrowOnError>): RequestResult<RequestSignInCodeResponses, RequestSignInCodeErrors, ThrowOnError> => (options.client ?? client).post<RequestSignInCodeResponses, RequestSignInCodeErrors, ThrowOnError>({
+    url: '/api/v1/auth/otp/request',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Verify Sign In Code
+ *
+ * Spend a code, and answer with the session cookie every route wants.
+ *
+ * The User is created here when the address is new to the instance.
+ */
+export const verifySignInCode = <ThrowOnError extends boolean = false>(options: Options<VerifySignInCodeData, ThrowOnError>): RequestResult<VerifySignInCodeResponses, VerifySignInCodeErrors, ThrowOnError> => (options.client ?? client).post<VerifySignInCodeResponses, VerifySignInCodeErrors, ThrowOnError>({
+    url: '/api/v1/auth/otp/verify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Sign Out
+ *
+ * End this session. The cookie that carried it stops working at once.
+ */
+export const signOut = <ThrowOnError extends boolean = false>(options?: Options<SignOutData, ThrowOnError>): RequestResult<SignOutResponses, unknown, ThrowOnError> => (options?.client ?? client).post<SignOutResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/logout', ...options });
+
+/**
+ * Get Current User
+ *
+ * The signed-in User, and the Workspaces they are a member of.
+ */
+export const getCurrentUser = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentUserData, ThrowOnError>): RequestResult<GetCurrentUserResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetCurrentUserResponses, unknown, ThrowOnError>({ url: '/api/v1/me', ...options });
 
 /**
  * Get Health

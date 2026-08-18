@@ -5,6 +5,30 @@ export type ClientOptions = {
 };
 
 /**
+ * CodeRequest
+ */
+export type CodeRequest = {
+    /**
+     * Email
+     */
+    email: string;
+};
+
+/**
+ * CodeVerification
+ */
+export type CodeVerification = {
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Code
+     */
+    code: string;
+};
+
+/**
  * DatabaseHealth
  */
 export type DatabaseHealth = {
@@ -50,6 +74,42 @@ export type Health = {
 };
 
 /**
+ * Identity
+ */
+export type Identity = {
+    user: UserView;
+    /**
+     * Memberships
+     */
+    memberships: Array<MembershipView>;
+};
+
+/**
+ * MembershipView
+ */
+export type MembershipView = {
+    workspace: WorkspaceView;
+    /**
+     * Role
+     */
+    role: 'owner' | 'editor' | 'viewer';
+};
+
+/**
+ * UserView
+ */
+export type UserView = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Email
+     */
+    email: string;
+};
+
+/**
  * ValidationError
  */
 export type ValidationError = {
@@ -76,6 +136,102 @@ export type ValidationError = {
         [key: string]: unknown;
     };
 };
+
+/**
+ * WorkspaceView
+ */
+export type WorkspaceView = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+export type RequestSignInCodeData = {
+    body: CodeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/otp/request';
+};
+
+export type RequestSignInCodeErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RequestSignInCodeError = RequestSignInCodeErrors[keyof RequestSignInCodeErrors];
+
+export type RequestSignInCodeResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RequestSignInCodeResponse = RequestSignInCodeResponses[keyof RequestSignInCodeResponses];
+
+export type VerifySignInCodeData = {
+    body: CodeVerification;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/otp/verify';
+};
+
+export type VerifySignInCodeErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type VerifySignInCodeError = VerifySignInCodeErrors[keyof VerifySignInCodeErrors];
+
+export type VerifySignInCodeResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type VerifySignInCodeResponse = VerifySignInCodeResponses[keyof VerifySignInCodeResponses];
+
+export type SignOutData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/logout';
+};
+
+export type SignOutResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type SignOutResponse = SignOutResponses[keyof SignOutResponses];
+
+export type GetCurrentUserData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me';
+};
+
+export type GetCurrentUserResponses = {
+    /**
+     * Successful Response
+     */
+    200: Identity;
+};
+
+export type GetCurrentUserResponse = GetCurrentUserResponses[keyof GetCurrentUserResponses];
 
 export type GetHealthData = {
     body?: never;

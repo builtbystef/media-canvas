@@ -11,6 +11,10 @@ from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
+# Where `pnpm dev` serves the editor: the address a developer opens, and so
+# also the origin the api answers cross-origin calls from.
+DEVELOPMENT_ORIGIN = "http://localhost:3000"
+
 
 class SettingsError(RuntimeError):
     """The environment does not describe a runnable api."""
@@ -31,6 +35,41 @@ class Settings(BaseSettings):
     postgres_user: str = "media_canvas"
     postgres_password: str
     postgres_db: str = "media_canvas"
+
+    domain: str | None = None
+    public_url: str | None = None
+
+    @property
+    def public_base_url(self) -> str:
+        """The absolute base the product is reached at.
+
+        A domain means HTTPS with certificates the proxy obtains itself; an
+        explicit base covers everything else a deployer might front it with;
+        and with neither, this is a development machine, where the editor's
+        own dev server is the address people open.
+        """
+        if self.domain:
+            return f"https://{self.domain}"
+        if self.public_url:
+            return self.public_url.rstrip("/")
+        return DEVELOPMENT_ORIGIN
+
+    @property
+    def development_origin(self) -> str | None:
+        """The origin to accept credentialed cross-origin calls from.
+
+        A deployed stack serves the editor and the api from one origin behind
+        the proxy, so it needs no cross-origin headers at all and sends none.
+        Development is the only case where the two are apart, and then the
+        editor's dev server is the single origin that is allowed.
+        """
+        if self.domain or self.public_url:
+            return None
+        return DEVELOPMENT_ORIGIN
+
+    @property
+    def cookies_require_https(self) -> bool:
+        return self.public_base_url.startswith("https://")
 
     @property
     def database_url(self) -> URL:

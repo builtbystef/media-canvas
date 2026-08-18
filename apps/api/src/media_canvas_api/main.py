@@ -8,8 +8,12 @@ from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from media_canvas_api.db import create_database_engine
+from media_canvas_api import auth
+from media_canvas_api.access import AccessMiddleware, DevelopmentCors
+from media_canvas_api.clock import utc_now
+from media_canvas_api.db import create_database_engine, create_session_factory
 from media_canvas_api.health import DatabaseHealth, check_database
+from media_canvas_api.mailer import ConsoleMailer
 from media_canvas_api.migrator import upgrade_to_head
 from media_canvas_api.settings import get_settings
 
@@ -29,8 +33,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     without a working database. A migration that fails against a database that
     *is* reachable does stop it — that is a broken deployment, not a wait.
     """
-    engine = create_database_engine(get_settings())
+    settings = get_settings()
+    engine = create_database_engine(settings)
+    app.state.settings = settings
     app.state.engine = engine
+    app.state.sessions = create_session_factory(engine)
+    app.state.clock = utc_now
+    # The default driver, and the only one this issue ships: sign-in works
+    # offline, with the code in the api log.
+    app.state.mailer = ConsoleMailer()
     try:
         await migrate(engine)
     except OperationalError:
@@ -51,6 +62,11 @@ async def migrate(engine: AsyncEngine) -> None:
 
 
 app = FastAPI(title="media-canvas-api", lifespan=lifespan)
+app.include_router(auth.router)
+# Outermost last: a browser's preflight carries no cookie, so cross-origin
+# handling has to answer it before access refuses it.
+app.add_middleware(AccessMiddleware)
+app.add_middleware(DevelopmentCors)
 
 
 class Health(BaseModel):

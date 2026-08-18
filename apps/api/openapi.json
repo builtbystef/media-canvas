@@ -5,6 +5,113 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/auth/otp/request": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Request Sign In Code",
+        "description": "Mail a sign-in code to an address.\n\nThe answer is the same whether or not that address has an account, so\nnobody can ask this endpoint who is registered.",
+        "operationId": "requestSignInCode",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/otp/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Verify Sign In Code",
+        "description": "Spend a code, and answer with the session cookie every route wants.\n\nThe User is created here when the address is new to the instance.",
+        "operationId": "verifySignInCode",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeVerification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Sign Out",
+        "description": "End this session. The cookie that carried it stops working at once.",
+        "operationId": "signOut",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Get Current User",
+        "description": "The signed-in User, and the Workspaces they are a member of.",
+        "operationId": "getCurrentUser",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Identity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Get Health",
@@ -65,6 +172,43 @@
   },
   "components": {
     "schemas": {
+      "CodeRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "CodeRequest"
+      },
+      "CodeVerification": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 6,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "code"
+        ],
+        "title": "CodeVerification"
+      },
       "DatabaseHealth": {
         "properties": {
           "connected": {
@@ -130,6 +274,67 @@
         ],
         "title": "Health"
       },
+      "Identity": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserView"
+          },
+          "memberships": {
+            "items": {
+              "$ref": "#/components/schemas/MembershipView"
+            },
+            "type": "array",
+            "title": "Memberships"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "memberships"
+        ],
+        "title": "Identity"
+      },
+      "MembershipView": {
+        "properties": {
+          "workspace": {
+            "$ref": "#/components/schemas/WorkspaceView"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "editor",
+              "viewer"
+            ],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace",
+          "role"
+        ],
+        "title": "MembershipView"
+      },
+      "UserView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email"
+        ],
+        "title": "UserView"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -169,6 +374,25 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WorkspaceView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "WorkspaceView"
       }
     }
   }
