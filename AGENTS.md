@@ -26,3 +26,7 @@ One command vocabulary covers both languages: root pnpm scripts fan out through 
 ### Issue tracker
 
 `docs/TRACKER.md` — how to use this project's issue tracker.
+
+## Nested agent instructions
+
+`apps/web/AGENTS.md` carries a block that `next dev` writes and re-writes on its own. It is committed so the dev server leaves a clean tree; this root file stays authoritative wherever the two disagree. A Next upgrade may rewrite the block — review that diff like any other.
