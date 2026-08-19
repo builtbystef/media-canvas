@@ -1,13 +1,19 @@
 """Who may reach a route at all, and what they may do once they are in.
 
-Two questions, two mechanisms. Is the caller signed in at all is the middleware
+Two questions, two mechanisms. Is the caller admitted at all is the middleware
 below: default-deny, because a dependency only covers the routes that declare
 it — a route added without a thought about access would be an open route, and
 here it is a closed one. May this caller do *this*, in *this* Workspace, is
 `requiring()`: one gate every Workspace-scoped route in the product declares
 instead of writing the Role check out again.
+
+Being admitted means one of two things, decided by the address. Everything a
+person reaches carries a session cookie; everything under `/internal` is the
+render worker, which holds no account and presents the credential the two
+services share. Neither is ever accepted where the other belongs.
 """
 
+from secrets import compare_digest
 from typing import Annotated
 from uuid import UUID
 
@@ -44,9 +50,14 @@ PUBLIC_PATHS = frozenset(
     }
 )
 
+# Where the other service's half of the product lives. Nothing under it is
+# reachable with a session, and nothing outside it with the credential: the
+# worker is not a member of anything, and a browser never holds this secret.
+INTERNAL_PREFIX = "/internal/"
+
 
 class AccessMiddleware:
-    """Opens the request's database session, and refuses the unsigned-in.
+    """Opens the request's database session, and refuses whoever is not known.
 
     Authentication happens once, here, and the result is what the handlers
     read: a route never repeats the lookup, and a route can never forget it.
@@ -63,7 +74,11 @@ class AccessMiddleware:
         async with scope["app"].state.sessions() as database:
             request = Request(scope, receive)
             request.state.database = database
-            if request.url.path not in PUBLIC_PATHS:
+            if request.url.path.startswith(INTERNAL_PREFIX):
+                if not carries_internal_credential(request, settings):
+                    await unauthenticated(scope, receive, send)
+                    return
+            elif request.url.path not in PUBLIC_PATHS:
                 token = request.cookies.get(COOKIE_NAME, "")
                 signed_in = await authenticate(
                     database, token, scope["app"].state.clock()
@@ -131,6 +146,22 @@ def also_sending(send: Send, cookie: str) -> Send:
         await send(message)
 
     return sending
+
+
+def carries_internal_credential(request: Request, settings: Settings) -> bool:
+    """Whether this is the other service, presenting the shared credential.
+
+    Compared in constant time, so that a wrong token tells nothing about the
+    right one by how long the answer took — the same check the worker makes of
+    the api at its own end of the pair.
+    """
+    presented = request.headers.get("authorization", "")
+    scheme, _, token = presented.partition(" ")
+    if scheme.lower() != "bearer":
+        return False
+    # Bytes rather than text: a header may carry anything, and comparing
+    # strings that are not both ASCII is an error rather than a refusal.
+    return compare_digest(token.encode(), settings.internal_api_token.encode())
 
 
 async def unauthenticated(scope: Scope, receive: Receive, send: Send) -> None:

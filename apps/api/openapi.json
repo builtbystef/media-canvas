@@ -780,6 +780,156 @@
             }
           }
         }
+      },
+      "get": {
+        "tags": [
+          "fonts"
+        ],
+        "summary": "List Fonts",
+        "description": "This Workspace's Font Assets, newest first.\n\nThe whole library, every time: a Workspace holds the faces one team\nuploaded, which is a number a picker scrolls.",
+        "operationId": "listFonts",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FontAssetView"
+                  },
+                  "title": "Response Listfonts"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/fonts/{fontId}": {
+      "get": {
+        "tags": [
+          "fonts"
+        ],
+        "summary": "Serve Font",
+        "description": "The font's own bytes. Any member of its Workspace may fetch them.",
+        "operationId": "serveFont",
+        "parameters": [
+          {
+            "name": "fontId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Fontid"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "font/ttf": {},
+              "font/otf": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "fonts"
+        ],
+        "summary": "Delete Font",
+        "description": "Delete a font. Editor-level; a Viewer is refused.\n\nUnconditionally, and without counting anything (ADR-0007): a design, a\ntemplate or an in-flight Generation Job that referenced it fails loudly by\nthe missing-asset rule, and re-uploading the same bytes revives every one\nof those references at the same id.\n\nThe row goes first and the object second. The other order would leave a\nrecord of a font whose bytes are gone, which is a font that cannot be\nserved; this one leaves bytes nothing points at, which cost nothing.",
+        "operationId": "deleteFont",
+        "parameters": [
+          {
+            "name": "fontId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Fontid"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "The asset is one this product does not let go of.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetRefusalView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/workspaces/{workspaceId}/images": {
@@ -829,6 +979,147 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AssetRefusalView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "images"
+        ],
+        "summary": "List Images",
+        "description": "This Workspace's Image Assets, newest first.\n\nThe whole library, every time: a Workspace holds the pictures one team\nuploaded, which is a number a panel scrolls.",
+        "operationId": "listImages",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImageAssetView"
+                  },
+                  "title": "Response Listimages"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/images/{imageId}": {
+      "get": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Serve Image",
+        "description": "The image's own bytes. Any member of its Workspace may fetch them.",
+        "operationId": "serveImage",
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Imageid"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/png": {},
+              "image/jpeg": {},
+              "image/webp": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Delete Image",
+        "description": "Delete an image. Editor-level; a Viewer is refused.\n\nUnconditionally, and without counting anything (ADR-0007): a design, a\ntemplate or an in-flight Generation Job that referenced it fails loudly by\nthe missing-asset rule, and re-uploading the same bytes revives every one\nof those references at the same id.\n\nThe row goes first and the object second. The other order would leave a\nrecord of an image whose bytes are gone, which is an image that cannot be\nserved; this one leaves bytes nothing points at, which cost nothing.",
+        "operationId": "deleteImage",
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Imageid"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -907,7 +1198,7 @@
           "error"
         ],
         "title": "AssetRefusalView",
-        "description": "The body of every asset refusal, and the 422 the routes document."
+        "description": "The body of every asset refusal, whatever status carries it."
       },
       "Body_uploadFont": {
         "properties": {
@@ -1170,6 +1461,10 @@
             "type": "string",
             "format": "date-time",
             "title": "Createdat"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
           }
         },
         "type": "object",
@@ -1184,7 +1479,8 @@
           "byteSize",
           "bundled",
           "originalFilename",
-          "createdAt"
+          "createdAt",
+          "url"
         ],
         "title": "FontAssetView",
         "description": "One Font Asset, as the editor's picker and Assets panel read it."
@@ -1295,6 +1591,10 @@
             "type": "string",
             "format": "date-time",
             "title": "Createdat"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
           }
         },
         "type": "object",
@@ -1305,7 +1605,8 @@
           "height",
           "byteSize",
           "originalFilename",
-          "createdAt"
+          "createdAt",
+          "url"
         ],
         "title": "ImageAssetView",
         "description": "One Image Asset, as the editor's Assets panel and canvas read it."

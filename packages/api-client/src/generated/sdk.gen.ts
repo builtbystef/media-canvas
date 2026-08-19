@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
+import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteFontData, DeleteFontErrors, DeleteFontResponses, DeleteImageData, DeleteImageErrors, DeleteImageResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListFontsData, ListFontsErrors, ListFontsResponses, ListImagesData, ListImagesErrors, ListImagesResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, ServeFontData, ServeFontErrors, ServeFontResponses, ServeImageData, ServeImageErrors, ServeImageResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -209,6 +209,16 @@ export const saveDocument = <ThrowOnError extends boolean = false>(options: Opti
 export const promoteDocument = <ThrowOnError extends boolean = false>(options: Options<PromoteDocumentData, ThrowOnError>): RequestResult<PromoteDocumentResponses, PromoteDocumentErrors, ThrowOnError> => (options.client ?? client).post<PromoteDocumentResponses, PromoteDocumentErrors, ThrowOnError>({ url: '/api/v1/documents/{documentId}/promote', ...options });
 
 /**
+ * List Fonts
+ *
+ * This Workspace's Font Assets, newest first.
+ *
+ * The whole library, every time: a Workspace holds the faces one team
+ * uploaded, which is a number a picker scrolls.
+ */
+export const listFonts = <ThrowOnError extends boolean = false>(options: Options<ListFontsData, ThrowOnError>): RequestResult<ListFontsResponses, ListFontsErrors, ThrowOnError> => (options.client ?? client).get<ListFontsResponses, ListFontsErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/fonts', ...options });
+
+/**
  * Upload Font
  *
  * Take a font file into this Workspace. Editor-level; a Viewer is refused.
@@ -228,6 +238,39 @@ export const uploadFont = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
+ * Delete Font
+ *
+ * Delete a font. Editor-level; a Viewer is refused.
+ *
+ * Unconditionally, and without counting anything (ADR-0007): a design, a
+ * template or an in-flight Generation Job that referenced it fails loudly by
+ * the missing-asset rule, and re-uploading the same bytes revives every one
+ * of those references at the same id.
+ *
+ * The row goes first and the object second. The other order would leave a
+ * record of a font whose bytes are gone, which is a font that cannot be
+ * served; this one leaves bytes nothing points at, which cost nothing.
+ */
+export const deleteFont = <ThrowOnError extends boolean = false>(options: Options<DeleteFontData, ThrowOnError>): RequestResult<DeleteFontResponses, DeleteFontErrors, ThrowOnError> => (options.client ?? client).delete<DeleteFontResponses, DeleteFontErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/fonts/{fontId}', ...options });
+
+/**
+ * Serve Font
+ *
+ * The font's own bytes. Any member of its Workspace may fetch them.
+ */
+export const serveFont = <ThrowOnError extends boolean = false>(options: Options<ServeFontData, ThrowOnError>): RequestResult<ServeFontResponses, ServeFontErrors, ThrowOnError> => (options.client ?? client).get<ServeFontResponses, ServeFontErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/fonts/{fontId}', ...options });
+
+/**
+ * List Images
+ *
+ * This Workspace's Image Assets, newest first.
+ *
+ * The whole library, every time: a Workspace holds the pictures one team
+ * uploaded, which is a number a panel scrolls.
+ */
+export const listImages = <ThrowOnError extends boolean = false>(options: Options<ListImagesData, ThrowOnError>): RequestResult<ListImagesResponses, ListImagesErrors, ThrowOnError> => (options.client ?? client).get<ListImagesResponses, ListImagesErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/images', ...options });
+
+/**
  * Upload Image
  *
  * Take an image into this Workspace. Editor-level; a Viewer is refused.
@@ -245,6 +288,29 @@ export const uploadImage = <ThrowOnError extends boolean = false>(options: Optio
         ...options.headers
     }
 });
+
+/**
+ * Delete Image
+ *
+ * Delete an image. Editor-level; a Viewer is refused.
+ *
+ * Unconditionally, and without counting anything (ADR-0007): a design, a
+ * template or an in-flight Generation Job that referenced it fails loudly by
+ * the missing-asset rule, and re-uploading the same bytes revives every one
+ * of those references at the same id.
+ *
+ * The row goes first and the object second. The other order would leave a
+ * record of an image whose bytes are gone, which is an image that cannot be
+ * served; this one leaves bytes nothing points at, which cost nothing.
+ */
+export const deleteImage = <ThrowOnError extends boolean = false>(options: Options<DeleteImageData, ThrowOnError>): RequestResult<DeleteImageResponses, DeleteImageErrors, ThrowOnError> => (options.client ?? client).delete<DeleteImageResponses, DeleteImageErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/images/{imageId}', ...options });
+
+/**
+ * Serve Image
+ *
+ * The image's own bytes. Any member of its Workspace may fetch them.
+ */
+export const serveImage = <ThrowOnError extends boolean = false>(options: Options<ServeImageData, ThrowOnError>): RequestResult<ServeImageResponses, ServeImageErrors, ThrowOnError> => (options.client ?? client).get<ServeImageResponses, ServeImageErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/images/{imageId}', ...options });
 
 /**
  * Get Health

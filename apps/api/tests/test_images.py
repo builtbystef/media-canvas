@@ -8,12 +8,13 @@ same library that reads them back.
 
 import struct
 import zlib
+from datetime import timedelta
 from hashlib import sha256
 from io import BytesIO
 from typing import Any
 
 from botocore.client import BaseClient
-from conftest import Accounts, Join
+from conftest import Accounts, FakeClock, Join
 from fastapi.testclient import TestClient
 from media_canvas_api.storage import ObjectStore
 from PIL import Image
@@ -70,6 +71,7 @@ def test_an_uploaded_image_is_recorded_as_the_picture_it_holds(
         "height": 30,
         "byteSize": record["byteSize"],
         "originalFilename": "a-logo.png",
+        "url": f"/api/v1/workspaces/{workspace}/images/{record['id']}.png",
     }
 
 
@@ -396,3 +398,112 @@ def test_somebody_outside_the_workspace_is_told_only_that_there_is_no_such_works
 
     assert refused.status_code == 404
     assert refused.json() == {"detail": "No such workspace."}
+
+
+def test_an_image_is_served_from_its_own_address_as_the_type_it_was_stored_as(
+    client: TestClient, accounts: Accounts
+) -> None:
+    accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client)
+    picture = a_picture(image_format="WEBP")
+    image = upload(client, workspace, picture, filename="art.webp").json()
+
+    served = client.get(image["url"])
+
+    assert served.status_code == 200, served.text
+    assert served.headers["content-type"] == "image/webp"
+    assert served.headers["cache-control"] == "private, max-age=31536000, immutable"
+    assert sha256(served.content).hexdigest() == image["id"]
+
+
+def test_the_suffix_on_an_image_address_is_cosmetic_and_never_looked_at(
+    client: TestClient, accounts: Accounts
+) -> None:
+    accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client)
+    image = upload(client, workspace, a_picture()).json()
+    address = f"/api/v1/workspaces/{workspace}/images/{image['id']}"
+
+    bare = client.get(address)
+    suffixed = client.get(f"{address}.png")
+
+    assert bare.status_code == 200, bare.text
+    assert bare.content == suffixed.content
+
+
+def test_the_image_list_is_this_workspace_s_own_records_newest_first(
+    client: TestClient, accounts: Accounts, clock: FakeClock
+) -> None:
+    accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client)
+    elsewhere = a_workspace(client, "Agency")
+    first = upload(client, workspace, a_picture()).json()
+    clock.advance(timedelta(minutes=1))
+    second = upload(client, workspace, a_picture(size=(10, 10))).json()
+    upload(client, elsewhere, a_picture(size=(20, 20)))
+
+    listed = client.get(f"/api/v1/workspaces/{workspace}/images")
+
+    assert listed.status_code == 200, listed.text
+    assert listed.json() == [second, first]
+
+
+def test_deleting_an_image_takes_its_record_and_its_bytes_away(
+    client: TestClient, accounts: Accounts, objects: ObjectStore
+) -> None:
+    accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client)
+    image = upload(client, workspace, a_picture()).json()
+
+    deleted = client.delete(image["url"])
+
+    assert deleted.status_code == 204, deleted.text
+    assert client.get(f"/api/v1/workspaces/{workspace}/images").json() == []
+    assert client.get(image["url"]).status_code == 404
+    assert objects.assets.open(f"{workspace}/images/{image['id']}.png") is None
+
+
+def test_uploading_deleted_bytes_again_brings_the_image_back_at_the_same_id(
+    client: TestClient, accounts: Accounts
+) -> None:
+    """Nothing is tombstoned (ADR-0007), so the same picture reaches the same
+    id and every document that referenced it renders again."""
+    accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client)
+    image = upload(client, workspace, a_picture()).json()
+    client.delete(image["url"])
+
+    again = upload(client, workspace, a_picture())
+
+    assert again.status_code == 201, again.text
+    assert again.json() == image
+
+
+def test_deleting_an_image_takes_an_editor_and_a_viewer_is_refused(
+    client: TestClient, accounts: Accounts, joining: Join
+) -> None:
+    owner = accounts.sign_in("owner@example.com")
+    workspace = a_workspace(client)
+    image = upload(client, workspace, a_picture()).json()
+    watcher = accounts.sign_in("watcher@example.com")
+    joining(workspace, watcher, "viewer")
+
+    accounts.acting_as(watcher)
+    refused = client.delete(image["url"])
+    accounts.acting_as(owner)
+    allowed = client.delete(image["url"])
+
+    assert refused.status_code == 403
+    assert allowed.status_code == 204
+
+
+def test_an_image_the_workspace_never_held_is_no_such_image(
+    client: TestClient, accounts: Accounts
+) -> None:
+    accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client)
+
+    missing = client.get(f"/api/v1/workspaces/{workspace}/images/{'0' * 64}.png")
+
+    assert missing.status_code == 404
+    assert missing.json() == {"detail": "No such image."}

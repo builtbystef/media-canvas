@@ -20,17 +20,42 @@ from datetime import datetime
 from io import BytesIO
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Path,
+    Response,
+    UploadFile,
+    params,
+)
+from fastapi.responses import StreamingResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 from PIL.Image import DecompressionBombError
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from starlette.concurrency import run_in_threadpool
 
-from media_canvas_api.access import Database, Editing, Now, Storage
-from media_canvas_api.assets import REFUSES, AssetRefused, asset_id
-from media_canvas_api.models import ImageAsset
+from media_canvas_api.access import (
+    Database,
+    Editing,
+    Now,
+    Storage,
+    Viewing,
+    requiring,
+)
+from media_canvas_api.assets import (
+    REFUSES,
+    AssetRefused,
+    asset_id,
+    served,
+    serving_path,
+    without_suffix,
+)
+from media_canvas_api.models import ImageAsset, Membership, Role
 
 router = APIRouter(prefix="/api/v1", tags=["images"])
 
@@ -60,6 +85,15 @@ ENCODING: dict[str, dict[str, Any]] = {
     "JPEG": {"quality": 95},
     "WEBP": {"quality": 95},
 }
+
+# The suffix each stored content type is addressed with, which is the same
+# one its key carries: one table describes the formats, read from both ends.
+SUFFIXES = {content_type: suffix for suffix, content_type in FORMATS.values()}
+
+# The same answer for an image this Workspace does not hold as for one that
+# was never uploaded anywhere: an id is a hash, and a stranger who guesses one
+# learns nothing from asking.
+UNREACHABLE = "No such image."
 
 # One machine-readable code per way a file can fail to be an Image Asset, each
 # with the sentence a person can act on. The editor branches on the code and
@@ -104,6 +138,38 @@ class ImageAssetView(BaseModel):
     byte_size: int
     original_filename: str
     created_at: datetime
+    url: str
+
+
+def held(role: Role) -> params.Depends:
+    """The gate every item route declares, in place of a lookup and a check.
+
+    It resolves the image the address names inside the Workspace the address
+    names, so a route that has run at all is looking at an image its caller
+    may reach. The suffix comes off here, once, and no route below sees it.
+    """
+
+    async def resolve(
+        image_id: Annotated[str, Path(alias="imageId")],
+        membership: Annotated[Membership, requiring(role)],
+        database: Database,
+    ) -> ImageAsset:
+        image = await database.get(
+            ImageAsset,
+            {
+                "workspace_id": membership.workspace_id,
+                "id": without_suffix(image_id),
+            },
+        )
+        if image is None:
+            raise HTTPException(404, UNREACHABLE)
+        return image
+
+    return Depends(resolve)
+
+
+Readable = Annotated[ImageAsset, held(Role.viewer)]
+Deletable = Annotated[ImageAsset, held(Role.editor)]
 
 
 @router.post(
@@ -177,6 +243,55 @@ async def upload_image(
     return view_of(stored)
 
 
+@router.get("/workspaces/{workspaceId}/images", operation_id="listImages")
+async def list_images(membership: Viewing, database: Database) -> list[ImageAssetView]:
+    """This Workspace's Image Assets, newest first.
+
+    The whole library, every time: a Workspace holds the pictures one team
+    uploaded, which is a number a panel scrolls.
+    """
+    found = await database.scalars(
+        select(ImageAsset)
+        .where(ImageAsset.workspace_id == membership.workspace_id)
+        .order_by(ImageAsset.created_at.desc(), ImageAsset.id)
+    )
+    return [view_of(image) for image in found]
+
+
+@router.get(
+    "/workspaces/{workspaceId}/images/{imageId}",
+    operation_id="serveImage",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"image/png": {}, "image/jpeg": {}, "image/webp": {}}}},
+)
+async def serve_image(image: Readable, storage: Storage) -> StreamingResponse:
+    """The image's own bytes. Any member of its Workspace may fetch them."""
+    return served(storage.assets, image.storage_key)
+
+
+@router.delete(
+    "/workspaces/{workspaceId}/images/{imageId}",
+    status_code=204,
+    operation_id="deleteImage",
+)
+async def delete_image(image: Deletable, database: Database, storage: Storage) -> None:
+    """Delete an image. Editor-level; a Viewer is refused.
+
+    Unconditionally, and without counting anything (ADR-0007): a design, a
+    template or an in-flight Generation Job that referenced it fails loudly by
+    the missing-asset rule, and re-uploading the same bytes revives every one
+    of those references at the same id.
+
+    The row goes first and the object second. The other order would leave a
+    record of an image whose bytes are gone, which is an image that cannot be
+    served; this one leaves bytes nothing points at, which cost nothing.
+    """
+    key = image.storage_key
+    await database.delete(image)
+    await database.commit()
+    await run_in_threadpool(storage.assets.delete, key)
+
+
 def normalized(content: bytes) -> NormalizedImage:
     """The uploaded bytes as they will be stored, or the refusal they earn.
 
@@ -214,4 +329,20 @@ def normalized(content: bytes) -> NormalizedImage:
 
 
 def view_of(image: ImageAsset) -> ImageAssetView:
-    return ImageAssetView.model_validate(image, from_attributes=True)
+    """One record as the editor reads it, with the address its bytes are at.
+
+    The address is built from the record rather than kept beside it: the
+    storage key is the api's own business and never leaves it.
+    """
+    return ImageAssetView(
+        id=image.id,
+        content_type=image.content_type,
+        width=image.width,
+        height=image.height,
+        byte_size=image.byte_size,
+        original_filename=image.original_filename,
+        created_at=image.created_at,
+        url=serving_path(
+            image.workspace_id, "images", image.id, SUFFIXES[image.content_type]
+        ),
+    )

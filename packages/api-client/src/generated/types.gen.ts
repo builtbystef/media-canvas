@@ -7,7 +7,7 @@ export type ClientOptions = {
 /**
  * AssetRefusalView
  *
- * The body of every asset refusal, and the 422 the routes document.
+ * The body of every asset refusal, whatever status carries it.
  */
 export type AssetRefusalView = {
     error: Refusal;
@@ -209,6 +209,10 @@ export type FontAssetView = {
      * Createdat
      */
     createdAt: string;
+    /**
+     * Url
+     */
+    url: string;
 };
 
 /**
@@ -294,6 +298,10 @@ export type ImageAssetView = {
      * Createdat
      */
     createdAt: string;
+    /**
+     * Url
+     */
+    url: string;
 };
 
 /**
@@ -961,6 +969,38 @@ export type PromoteDocumentResponses = {
 
 export type PromoteDocumentResponse = PromoteDocumentResponses[keyof PromoteDocumentResponses];
 
+export type ListFontsData = {
+    body?: never;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/fonts';
+};
+
+export type ListFontsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListFontsError = ListFontsErrors[keyof ListFontsErrors];
+
+export type ListFontsResponses = {
+    /**
+     * Response Listfonts
+     *
+     * Successful Response
+     */
+    200: Array<FontAssetView>;
+};
+
+export type ListFontsResponse = ListFontsResponses[keyof ListFontsResponses];
+
 export type UploadFontData = {
     body: BodyUploadFont;
     path: {
@@ -991,6 +1031,108 @@ export type UploadFontResponses = {
 
 export type UploadFontResponse = UploadFontResponses[keyof UploadFontResponses];
 
+export type DeleteFontData = {
+    body?: never;
+    path: {
+        /**
+         * Fontid
+         */
+        fontId: string;
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/fonts/{fontId}';
+};
+
+export type DeleteFontErrors = {
+    /**
+     * The asset is one this product does not let go of.
+     */
+    409: AssetRefusalView;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteFontError = DeleteFontErrors[keyof DeleteFontErrors];
+
+export type DeleteFontResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteFontResponse = DeleteFontResponses[keyof DeleteFontResponses];
+
+export type ServeFontData = {
+    body?: never;
+    path: {
+        /**
+         * Fontid
+         */
+        fontId: string;
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/fonts/{fontId}';
+};
+
+export type ServeFontErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ServeFontError = ServeFontErrors[keyof ServeFontErrors];
+
+export type ServeFontResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type ListImagesData = {
+    body?: never;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/images';
+};
+
+export type ListImagesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListImagesError = ListImagesErrors[keyof ListImagesErrors];
+
+export type ListImagesResponses = {
+    /**
+     * Response Listimages
+     *
+     * Successful Response
+     */
+    200: Array<ImageAssetView>;
+};
+
+export type ListImagesResponse = ListImagesResponses[keyof ListImagesResponses];
+
 export type UploadImageData = {
     body: BodyUploadImage;
     path: {
@@ -1020,6 +1162,72 @@ export type UploadImageResponses = {
 };
 
 export type UploadImageResponse = UploadImageResponses[keyof UploadImageResponses];
+
+export type DeleteImageData = {
+    body?: never;
+    path: {
+        /**
+         * Imageid
+         */
+        imageId: string;
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/images/{imageId}';
+};
+
+export type DeleteImageErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteImageError = DeleteImageErrors[keyof DeleteImageErrors];
+
+export type DeleteImageResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteImageResponse = DeleteImageResponses[keyof DeleteImageResponses];
+
+export type ServeImageData = {
+    body?: never;
+    path: {
+        /**
+         * Imageid
+         */
+        imageId: string;
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/images/{imageId}';
+};
+
+export type ServeImageErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ServeImageError = ServeImageErrors[keyof ServeImageErrors];
+
+export type ServeImageResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type GetHealthData = {
     body?: never;

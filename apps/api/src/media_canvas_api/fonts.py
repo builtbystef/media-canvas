@@ -15,15 +15,42 @@ nothing to sweep later.
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, File, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Path,
+    Response,
+    UploadFile,
+    params,
+)
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from starlette.concurrency import run_in_threadpool
 
-from media_canvas_api.access import Database, Editing, Now, Storage, WorkerService
-from media_canvas_api.assets import REFUSES, AssetRefused, asset_id
-from media_canvas_api.models import FontAsset, FontFormat
+from media_canvas_api.access import (
+    Database,
+    Editing,
+    Now,
+    Storage,
+    Viewing,
+    WorkerService,
+    requiring,
+)
+from media_canvas_api.assets import (
+    PROTECTS,
+    REFUSES,
+    AssetRefused,
+    asset_id,
+    served,
+    serving_path,
+    without_suffix,
+)
+from media_canvas_api.models import FontAsset, FontFormat, Membership, Role
 from media_canvas_api.worker import FontFacts, FontInspection, UnreadableFont
 
 router = APIRouter(prefix="/api/v1", tags=["fonts"])
@@ -59,6 +86,19 @@ UNPARSEABLE_FONT = (
 # What the store is told the bytes are, and what a client is later served.
 CONTENT_TYPES = {FontFormat.ttf: "font/ttf", FontFormat.otf: "font/otf"}
 
+# The same answer for a font this Workspace does not hold as for one that was
+# never uploaded anywhere: an id is a hash, and a stranger who guesses one
+# learns nothing from asking.
+UNREACHABLE = "No such font."
+
+# The one asset that refuses to go: a face the product came with, which every
+# Workspace is seeded with and none may take apart.
+BUNDLED = (
+    "asset_is_bundled",
+    "This font came with the product, so it cannot be deleted. A font that "
+    "somebody uploaded can be.",
+)
+
 
 class FontAssetView(BaseModel):
     """One Font Asset, as the editor's picker and Assets panel read it."""
@@ -76,6 +116,38 @@ class FontAssetView(BaseModel):
     bundled: bool
     original_filename: str
     created_at: datetime
+    url: str
+
+
+def held(role: Role) -> params.Depends:
+    """The gate every item route declares, in place of a lookup and a check.
+
+    It resolves the font the address names inside the Workspace the address
+    names, so a route that has run at all is looking at a font its caller may
+    reach. The suffix comes off here, once, and no route below sees it.
+    """
+
+    async def resolve(
+        font_id: Annotated[str, Path(alias="fontId")],
+        membership: Annotated[Membership, requiring(role)],
+        database: Database,
+    ) -> FontAsset:
+        font = await database.get(
+            FontAsset,
+            {
+                "workspace_id": membership.workspace_id,
+                "id": without_suffix(font_id),
+            },
+        )
+        if font is None:
+            raise HTTPException(404, UNREACHABLE)
+        return font
+
+    return Depends(resolve)
+
+
+Readable = Annotated[FontAsset, held(Role.viewer)]
+Deletable = Annotated[FontAsset, held(Role.editor)]
 
 
 @router.post(
@@ -153,6 +225,58 @@ async def upload_font(
     return view_of(stored)
 
 
+@router.get("/workspaces/{workspaceId}/fonts", operation_id="listFonts")
+async def list_fonts(membership: Viewing, database: Database) -> list[FontAssetView]:
+    """This Workspace's Font Assets, newest first.
+
+    The whole library, every time: a Workspace holds the faces one team
+    uploaded, which is a number a picker scrolls.
+    """
+    found = await database.scalars(
+        select(FontAsset)
+        .where(FontAsset.workspace_id == membership.workspace_id)
+        .order_by(FontAsset.created_at.desc(), FontAsset.id)
+    )
+    return [view_of(font) for font in found]
+
+
+@router.get(
+    "/workspaces/{workspaceId}/fonts/{fontId}",
+    operation_id="serveFont",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"font/ttf": {}, "font/otf": {}}}},
+)
+async def serve_font(font: Readable, storage: Storage) -> StreamingResponse:
+    """The font's own bytes. Any member of its Workspace may fetch them."""
+    return served(storage.assets, font.storage_key)
+
+
+@router.delete(
+    "/workspaces/{workspaceId}/fonts/{fontId}",
+    status_code=204,
+    operation_id="deleteFont",
+    responses=PROTECTS,
+)
+async def delete_font(font: Deletable, database: Database, storage: Storage) -> None:
+    """Delete a font. Editor-level; a Viewer is refused.
+
+    Unconditionally, and without counting anything (ADR-0007): a design, a
+    template or an in-flight Generation Job that referenced it fails loudly by
+    the missing-asset rule, and re-uploading the same bytes revives every one
+    of those references at the same id.
+
+    The row goes first and the object second. The other order would leave a
+    record of a font whose bytes are gone, which is a font that cannot be
+    served; this one leaves bytes nothing points at, which cost nothing.
+    """
+    if font.bundled:
+        raise AssetRefused(*BUNDLED, status=409)
+    key = font.storage_key
+    await database.delete(font)
+    await database.commit()
+    await run_in_threadpool(storage.assets.delete, key)
+
+
 def readable(inspection: FontInspection) -> FontFacts:
     """What the parser read, or the refusal the file has earned.
 
@@ -173,4 +297,22 @@ def readable(inspection: FontInspection) -> FontFacts:
 
 
 def view_of(font: FontAsset) -> FontAssetView:
-    return FontAssetView.model_validate(font, from_attributes=True)
+    """One record as the editor reads it, with the address its bytes are at.
+
+    The address is built from the record rather than kept beside it: the
+    storage key is the api's own business and never leaves it.
+    """
+    return FontAssetView(
+        id=font.id,
+        format=font.format,
+        family=font.family,
+        subfamily=font.subfamily,
+        weight=font.weight,
+        italic=font.italic,
+        postscript_name=font.postscript_name,
+        byte_size=font.byte_size,
+        bundled=font.bundled,
+        original_filename=font.original_filename,
+        created_at=font.created_at,
+        url=serving_path(font.workspace_id, "fonts", font.id, font.format),
+    )
