@@ -108,6 +108,67 @@ function isImageReference(value: string): boolean {
 }
 
 /**
+ * Type a Row of CSV cells against a Template, so that validation and rendering
+ * see the values a JSON Row would have carried. Every cell arrives as a string
+ * — a CSV knows no types — and this is the one place in the system where
+ * `"4.99"` becomes the number 4.99, so no service can grow a second reading of
+ * a cell. Errors name the Variable, and the cells they are about carry no
+ * value onward: an unreadable cell is a problem with the cell, and reporting
+ * it again as an omission would be one problem told twice.
+ */
+export function typeCells(
+  template: DesignDocument,
+  cells: Record<string, string>,
+): { values: Record<string, unknown>; errors: ValidationError[] } {
+  const values: Record<string, unknown> = {};
+  const errors: ValidationError[] = [];
+  for (const declaration of template.variables ?? []) {
+    const cell = cells[declaration.name];
+    // An absent column and an empty cell are one thing: the Variable was
+    // omitted, so its default applies. A CSV has no way to say "the empty
+    // string" — that value needs the JSON channel.
+    if (cell === undefined || cell === "") continue;
+    const typed = typeCell(declaration, cell);
+    if (typed.error === undefined) values[declaration.name] = typed.value;
+    else errors.push(typed.error);
+  }
+  return { values, errors };
+}
+
+/** What one cell means for one Variable. Text, color and image Variables take
+ *  the cell as it stands — `validate` judges the string itself. */
+function typeCell(
+  declaration: VariableDecl,
+  cell: string,
+): { value?: unknown; error?: ValidationError } {
+  switch (declaration.type) {
+    case "number":
+      if (!JSON_NUMBER.test(cell) || !Number.isFinite(Number(cell))) {
+        return { error: valueError(declaration, `cannot read the cell "${cell}" as a number`) };
+      }
+      return { value: Number(cell) };
+    case "boolean":
+      if (cell !== "true" && cell !== "false") {
+        return {
+          error: valueError(
+            declaration,
+            `cannot read the cell "${cell}" as a boolean — write exactly true or false`,
+          ),
+        };
+      }
+      return { value: cell === "true" };
+    case "text":
+    case "color":
+    case "image":
+      return { value: cell };
+  }
+}
+
+/** The JSON number grammar, which is the one number syntax this system reads:
+ *  no leading plus, no leading zero, no bare `.5`, no trailing `.`. */
+const JSON_NUMBER = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
+
+/**
  * How a Template resolves. Generation resolves in "generate": every Variable
  * has a value by then, because `validate` rejected the row otherwise, and one
  * that does not is a mistake worth throwing over rather than drawing around.

@@ -8,7 +8,7 @@ depends_on:
     - gxwr7t
 parent: 0egsmf
 created: 2026-08-15T06:54:42Z
-updated: 2026-08-15T06:54:42Z
+updated: 2026-08-19T01:51:22Z
 ---
 
 ## What to build
@@ -25,3 +25,9 @@ A batch can arrive as a CSV file, so batch generation needs no JSON tooling. The
 - [ ] An empty cell means the Variable was omitted, so its default applies and its absence without a default is an error naming it.
 - [ ] Row indexes in errors count data rows from zero, so the header row does not shift them. Worked example: the first data row is index 0.
 - [ ] A file with a header and no data rows is refused rather than creating an empty Job.
+
+## Notes
+
+**claude** — 2026-08-19T01:51:22Z
+
+Build note from gxwr7t (the worker's /validate, now built): the typed Rows come back in the response — { errors, templateErrors, rows? }, where rows holds the typed values for a cells:true request. Store those, not the string cells, so a CSV submission stores what the equivalent JSON submission would. templateErrors is the second list: Template problems in the document authority's shape, kept apart from Row errors. Also note that core's validate ignores value keys naming no declared Variable, so this issue's header check ('a header column naming no declared Variable is a submission error naming it') is the api's own, against the Template's declarations.

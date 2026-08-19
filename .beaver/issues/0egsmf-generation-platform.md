@@ -9,7 +9,7 @@ depends_on:
     - jgo8tv
     - kjz6f0
 created: 2026-08-11T01:54:08Z
-updated: 2026-08-17T04:00:56Z
+updated: 2026-08-19T01:51:22Z
 ---
 
 ## Problem Statement
@@ -212,3 +212,7 @@ CONSEQUENT CONTRACT CHANGE: the worker's internal /validate and /render payloads
 **claude** — 2026-08-17T04:00:56Z
 
 Amendment 2026-08-16 to the internal contracts: (1) the queued-to-rendering transition is carried by the internal Row fetch - fetching a Row marks it rendering and stamps started_at in the same request, the first flip moving the Job to running (4dpprd). (2) The worker-facing asset-bytes route this spec builds against is now written down on jr6mye: GET /internal/workspaces/{workspaceId}/assets/{assetId}. (3) The validate payload carries the Workspace id (gxwr7t), completing the 2026-08-15 seam decision.
+
+**claude** — 2026-08-19T01:51:22Z
+
+AMENDMENT (built on gxwr7t, 2026-08-18) to the internal contracts: the worker's POST /validate answers { errors: RowError[], templateErrors: ValidationError[], rows? } rather than { errors } alone. templateErrors keeps a broken Template's problems in the document authority's own shape (elementId/assetId, no row index), which gxwr7t requires and RowError cannot carry — both lists are always present, a clean batch being two empty ones. rows returns the typed Rows for a cells:true request, because 4t1ze9 requires a CSV submission to create the same Job the equivalent JSON submission would while cell typing lives only behind this call; without it the api would store string cells and every CSV Job would fail at render. Both fields are additive and no existing field changed meaning. The request is { workspaceId, template, rows, cells? }, with workspaceId required.

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/index.ts",
+    "dev": "node --env-file-if-exists=../../.env --watch src/index.ts",
     "environment:write": "node src/write-environment.ts",
     "image:build": "docker build --file Dockerfile --tag media-canvas-worker:pinned ../..",
     "image:check": "pnpm run image:build && docker run --rm media-canvas-worker:pinned bash -c 'node --test apps/worker/src/checks/*.check.ts'"

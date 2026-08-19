@@ -1,8 +1,14 @@
-// The render worker (ADR-0002/0003): consumes per-Row BullMQ tasks, renders
+// The render worker (ADR-0002/0003): it consumes per-Row BullMQ tasks, renders
 // the compiled document in pinned headless Chromium, and reports results
-// through the internal FastAPI endpoint (ADR-0005). Skeleton until the render
-// pipeline lands.
+// through the internal FastAPI endpoint (ADR-0005). Its other half is the
+// internal HTTP service below, which the api calls for everything that means
+// reading a Design Document — the api treats one as opaque JSON. The queue
+// consumer lands with the render pipeline.
 
-import { DESIGN_DOCUMENT_SCHEMA_VERSION } from "@media-canvas/core";
+import { createInternalService, internalServiceConfig } from "./internal-service.ts";
 
-console.log(`render worker skeleton — Design Document schema v${DESIGN_DOCUMENT_SCHEMA_VERSION}`);
+const { token, port } = internalServiceConfig(process.env);
+
+createInternalService({ token }).listen(port, () => {
+  console.log(`render worker: internal service on port ${String(port)}`);
+});
