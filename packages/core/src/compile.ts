@@ -14,6 +14,7 @@ import type {
   Element,
   Fill,
   GradientStop,
+  ImageElement,
   Shadow,
   TextElement,
   VarRef,
@@ -28,14 +29,18 @@ type Box = { x: number; y: number; width: number; height: number };
  *  an `@font-face` source, and the parsed font answers every text metric. */
 type LoadedFont = { bytes: ArrayBuffer; font: Font };
 
+/** One Image Asset, taken once per compilation: where it is drawn from, and how
+ *  big it is when something has to be fitted to it. */
+type LoadedImage = { url: string; size?: { width: number; height: number } };
+
 /** The state one compilation threads through the element tree. `defs` collects
  *  gradients and filters in the order elements ask for them, so that the same
  *  document always yields the same `<defs>` block; `usedFonts` collects, in the
  *  same way, the Font Assets that something drawn actually asks for. */
 type Context = {
-  assets: AssetResolver;
   defs: string[];
   fonts: Map<string, LoadedFont>;
+  images: Map<string, LoadedImage>;
   usedFonts: Set<string>;
 };
 
@@ -341,31 +346,81 @@ function textElementsByFont(elements: Element[], into: Map<string, string[]>): v
   }
 }
 
-/** Load and parse every Font Asset the document names, before anything is
- *  drawn. A font the resolver cannot supply fails the whole compilation: there
- *  is no fallback face to fall back to, and skipping the text would ship an
- *  asset missing its words. */
-function loadFonts(doc: DesignDocument, assets: AssetResolver): Map<string, LoadedFont> {
-  const referenced = new Map<string, string[]>();
-  textElementsByFont(doc.elements, referenced);
-  const loaded = new Map<string, LoadedFont>();
+/** Every image element in the document, grouped by the Image Asset it names,
+ *  so that a source the resolver cannot supply is reported once, against all of
+ *  the elements that wanted it. */
+function imageElementsBySrc(elements: Element[], into: Map<string, ImageElement[]>): void {
+  for (const element of elements) {
+    if (element.type === "image") {
+      if (isVarRef(element.src)) unresolved(element.src);
+      into.set(element.src, [...(into.get(element.src) ?? []), element]);
+    } else if (element.type === "group") imageElementsBySrc(element.children, into);
+  }
+}
+
+/** Take every asset of one kind the document names, before anything is drawn,
+ *  and report every id the resolver cannot supply at once — each against the
+ *  elements that referenced it. Nothing is drawn without all of them: there is
+ *  no fallback for a missing asset, and no placeholder either. */
+function loadAssets<T>(
+  referenced: Map<string, string[]>,
+  take: (assetId: string) => T,
+  complaint: string,
+): Map<string, T> {
+  const loaded = new Map<string, T>();
   const failures: string[] = [];
-  for (const [fontAssetId, elementIds] of referenced) {
+  for (const [assetId, elementIds] of referenced) {
     try {
-      const bytes = assets.fontBytes(fontAssetId);
-      loaded.set(fontAssetId, { bytes, font: parseFont(bytes) });
+      loaded.set(assetId, take(assetId));
     } catch (cause) {
       const elements = elementIds.map((id) => `"${id}"`).join(", ");
       const reason = cause instanceof Error ? cause.message : String(cause);
-      failures.push(`"${fontAssetId}", referenced by ${elements}: ${reason}`);
+      failures.push(`"${assetId}", referenced by ${elements}: ${reason}`);
     }
   }
-  if (failures.length > 0) {
-    throw new Error(
-      `compile could not load every Font Asset the document references — ${failures.join("; ")}`,
-    );
-  }
+  if (failures.length > 0) throw new Error(`${complaint} — ${failures.join("; ")}`);
   return loaded;
+}
+
+/** The Font Assets the document names, parsed. A font the resolver cannot
+ *  supply fails the whole compilation: there is no fallback face to fall back
+ *  to, and skipping the text would ship an asset missing its words. */
+function loadFonts(doc: DesignDocument, assets: AssetResolver): Map<string, LoadedFont> {
+  const referenced = new Map<string, string[]>();
+  textElementsByFont(doc.elements, referenced);
+  return loadAssets(
+    referenced,
+    (fontAssetId) => {
+      const bytes = assets.fontBytes(fontAssetId);
+      return { bytes, font: parseFont(bytes) };
+    },
+    "compile could not load every Font Asset the document references",
+  );
+}
+
+/** The Image Assets the document names: the URL each is drawn from, and the
+ *  intrinsic size of those whose crop resolution dropped, which are placed
+ *  against their own dimensions rather than the placeholder's. */
+function loadImages(doc: DesignDocument, assets: AssetResolver): Map<string, LoadedImage> {
+  const elementsBySrc = new Map<string, ImageElement[]>();
+  imageElementsBySrc(doc.elements, elementsBySrc);
+  const referenced = new Map<string, string[]>(
+    [...elementsBySrc].map(([src, elements]) => [src, elements.map((element) => element.id)]),
+  );
+  return loadAssets(
+    referenced,
+    (src) =>
+      (elementsBySrc.get(src) ?? []).some(needsIntrinsicSize)
+        ? { url: assets.imageUrl(src), size: assets.imageSize(src) }
+        : { url: assets.imageUrl(src) },
+    "compile could not supply every Image Asset the document references",
+  );
+}
+
+/** Whether placing this image asks the resolver how big it is: only a Fit Mode
+ *  that keeps the aspect ratio, on an element that has no authored crop left. */
+function needsIntrinsicSize(element: ImageElement): boolean {
+  return element.content === undefined && element.fitMode !== "stretch";
 }
 
 /** Rotation, opacity, and shadow belong to the element rather than to its
@@ -457,6 +512,108 @@ function compileTextLines(
   );
 }
 
+function loadedImage(src: string, context: Context): LoadedImage {
+  const loaded = context.images.get(src);
+  if (!loaded) throw new Error(`compile holds no Image Asset for the source "${src}"`);
+  return loaded;
+}
+
+/** The box an image's pixels are drawn into, inside its frame. An authored crop
+ *  places the asset's own pixels itself — the offset and scale a designer set in
+ *  Crop Mode, against the intrinsic size the document records. Without one, the
+ *  Fit Mode places the supplied image against the size it actually has. */
+function imageBox(element: ImageElement, frame: Box, src: string, context: Context): Box {
+  const crop = element.content;
+  if (crop) {
+    return {
+      x: frame.x + crop.offsetX,
+      y: frame.y + crop.offsetY,
+      width: element.naturalWidth * crop.scale,
+      height: element.naturalHeight * crop.scale,
+    };
+  }
+  if (element.fitMode === "stretch") return frame;
+  // The crop was dropped with the placeholder it belonged to, so the supplied
+  // image is placed against its own size — the resolver's, not the document's.
+  const natural = loadedImage(src, context).size;
+  // An image the resolver reports no extent for leaves nothing to scale to, and
+  // an empty box beats markup full of NaN.
+  if (!natural || natural.width === 0 || natural.height === 0) {
+    return { ...frame, width: 0, height: 0 };
+  }
+  const horizontal = frame.width / natural.width;
+  const vertical = frame.height / natural.height;
+  const scale =
+    element.fitMode === "cover" ? Math.max(horizontal, vertical) : Math.min(horizontal, vertical);
+  const width = natural.width * scale;
+  const height = natural.height * scale;
+  // Centered in the frame: `cover` overflows the two edges it cannot fit
+  // evenly, and `contain` letterboxes evenly on the two it does not fill.
+  return {
+    x: frame.x + (frame.width - width) / 2,
+    y: frame.y + (frame.height - height) / 2,
+    width,
+    height,
+  };
+}
+
+/** The shape an image is clipped to, which is also the shape its border traces:
+ *  the ellipse inscribed in the frame, the authored path, or the frame itself,
+ *  rounded by the corner radius. Corner radius belongs to the frame, so an
+ *  ellipse or a path clip has no place for it. */
+function imageShape(element: ImageElement, frame: Box, painting: Attribute[]): string {
+  if (element.clip === "ellipse") {
+    return `<ellipse${attributes([
+      ["cx", num(frame.x + frame.width / 2)],
+      ["cy", num(frame.y + frame.height / 2)],
+      ["rx", num(frame.width / 2)],
+      ["ry", num(frame.height / 2)],
+      ...painting,
+    ])}/>`;
+  }
+  if (typeof element.clip === "object") {
+    return `<path${attributes([
+      ["d", element.clip.path],
+      // The path is authored in the element's own coordinates, as a vector
+      // element's is, so the frame's origin is where it is drawn from.
+      ["transform", `translate(${num(frame.x)} ${num(frame.y)})`],
+      ...painting,
+    ])}/>`;
+  }
+  return compileRectShape(element.cornerRadius, frame, painting);
+}
+
+/** An image element: the asset drawn into the frame, clipped to the element's
+ *  shape. The clip is always emitted — a frame is a clip too — so that nothing
+ *  the frame does not hold can reach the canvas. */
+function compileImage(element: ImageElement, frame: Box, context: Context): string {
+  if (isVarRef(element.src)) unresolved(element.src);
+  const src = element.src;
+  const clipId = `clip-${xmlId(element.id)}`;
+  context.defs.push(
+    `<clipPath${attributes([["id", clipId]])}>${imageShape(element, frame, [])}</clipPath>`,
+  );
+  const box = imageBox(element, frame, src, context);
+  const drawn = `<image${attributes([
+    ["href", loadedImage(src, context).url],
+    ["x", num(box.x)],
+    ["y", num(box.y)],
+    ["width", num(box.width)],
+    ["height", num(box.height)],
+    // The compiler sized the box itself, so SVG has no fitting left to do.
+    ["preserveAspectRatio", "none"],
+    ["clip-path", `url(#${clipId})`],
+  ])}/>`;
+  if (!element.border) return drawn;
+  // A stroke is centered on the edge it traces, so half of it lies outside the
+  // clip: the border is drawn beside the image, not inside the clipped part.
+  const border = imageShape(element, frame, [
+    ["fill", "none"],
+    ...borderAttributes(element.border),
+  ]);
+  return drawn + border;
+}
+
 /** An invisible element compiles to nothing at all: no markup, and no
  *  definition either, so it cannot reach anything that is drawn. */
 function compileElement(element: Element, context: Context): string {
@@ -502,6 +659,10 @@ function compileElement(element: Element, context: Context): string {
       ])}/>`;
       return wrap(element, shape, box, context);
     }
+    case "image": {
+      const box = { x: element.x, y: element.y, width: element.width, height: element.height };
+      return wrap(element, compileImage(element, box, context), box, context);
+    }
     case "text": {
       if (isVarRef(element.color)) unresolved(element.color);
       const { font } = loadedFont(element.fontAssetId, context);
@@ -539,9 +700,9 @@ function compileElement(element: Element, context: Context): string {
  */
 export function compile(doc: DesignDocument, assets: AssetResolver): string {
   const context: Context = {
-    assets,
     defs: [],
     fonts: loadFonts(doc, assets),
+    images: loadImages(doc, assets),
     usedFonts: new Set(),
   };
   const canvasBox = { x: 0, y: 0, width: doc.canvas.width, height: doc.canvas.height };

@@ -7,6 +7,7 @@ import type {
   Element,
   EllipseElement,
   Fill,
+  ImageElement,
   RectElement,
   TextElement,
   VarRef,
@@ -349,6 +350,9 @@ test("an unresolved Variable reference is a compile error, never something paint
   ).toThrow(/Variable "line"/);
   expect(() => compile(document([], { $var: "backdrop" }), assets())).toThrow(
     /Variable "backdrop"/,
+  );
+  expect(() => compile(document([image({ src: { $var: "photo" } })]), assets())).toThrow(
+    /Variable "photo"/,
   );
 });
 
@@ -737,4 +741,214 @@ test("an unresolved text color is a compile error, never something painted", () 
   expect(() => compile(document([text({ color: { $var: "ink" } })]), fontAssets())).toThrow(
     /Variable "ink"/,
   );
+});
+
+/** A resolver that serves the Image Assets a test names, and refuses the rest,
+ *  so that an image reaching for something it was not given is visible. */
+function imageAssets(
+  sizes: Record<string, { width: number; height: number }> = { photo: { width: 800, height: 600 } },
+): AssetResolver {
+  const size = (src: string): { width: number; height: number } => {
+    const known = sizes[src];
+    if (!known) throw new Error(`no image asset ${src}`);
+    return known;
+  };
+  return {
+    ...assets(),
+    imageUrl(src) {
+      size(src);
+      return `https://assets.test/${src}`;
+    },
+    imageSize: size,
+  };
+}
+
+function image(overrides: Partial<ImageElement> = {}): ImageElement {
+  return {
+    id: "i",
+    type: "image",
+    x: 0,
+    y: 0,
+    width: 400,
+    height: 400,
+    rotation: 0,
+    opacity: 1,
+    visible: true,
+    src: "photo",
+    naturalWidth: 800,
+    naturalHeight: 600,
+    fitMode: "cover",
+    clip: "none",
+    ...overrides,
+  };
+}
+
+test("an image draws the asset the resolver names, inside its frame and clipped to it", () => {
+  const compiled = compile(document([image({ x: 10, y: 20, fitMode: "stretch" })]), imageAssets());
+
+  expect(compiled).toBe(
+    svg(
+      "<defs>",
+      '<clipPath id="clip-i"><rect x="10" y="20" width="400" height="400"/></clipPath>',
+      "</defs>",
+      '<rect width="200" height="100" fill="#FFFFFF"/>',
+      '<image href="https://assets.test/photo" x="10" y="20" width="400" height="400" ' +
+        'preserveAspectRatio="none" clip-path="url(#clip-i)"/>',
+    ),
+  );
+});
+
+test("an authored image draws at the offset and scale its crop was authored with", () => {
+  const compiled = compile(
+    document([image({ x: 10, y: 20, content: { offsetX: -50, offsetY: -20, scale: 0.75 } })]),
+    imageAssets(),
+  );
+
+  // The crop places the asset's own 800×600 pixels: three quarters of that is
+  // 600×450, drawn 50 left and 20 up from the frame's corner.
+  expect(compiled).toContain(
+    '<image href="https://assets.test/photo" x="-40" y="0" width="600" height="450"',
+  );
+});
+
+test("an image supplied by a Variable is placed by its Fit Mode, against the size the resolver reports", () => {
+  // The element's own naturalWidth/naturalHeight describe the placeholder that
+  // the Variable's image replaced, so the resolver's size is what places it.
+  const placed = (fitMode: ImageElement["fitMode"]): string | undefined =>
+    /<image [^>]*x="([^"]*)" y="([^"]*)" width="([^"]*)" height="([^"]*)"/
+      .exec(
+        compile(
+          document([image({ naturalWidth: 100, naturalHeight: 100, fitMode })]),
+          imageAssets(),
+        ),
+      )
+      ?.slice(1)
+      .join(" ");
+
+  // An 800×600 asset in a 400×400 frame.
+  expect(placed("cover")).toBe("-66.6667 0 533.3333 400");
+  expect(placed("contain")).toBe("0 50 400 300");
+  expect(placed("stretch")).toBe("0 0 400 400");
+});
+
+test("an ellipse clip cuts the image to the ellipse inscribed in its frame, corner radius or not", () => {
+  const compiled = compile(
+    document([image({ x: 10, y: 20, clip: "ellipse", cornerRadius: 30 })]),
+    imageAssets(),
+  );
+
+  expect(compiled).toContain(
+    '<clipPath id="clip-i"><ellipse cx="210" cy="220" rx="200" ry="200"/></clipPath>',
+  );
+});
+
+test("a path clip cuts the image to that path, drawn from the frame's own corner", () => {
+  const compiled = compile(
+    document([image({ x: 10, y: 20, clip: { path: "M0 0 L400 0 L0 400 Z" }, cornerRadius: 30 })]),
+    imageAssets(),
+  );
+
+  expect(compiled).toContain(
+    '<clipPath id="clip-i"><path d="M0 0 L400 0 L0 400 Z" transform="translate(10 20)"/></clipPath>',
+  );
+});
+
+test("a border on a path-clipped image traces that same path", () => {
+  const compiled = compile(
+    document([
+      image({
+        clip: { path: "M0 0 L400 0 L0 400 Z" },
+        border: { color: "#0055FF", width: 4 },
+      }),
+    ]),
+    imageAssets(),
+  );
+
+  expect(compiled).toContain(
+    '<path d="M0 0 L400 0 L0 400 Z" transform="translate(0 0)" fill="none" ' +
+      'stroke="#0055FF" stroke-width="4"/>',
+  );
+});
+
+test("an image with no clip of its own is cut by its frame, rounded by its corner radius", () => {
+  const uniform = compile(document([image({ cornerRadius: 20 })]), imageAssets());
+  const perCorner = compile(
+    document([
+      image({ cornerRadius: { topLeft: 20, topRight: 0, bottomRight: 0, bottomLeft: 0 } }),
+    ]),
+    imageAssets(),
+  );
+
+  expect(uniform).toContain(
+    '<clipPath id="clip-i"><rect x="0" y="0" width="400" height="400" rx="20"/></clipPath>',
+  );
+  expect(perCorner).toContain(
+    '<clipPath id="clip-i"><path d="M 20 0 H 400 V 400 H 0 V 20 A 20 20 0 0 1 20 0 Z"/></clipPath>',
+  );
+});
+
+test("a border traces the same shape the clip cuts, and is not cut by it", () => {
+  const compiled = compile(
+    document([image({ clip: "ellipse", border: { color: "#0055FF", width: 4 } })]),
+    imageAssets(),
+  );
+
+  // Centered on the edge, half of the stroke lies outside the clip, so the
+  // border is drawn beside the image rather than inside its clip.
+  expect(compiled).toContain(
+    '<image href="https://assets.test/photo" x="-66.6667" y="0" width="533.3333" height="400" ' +
+      'preserveAspectRatio="none" clip-path="url(#clip-i)"/>' +
+      '<ellipse cx="200" cy="200" rx="200" ry="200" fill="none" ' +
+      'stroke="#0055FF" stroke-width="4"/>',
+  );
+});
+
+test("corner radius, border, shadow, opacity, and rotation behave on an image as on a rect", () => {
+  const shared = {
+    id: "e",
+    x: 10,
+    y: 20,
+    width: 100,
+    height: 50,
+    rotation: 30,
+    opacity: 0.5,
+    cornerRadius: { topLeft: 20, topRight: 0, bottomRight: 0, bottomLeft: 0 },
+    border: { color: "#0055FF", width: 8 },
+    shadow: { dx: 4, dy: 6, blur: 10, color: "#000000", opacity: 0.5 },
+  };
+  const asImage = compile(document([image({ ...shared, fitMode: "stretch" })]), imageAssets());
+  const asRect = compile(document([rect(shared)]), assets());
+  const shape = (compiled: string): (string | undefined)[] => [
+    /<filter[^>]*>.*?<\/filter>/.exec(compiled)?.[0],
+    /<g [^>]*>/.exec(compiled)?.[0],
+    /<path d="[^"]*"/.exec(compiled)?.[0],
+  ];
+
+  expect(shape(asImage)).toEqual(shape(asRect));
+  // The border is inside the wrapper the shadow hangs on, so the shadow is
+  // cast by the shape the clip draws and the border traces — not by the frame.
+  expect(asImage).toContain('stroke-width="8"/></g>');
+});
+
+test("an Image Asset the resolver cannot supply fails the compilation, naming it and its elements", () => {
+  const document_ = document([
+    image({ id: "hero", src: "missing-image" }),
+    image({ id: "thumb", src: "missing-image", y: 50 }),
+    image({ id: "logo" }),
+  ]);
+
+  // Nothing is drawn in place of it: a batch that shipped a gray box would be
+  // a thousand assets nobody checked.
+  expect(() => compile(document_, imageAssets())).toThrow(
+    /"missing-image", referenced by "hero", "thumb"/,
+  );
+});
+
+test("an image the resolver reports no extent for draws nothing rather than markup full of NaN", () => {
+  const compiled = compile(
+    document([image({ src: "empty" })]),
+    imageAssets({ empty: { width: 0, height: 0 } }),
+  );
+
+  expect(compiled).toContain('x="0" y="0" width="0" height="0"');
 });
