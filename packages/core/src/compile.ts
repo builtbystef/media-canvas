@@ -14,6 +14,7 @@ import type {
   Element,
   Fill,
   GradientStop,
+  GroupElement,
   ImageElement,
   Shadow,
   TextElement,
@@ -22,7 +23,8 @@ import type {
 import type { TextLayout, TextPiece } from "./text.ts";
 import { layoutText } from "./text.ts";
 
-/** What one element is painted into: its geometry in canvas coordinates. */
+/** What one element is painted into: its geometry in the coordinates of
+ *  whatever holds it — the canvas, or the group it sits in. */
 type Box = { x: number; y: number; width: number; height: number };
 
 /** One Font Asset, held once per compilation: its bytes go into the markup as
@@ -614,6 +616,70 @@ function compileImage(element: ImageElement, frame: Box, context: Context): stri
   return drawn + border;
 }
 
+/** The axis-aligned box a rotated one still needs, so that a group's extent
+ *  covers what a turned child actually reaches. */
+function rotatedBounds(box: Box, degrees: number): Box {
+  if (degrees === 0) return box;
+  const radians = (degrees * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(radians));
+  const sin = Math.abs(Math.sin(radians));
+  const width = box.width * cos + box.height * sin;
+  const height = box.width * sin + box.height * cos;
+  return {
+    x: box.x + (box.width - width) / 2,
+    y: box.y + (box.height - height) / 2,
+    width,
+    height,
+  };
+}
+
+function union(boxes: Box[]): Box | undefined {
+  if (boxes.length === 0) return undefined;
+  const left = Math.min(...boxes.map((box) => box.x));
+  const top = Math.min(...boxes.map((box) => box.y));
+  const right = Math.max(...boxes.map((box) => box.x + box.width));
+  const bottom = Math.max(...boxes.map((box) => box.y + box.height));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+/** What one element occupies, before its own rotation turns it: the frame it
+ *  was authored with, the block of line boxes a text element laid out, or —
+ *  for a group, which has no width or height of its own — its children's
+ *  extent, moved to where its origin puts them. */
+function ownBox(element: Element, context: Context): Box | undefined {
+  if (element.type === "group") {
+    const inside = childrenBounds(element, context);
+    return inside && { ...inside, x: inside.x + element.x, y: inside.y + element.y };
+  }
+  if (element.type === "text") {
+    const layout = layoutText(element, loadedFont(element.fontAssetId, context).font);
+    if (layout.lines.length === 0) return undefined;
+    return { x: element.x, y: layout.top, width: element.width, height: layout.height };
+  }
+  return { x: element.x, y: element.y, width: element.width, height: element.height };
+}
+
+/** The extent of one element, in the coordinates of whatever holds it. What is
+ *  drawn is what counts, so an element that draws nothing — hidden, or a text
+ *  element with nothing in it — has no extent at all, and a border or a shadow
+ *  reaching past the edge does not widen one. */
+function elementBounds(element: Element, context: Context): Box | undefined {
+  if (isVarRef(element.visible)) unresolved(element.visible);
+  if (!element.visible) return undefined;
+  const own = ownBox(element, context);
+  return own && rotatedBounds(own, element.rotation);
+}
+
+/** A group's own extent, in the group's own coordinates: what its children
+ *  cover between them. It is the box the group turns about, and it moves
+ *  whenever a child is added, moved, or hidden. */
+function childrenBounds(group: GroupElement, context: Context): Box | undefined {
+  const boxes = group.children
+    .map((child) => elementBounds(child, context))
+    .filter((box) => box !== undefined);
+  return union(boxes);
+}
+
 /** An invisible element compiles to nothing at all: no markup, and no
  *  definition either, so it cannot reach anything that is drawn. */
 function compileElement(element: Element, context: Context): string {
@@ -688,8 +754,27 @@ function compileElement(element: Element, context: Context): string {
       };
       return wrap(element, shape, box, context, ink);
     }
-    default:
-      throw new Error(`compiling a "${element.type}" element is not implemented yet`);
+    case "group": {
+      const children = element.children.map((child) => compileElement(child, context)).join("");
+      if (children === "") return "";
+      const origin =
+        element.x === 0 && element.y === 0
+          ? undefined
+          : `translate(${num(element.x)} ${num(element.y)})`;
+      // The turn happens inside the origin's translate, so its center is the
+      // one the document states: the middle of the children, in the group's
+      // own coordinates.
+      const inside = element.rotation === 0 ? undefined : childrenBounds(element, context);
+      const turn = inside
+        ? `rotate(${num(element.rotation)} ${num(inside.x + inside.width / 2)} ` +
+          `${num(inside.y + inside.height / 2)})`
+        : undefined;
+      const transform = [origin, turn].filter((part) => part !== undefined).join(" ");
+      return `<g${attributes([
+        ["transform", transform === "" ? undefined : transform],
+        ["opacity", element.opacity === 1 ? undefined : num(element.opacity)],
+      ])}>${children}</g>`;
+    }
   }
 }
 

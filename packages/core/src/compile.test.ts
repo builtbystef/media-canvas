@@ -7,6 +7,7 @@ import type {
   Element,
   EllipseElement,
   Fill,
+  GroupElement,
   ImageElement,
   RectElement,
   TextElement,
@@ -951,4 +952,227 @@ test("an image the resolver reports no extent for draws nothing rather than mark
   );
 
   expect(compiled).toContain('x="0" y="0" width="0" height="0"');
+});
+
+function group(children: Element[], overrides: Partial<GroupElement> = {}): GroupElement {
+  return {
+    id: "g",
+    type: "group",
+    x: 0,
+    y: 0,
+    rotation: 0,
+    opacity: 1,
+    visible: true,
+    children,
+    ...overrides,
+  };
+}
+
+test("a group draws its children in order, at the coordinates its own origin gives them", () => {
+  const compiled = compile(
+    document([
+      group([rect({ id: "under", x: 10, y: 10 }), rect({ id: "over", x: 30, y: 10 })], {
+        x: 100,
+        y: 50,
+      }),
+    ]),
+    assets(),
+  );
+
+  // The group's own origin is where its children's coordinates are counted
+  // from, so the first child, at (10, 10), is painted at (110, 60).
+  expect(compiled).toBe(
+    svg(
+      '<rect width="200" height="100" fill="#FFFFFF"/>',
+      '<g transform="translate(100 50)">' +
+        '<rect x="10" y="10" width="40" height="20" fill="#FF0000"/>' +
+        '<rect x="30" y="10" width="40" height="20" fill="#FF0000"/>' +
+        "</g>",
+    ),
+  );
+});
+
+test("groups nest to any depth, each origin counted from the one above it", () => {
+  const compiled = compile(
+    document([
+      group([group([rect({ x: 1, y: 1 })], { id: "inner", x: 10, y: 5 })], {
+        id: "outer",
+        x: 100,
+        y: 50,
+      }),
+    ]),
+    assets(),
+  );
+
+  expect(compiled).toContain(
+    '<g transform="translate(100 50)">' +
+      '<g transform="translate(10 5)">' +
+      '<rect x="1" y="1" width="40" height="20" fill="#FF0000"/>' +
+      "</g></g>",
+  );
+});
+
+test("group opacity fades the group as one unit, not each child on its own", () => {
+  const compiled = compile(
+    document([group([rect({ id: "under" }), rect({ id: "over", x: 20 })], { opacity: 0.5 })]),
+    assets(),
+  );
+
+  // One `opacity` on the group's own wrapper: the children composite together
+  // first, so their overlap is not painted through twice.
+  expect(compiled).toBe(
+    svg(
+      '<rect width="200" height="100" fill="#FFFFFF"/>',
+      '<g opacity="0.5">' +
+        '<rect x="0" y="0" width="40" height="20" fill="#FF0000"/>' +
+        '<rect x="20" y="0" width="40" height="20" fill="#FF0000"/>' +
+        "</g>",
+    ),
+  );
+});
+
+test("group rotation turns the whole arrangement about the middle of its children", () => {
+  const compiled = compile(
+    document([
+      group(
+        [
+          rect({ id: "a", x: 0, y: 0, width: 100, height: 50 }),
+          rect({ id: "b", x: 100, y: 50, width: 100, height: 50 }),
+        ],
+        { rotation: 30 },
+      ),
+    ]),
+    assets(),
+  );
+
+  // Children spanning local x 0..200 and y 0..100 turn about (100, 50).
+  expect(compiled).toContain('<g transform="rotate(30 100 50)">');
+});
+
+test("a rotated group turns about a center in its own coordinates, wherever it sits", () => {
+  const compiled = compile(
+    document([
+      group(
+        [
+          rect({ id: "a", x: 0, y: 0, width: 100, height: 50 }),
+          rect({ id: "b", x: 100, y: 50, width: 100, height: 50 }),
+        ],
+        { x: 30, y: 20, rotation: 30 },
+      ),
+    ]),
+    assets(),
+  );
+
+  expect(compiled).toContain('<g transform="translate(30 20) rotate(30 100 50)">');
+});
+
+test("a hidden group draws nothing, and neither does anything under it", () => {
+  const compiled = compile(
+    document([
+      group([rect({ fill: { type: "radial", stops: [{ offset: 0, color: "#FF0000" }] } })], {
+        visible: false,
+      }),
+      rect({ id: "sibling" }),
+    ]),
+    assets(),
+  );
+
+  expect(compiled).toBe(
+    svg(
+      '<rect width="200" height="100" fill="#FFFFFF"/>',
+      '<rect x="0" y="0" width="40" height="20" fill="#FF0000"/>',
+    ),
+  );
+});
+
+test("a hidden child inside a visible group hides only itself", () => {
+  const compiled = compile(
+    document([
+      group([rect({ id: "gone", visible: false }), rect({ id: "kept", x: 20 })], { x: 100 }),
+    ]),
+    assets(),
+  );
+
+  expect(compiled).toContain(
+    '<g transform="translate(100 0)">' +
+      '<rect x="20" y="0" width="40" height="20" fill="#FF0000"/>' +
+      "</g>",
+  );
+});
+
+test("a group's extent is its children's: adding, moving, or hiding one moves the middle it turns about", () => {
+  const left = rect({ id: "left", x: 0, y: 0, width: 100, height: 100 });
+  const right = rect({ id: "right", x: 100, y: 0, width: 100, height: 100 });
+  const turn = (children: Element[]): string =>
+    compile(document([group(children, { rotation: 45 })]), assets());
+
+  expect(turn([left])).toContain("rotate(45 50 50)");
+  expect(turn([left, right])).toContain("rotate(45 100 50)");
+  expect(turn([left, { ...right, x: 300 }])).toContain("rotate(45 200 50)");
+  expect(turn([left, { ...right, visible: false }])).toContain("rotate(45 50 50)");
+});
+
+test("a child's own rotation counts towards the extent, so the group turns about what it reaches", () => {
+  // The tall child turned a quarter turn lies across x 60..160 instead of
+  // standing in x 100..120, which moves the middle of the pair with it.
+  const upright = rect({ id: "square", x: 0, y: 0, width: 100, height: 100 });
+  const turned = rect({ id: "tall", x: 100, y: 0, width: 20, height: 100, rotation: 90 });
+
+  const compiled = compile(document([group([upright, turned], { rotation: 45 })]), assets());
+
+  expect(compiled).toContain("rotate(45 80 50)");
+});
+
+test("a text child brings the block of line boxes it laid out to its group's extent", () => {
+  // A text element carries no height: the one 20 px line box it laid out is
+  // what the group takes, so the block is 100×20 and its middle is (50, 10).
+  const compiled = compile(
+    document([
+      group([text({ content: "ONE TWO", width: 100, fontSize: 20, lineHeight: 1 })], {
+        rotation: 90,
+      }),
+    ]),
+    fontAssets(),
+  );
+
+  expect(compiled).toContain("rotate(90 50 10)");
+});
+
+test("what a child paints with is measured in the coordinates its group gives it", () => {
+  const compiled = compile(
+    document([
+      group(
+        [
+          rect({
+            id: "shaded",
+            fill: { type: "linear", angle: 0, stops: [{ offset: 0, color: "#FF0000" }] },
+            shadow: { dx: 0, dy: 0, blur: 4, color: "#000000", opacity: 1 },
+          }),
+        ],
+        { x: 100, y: 50 },
+      ),
+    ]),
+    assets(),
+  );
+
+  // Both are user-space definitions, and the user space they are read in is the
+  // one the group's translate establishes — so they run 0..40, not 100..140.
+  expect(compiled).toContain('x1="0" y1="10" x2="40" y2="10"');
+  expect(compiled).toContain('filterUnits="userSpaceOnUse" x="-6" y="-6" width="52" height="32"');
+});
+
+test("a group's text and image children are drawn from the assets they name, as any other child is", () => {
+  const compiled = compile(
+    document([
+      group([image({ fitMode: "stretch", width: 40, height: 30 }), text({ content: "HI" })], {
+        x: 100,
+        y: 50,
+      }),
+    ]),
+    { ...imageAssets(), fontBytes: (fontAssetId) => fontAssets().fontBytes(fontAssetId) },
+  );
+
+  expect(compiled).toContain('<image href="https://assets.test/photo" x="0" y="0"');
+  expect(compiled).toContain('<text font-family="font-' + oswaldBold.id + '"');
+  expect(compiled).toContain(`@font-face{font-family:"font-${oswaldBold.id}"`);
 });
