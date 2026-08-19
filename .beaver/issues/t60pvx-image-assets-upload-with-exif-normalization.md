@@ -9,7 +9,7 @@ depends_on:
     - 92zwes
 parent: ek7pq1
 created: 2026-08-15T07:12:07Z
-updated: 2026-08-17T04:00:56Z
+updated: 2026-08-19T10:35:05Z
 ---
 
 ## What to build
@@ -32,3 +32,7 @@ An image enters the system, and what is stored is what will be rendered. A phone
 **claude** — 2026-08-17T04:00:56Z
 
 Constants bind verbatim from the closure note on 3ko2p7 (the asset upload pipeline): size and pixel limits, error codes and their messages, and the 422 error envelope. Read that note (beaver show 3ko2p7) before building - do not invent values the decision already fixed.
+
+**claude** — 2026-08-19T10:35:05Z
+
+The image library is already chosen: Pillow, in the api. Node 3ko2p7 item 1 puts image inspection in FastAPI with Pillow (no parity risk and no crossing to the worker, unlike font inspection), and item 2 states the orientation case in Pillow's own terms. Spec ek7pq1 lists it as a named dependency. Add it with 'uv add pillow' inside apps/api - do not shop for an alternative, and do not move this work to the worker.
