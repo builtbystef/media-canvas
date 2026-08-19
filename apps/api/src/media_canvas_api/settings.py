@@ -23,9 +23,9 @@ class SettingsError(RuntimeError):
 class Settings(BaseSettings):
     """Every value the api reads from its environment.
 
-    Only the Postgres password and the object storage credential are
-    required: the rest default to the compose stack, so a developer who has
-    started the infra containers needs nothing else.
+    Only the Postgres password, the object storage credential and the
+    internal credential are required: the rest default to the compose stack,
+    so a developer who has started the infra containers needs nothing else.
     """
 
     model_config = SettingsConfigDict(
@@ -50,8 +50,20 @@ class Settings(BaseSettings):
     assets_bucket: str = "media-canvas-assets"
     outputs_bucket: str = "media-canvas-outputs"
 
+    # The credential the api and the render worker present to each other, and
+    # where the api reaches the worker's internal service. The port is the one
+    # the worker itself reads, under the same name, so the pair is set once.
+    internal_api_token: str
+    worker_internal_host: str = "localhost"
+    worker_internal_port: int = 4000
+
     domain: str | None = None
     public_url: str | None = None
+
+    @property
+    def worker_internal_url(self) -> str:
+        """The base the worker's internal service answers on."""
+        return f"http://{self.worker_internal_host}:{self.worker_internal_port}"
 
     @property
     def public_base_url(self) -> str:

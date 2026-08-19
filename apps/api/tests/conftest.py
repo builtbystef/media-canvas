@@ -26,6 +26,7 @@ from media_canvas_api.main import app
 from media_canvas_api.sessions import COOKIE_NAME
 from media_canvas_api.settings import Settings, get_settings
 from media_canvas_api.storage import ObjectStore
+from media_canvas_api.worker import RecordingWorker
 from sqlalchemy import Connection, Engine, create_engine, text
 from sqlalchemy.exc import OperationalError
 
@@ -95,15 +96,25 @@ def clock() -> FakeClock:
 
 
 @pytest.fixture
-def client(mailer: RecordingMailer, clock: FakeClock) -> Iterator[TestClient]:
+def worker() -> RecordingWorker:
+    return RecordingWorker()
+
+
+@pytest.fixture
+def client(
+    mailer: RecordingMailer, clock: FakeClock, worker: RecordingWorker
+) -> Iterator[TestClient]:
     """The api, started as it starts in production — migrations included.
 
-    Only the two things the outside world would otherwise supply are replaced:
-    the mail it sends, and the time it reads.
+    Only what the outside world would otherwise supply is replaced: the mail
+    it sends, the time it reads, and the render worker it asks about the
+    inside of a document or a font file. Postgres and object storage are the
+    real ones the compose file starts.
     """
     with TestClient(app) as started:
         started.app.state.mailer = mailer
         started.app.state.clock = clock
+        started.app.state.worker = worker
         yield started
 
 

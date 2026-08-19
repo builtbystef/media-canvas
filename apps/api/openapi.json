@@ -728,6 +728,60 @@
         }
       }
     },
+    "/api/v1/workspaces/{workspaceId}/fonts": {
+      "post": {
+        "tags": [
+          "fonts"
+        ],
+        "summary": "Upload Font",
+        "description": "Take a font file into this Workspace. Editor-level; a Viewer is refused.\n\nAnswers 201 with the new record, or 200 with the record this Workspace\nalready held for these bytes \u2014 a re-upload is a no-op by construction, and\nthe editor never has to explain a duplicate.",
+        "operationId": "uploadFont",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_uploadFont"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FontAssetView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The file is not an asset this product takes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetRefusalView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Get Health",
@@ -788,6 +842,33 @@
   },
   "components": {
     "schemas": {
+      "AssetRefusalView": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/Refusal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "AssetRefusalView",
+        "description": "The body of every asset refusal, and the 422 the routes document."
+      },
+      "Body_uploadFont": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_uploadFont"
+      },
       "CodeRequest": {
         "properties": {
           "email": {
@@ -976,6 +1057,79 @@
         "title": "DocumentView",
         "description": "A stored document, whole."
       },
+      "FontAssetView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "format": {
+            "$ref": "#/components/schemas/FontFormat"
+          },
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "subfamily": {
+            "type": "string",
+            "title": "Subfamily"
+          },
+          "weight": {
+            "type": "integer",
+            "title": "Weight"
+          },
+          "italic": {
+            "type": "boolean",
+            "title": "Italic"
+          },
+          "postscriptName": {
+            "type": "string",
+            "title": "Postscriptname"
+          },
+          "byteSize": {
+            "type": "integer",
+            "title": "Bytesize"
+          },
+          "bundled": {
+            "type": "boolean",
+            "title": "Bundled"
+          },
+          "originalFilename": {
+            "type": "string",
+            "title": "Originalfilename"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "format",
+          "family",
+          "subfamily",
+          "weight",
+          "italic",
+          "postscriptName",
+          "byteSize",
+          "bundled",
+          "originalFilename",
+          "createdAt"
+        ],
+        "title": "FontAssetView",
+        "description": "One Font Asset, as the editor's picker and Assets panel read it."
+      },
+      "FontFormat": {
+        "type": "string",
+        "enum": [
+          "ttf",
+          "otf"
+        ],
+        "title": "FontFormat",
+        "description": "The two file formats a Font Asset is ever stored as."
+      },
       "Greeting": {
         "properties": {
           "message": {
@@ -1104,6 +1258,25 @@
         ],
         "title": "NewDocument",
         "description": "What creating takes. Only a design: promotion is the door to a template."
+      },
+      "Refusal": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "Refusal",
+        "description": "Why a file was refused: the code the editor branches on, and the\nsentence it shows when it has nothing better."
       },
       "Role": {
         "type": "string",

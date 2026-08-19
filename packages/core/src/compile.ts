@@ -7,6 +7,7 @@ import type { Font } from "opentype.js";
 import { parse as parseFont } from "opentype.js";
 
 import type { AssetResolver } from "./assets.ts";
+import { fontFormatOf } from "./fonts.ts";
 import type {
   Border,
   CornerRadius,
@@ -296,12 +297,11 @@ function fontFamily(fontAssetId: string): string {
   return `font-${xmlId(fontAssetId)}`;
 }
 
-/** The sfnt version tag the file opens with says which of the two formats the
- *  bytes are — `OTTO` is CFF outlines, anything else the compiler accepts is
- *  TrueType — which is what the `src` has to declare. */
+/** How the `src` declares the bytes it carries. The sfnt version tag says
+ *  which of the two formats a file is, and the same reading of it gates what
+ *  may be stored as a Font Asset at all. */
 function fontFormat(bytes: ArrayBuffer): { mime: string; format: string } {
-  const otto = 0x4f_54_54_4f;
-  return new DataView(bytes).getUint32(0) === otto
+  return fontFormatOf(bytes) === "otf"
     ? { mime: "font/otf", format: "opentype" }
     : { mime: "font/ttf", format: "truetype" };
 }

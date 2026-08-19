@@ -28,6 +28,8 @@ from media_canvas_api.sessions import (
     session_cookie_header,
 )
 from media_canvas_api.settings import Settings
+from media_canvas_api.storage import ObjectStore
+from media_canvas_api.worker import Worker
 
 # The whole of it. Asking for a code and verifying one cannot require a
 # session, and health has to answer a probe that has no account; the invites
@@ -156,11 +158,21 @@ def request_settings(request: Request) -> Settings:
     return request.app.state.settings
 
 
+def request_storage(request: Request) -> ObjectStore:
+    return request.app.state.storage
+
+
+def request_worker(request: Request) -> Worker:
+    return request.app.state.worker
+
+
 Database = Annotated[AsyncSession, Depends(request_database)]
 CurrentSession = Annotated[SignedIn, Depends(request_signed_in)]
 SendMail = Annotated[Mailer, Depends(request_mailer)]
 Now = Annotated[Clock, Depends(request_clock)]
 Configuration = Annotated[Settings, Depends(request_settings)]
+Storage = Annotated[ObjectStore, Depends(request_storage)]
+WorkerService = Annotated[Worker, Depends(request_worker)]
 
 
 # The same answer for a Workspace that does not exist and for one the caller

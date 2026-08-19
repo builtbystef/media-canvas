@@ -1,6 +1,7 @@
 import type { AddressInfo } from "node:net";
 
 import type { DesignDocument, Element, VariableDecl } from "@media-canvas/core";
+import { bundledFontBytes, bundledFonts } from "@media-canvas/fonts";
 import { afterEach, expect, test } from "vitest";
 
 import {
@@ -334,4 +335,171 @@ test("an environment describing no runnable service fails naming the variable at
   expect(() =>
     internalServiceConfig({ INTERNAL_API_TOKEN: "a-shared-secret", WORKER_INTERNAL_PORT: "http" }),
   ).toThrow("WORKER_INTERNAL_PORT");
+});
+
+/** Ask the service what a font file is, the way the api asks: the bytes
+ *  themselves as the body, and the shared credential in the header. */
+async function inspectFont(
+  call: (path: string, init?: RequestInit) => Promise<Response>,
+  bytes: ArrayBuffer,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const response = await call("/fonts/inspect", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${TOKEN}`,
+      "content-type": "application/octet-stream",
+    },
+    body: bytes,
+  });
+  return { status: response.status, body: (await response.json()) as Record<string, unknown> };
+}
+
+/** One vendored file's bytes, by the name of the file. */
+function bundled(file: string): ArrayBuffer {
+  const font = bundledFonts.find((candidate) => candidate.file === file);
+  if (font === undefined) throw new Error(`no bundled font at ${file}`);
+  return bundledFontBytes(font);
+}
+
+test("a font the compiler can read is reported by what its own tables say", async () => {
+  const call = await serve();
+
+  const { status, body } = await inspectFont(call, bundled("inter/Inter_18pt-Regular.ttf"));
+
+  expect(status).toBe(200);
+  expect(body).toEqual({
+    readable: true,
+    font: {
+      format: "ttf",
+      family: "Inter 18pt",
+      subfamily: "Regular",
+      weight: 400,
+      italic: false,
+      postScriptName: "Inter18pt-Regular",
+      variable: false,
+    },
+  });
+});
+
+test("the file's own style bits are read, not its file name", async () => {
+  const call = await serve();
+
+  const { body } = await inspectFont(call, bundled("inter/Inter_18pt-BoldItalic.ttf"));
+
+  expect(body.font).toMatchObject({ weight: 700, italic: true, subfamily: "Bold Italic" });
+});
+
+test("a WOFF2 is no Font Asset, whatever it holds inside", async () => {
+  const call = await serve();
+
+  const { status, body } = await inspectFont(call, woff2(bundled("lora/Lora-Regular.ttf")));
+
+  expect(status).toBe(200);
+  expect(body).toEqual({ readable: false, problem: "unsupported_format" });
+});
+
+test("a file of the right shape the parser cannot read is told apart from one of the wrong shape", async () => {
+  const call = await serve();
+
+  const truncated = bundled("lora/Lora-Regular.ttf").slice(0, 200);
+  const { body } = await inspectFont(call, truncated);
+
+  expect(body).toEqual({ readable: false, problem: "unparseable_font" });
+});
+
+/** A WOFF2 file wrapping a font: the signature that says which format this
+ *  is, the flavor of the font within, and the lengths. Nothing here
+ *  compresses the wrapped font — the signature is as far as any reader of a
+ *  file this product does not take ever gets. */
+function woff2(font: ArrayBuffer): ArrayBuffer {
+  const HEADER = 48;
+  const file = new Uint8Array(HEADER + font.byteLength);
+  const header = new DataView(file.buffer);
+  header.setUint32(0, 0x77_4f_46_32); // "wOF2"
+  header.setUint32(4, new DataView(font).getUint32(0)); // the flavor inside
+  header.setUint32(8, file.byteLength);
+  header.setUint32(16, font.byteLength); // the sfnt it would decompress to
+  header.setUint32(20, font.byteLength);
+  file.set(new Uint8Array(font), HEADER);
+  return file.buffer;
+}
+
+test("a variable font is readable, and reports itself as one", async () => {
+  const call = await serve();
+
+  const { status, body } = await inspectFont(
+    call,
+    withVariationAxes(bundled("oswald/Oswald-Regular.ttf")),
+  );
+
+  expect(status).toBe(200);
+  expect(body).toMatchObject({ readable: true, font: { variable: true, family: "Oswald" } });
+});
+
+/** The same font, carrying one variation axis — which is what makes a file a
+ *  variable font, and what an uploader is refused for. Written by hand
+ *  because no vendored file is one: the sfnt directory is rebuilt with one
+ *  more table in it, and the axis is the weight axis a variable text face
+ *  would carry. */
+function withVariationAxes(font: ArrayBuffer): ArrayBuffer {
+  const source = new DataView(font);
+  const count = source.getUint16(4);
+  const tables: { tag: number; bytes: Uint8Array }[] = [];
+  for (let record = 12; record < 12 + count * 16; record += 16) {
+    tables.push({
+      tag: source.getUint32(record),
+      bytes: new Uint8Array(font, source.getUint32(record + 8), source.getUint32(record + 12)),
+    });
+  }
+  tables.push({ tag: 0x66_76_61_72, bytes: weightAxis() }); // "fvar"
+  tables.sort((one, other) => one.tag - other.tag);
+
+  const directory = 12 + tables.length * 16;
+  const padded = (length: number): number => length + ((4 - (length % 4)) % 4);
+  const size = tables.reduce((total, table) => total + padded(table.bytes.byteLength), directory);
+  const file = new Uint8Array(size);
+  const out = new DataView(file.buffer);
+  out.setUint32(0, source.getUint32(0));
+  out.setUint16(4, tables.length);
+  let at = directory;
+  tables.forEach((table, index) => {
+    const record = 12 + index * 16;
+    out.setUint32(record, table.tag);
+    out.setUint32(record + 8, at);
+    out.setUint32(record + 12, table.bytes.byteLength);
+    file.set(table.bytes, at);
+    at += padded(table.bytes.byteLength);
+  });
+  return file.buffer;
+}
+
+/** An `fvar` table declaring one axis: weight, 100 to 900, default 400. */
+function weightAxis(): Uint8Array {
+  const table = new Uint8Array(16 + 20);
+  const out = new DataView(table.buffer);
+  out.setUint32(0, 0x00_01_00_00); // table version
+  out.setUint16(4, 16); // where the axis records start
+  out.setUint16(6, 2); // count-size pairs
+  out.setUint16(8, 1); // one axis
+  out.setUint16(10, 20); // each axis record's size
+  out.setUint16(12, 0); // no named instances
+  out.setUint16(14, 4);
+  out.setUint32(16, 0x77_67_68_74); // "wght"
+  out.setInt32(20, 100 << 16); // minimum, as a 16.16 fixed number
+  out.setInt32(24, 400 << 16); // default
+  out.setInt32(28, 900 << 16); // maximum
+  out.setUint16(32, 0); // flags
+  out.setUint16(34, 256); // the name this axis is shown under
+  return table;
+}
+
+test("font inspection is behind the same credential as every other internal call", async () => {
+  const call = await serve();
+
+  const response = await call("/fonts/inspect", {
+    method: "POST",
+    body: bundled("pacifico/Pacifico-Regular.ttf"),
+  });
+
+  expect(response.status).toBe(401);
 });

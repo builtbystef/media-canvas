@@ -5,6 +5,25 @@ export type ClientOptions = {
 };
 
 /**
+ * AssetRefusalView
+ *
+ * The body of every asset refusal, and the 422 the routes document.
+ */
+export type AssetRefusalView = {
+    error: Refusal;
+};
+
+/**
+ * Body_uploadFont
+ */
+export type BodyUploadFont = {
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
  * CodeRequest
  */
 export type CodeRequest = {
@@ -134,6 +153,62 @@ export type DocumentView = {
 };
 
 /**
+ * FontAssetView
+ *
+ * One Font Asset, as the editor's picker and Assets panel read it.
+ */
+export type FontAssetView = {
+    /**
+     * Id
+     */
+    id: string;
+    format: FontFormat;
+    /**
+     * Family
+     */
+    family: string;
+    /**
+     * Subfamily
+     */
+    subfamily: string;
+    /**
+     * Weight
+     */
+    weight: number;
+    /**
+     * Italic
+     */
+    italic: boolean;
+    /**
+     * Postscriptname
+     */
+    postscriptName: string;
+    /**
+     * Bytesize
+     */
+    byteSize: number;
+    /**
+     * Bundled
+     */
+    bundled: boolean;
+    /**
+     * Originalfilename
+     */
+    originalFilename: string;
+    /**
+     * Createdat
+     */
+    createdAt: string;
+};
+
+/**
+ * FontFormat
+ *
+ * The two file formats a Font Asset is ever stored as.
+ */
+export type FontFormat = 'ttf' | 'otf';
+
+/**
  * Greeting
  */
 export type Greeting = {
@@ -215,6 +290,23 @@ export type NewDocument = {
     document: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * Refusal
+ *
+ * Why a file was refused: the code the editor branches on, and the
+ * sentence it shows when it has nothing better.
+ */
+export type Refusal = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Message
+     */
+    message: string;
 };
 
 /**
@@ -822,6 +914,36 @@ export type PromoteDocumentResponses = {
 };
 
 export type PromoteDocumentResponse = PromoteDocumentResponses[keyof PromoteDocumentResponses];
+
+export type UploadFontData = {
+    body: BodyUploadFont;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/fonts';
+};
+
+export type UploadFontErrors = {
+    /**
+     * The file is not an asset this product takes.
+     */
+    422: AssetRefusalView;
+};
+
+export type UploadFontError = UploadFontErrors[keyof UploadFontErrors];
+
+export type UploadFontResponses = {
+    /**
+     * Successful Response
+     */
+    201: FontAssetView;
+};
+
+export type UploadFontResponse = UploadFontResponses[keyof UploadFontResponses];
 
 export type GetHealthData = {
     body?: never;

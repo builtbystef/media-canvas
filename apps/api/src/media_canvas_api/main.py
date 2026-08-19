@@ -8,8 +8,9 @@ from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from media_canvas_api import auth, documents, workspaces
+from media_canvas_api import auth, documents, fonts, workspaces
 from media_canvas_api.access import AccessMiddleware, DevelopmentCors
+from media_canvas_api.assets import AssetRefused, refusal_response
 from media_canvas_api.clock import utc_now
 from media_canvas_api.db import create_database_engine, create_session_factory
 from media_canvas_api.health import DatabaseHealth, check_database
@@ -17,6 +18,7 @@ from media_canvas_api.mailer import ConsoleMailer
 from media_canvas_api.migrator import upgrade_to_head
 from media_canvas_api.settings import get_settings
 from media_canvas_api.storage import ObjectStore
+from media_canvas_api.worker import HttpWorker
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +80,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # and every byte it holds is unreachable until someone notices.
     storage.ensure_buckets()
     app.state.storage = storage
+    # The one way in to everything only the render worker can answer: the api
+    # never opens a document or a font file itself (ADR-0003).
+    app.state.worker = HttpWorker(settings)
     try:
         await migrate(engine)
     except OperationalError:
@@ -101,6 +106,10 @@ app = FastAPI(title="media-canvas-api", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(workspaces.router)
 app.include_router(documents.router)
+app.include_router(fonts.router)
+# An uploaded file that is no asset answers in its own envelope, so that the
+# editor branches on a code instead of matching on prose.
+app.add_exception_handler(AssetRefused, refusal_response)
 # Outermost last: a browser's preflight carries no cookie, so cross-origin
 # handling has to answer it before access refuses it.
 app.add_middleware(AccessMiddleware)

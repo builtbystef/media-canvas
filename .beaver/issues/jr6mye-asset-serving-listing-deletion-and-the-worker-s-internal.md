@@ -8,7 +8,7 @@ depends_on:
     - t60pvx
 parent: ek7pq1
 created: 2026-08-15T07:12:12Z
-updated: 2026-08-17T04:00:24Z
+updated: 2026-08-19T11:06:49Z
 ---
 
 ## What to build
@@ -30,3 +30,7 @@ Assets come back out, get listed, and go away again. Bytes are served by the api
 **claude** — 2026-08-17T04:00:24Z
 
 Contract written 2026-08-16: the worker-facing asset-bytes route is GET /internal/workspaces/{workspaceId}/assets/{assetId} - 200 raw bytes with the asset content type; 404 for unknown workspace or asset, undistinguished; 401 without the internal bearer credential. Fonts and images share the route. 1dxm2u builds against exactly this shape.
+
+**claude** — 2026-08-19T11:06:49Z
+
+Built alongside 21plhn (font upload), 2026-08-19: the upload response FontAssetView carries id, format, family, subfamily, weight, italic, postscriptName, byteSize, bundled, originalFilename, createdAt - everything the spec lists except url, because the serving route is yours. Add url to that model when the route lands; it is additive and the view is already shared-shaped. Storage keys are {workspaceId}/fonts/{id}.{ttf|otf} in the assets bucket, and the api reaches them through media_canvas_api.storage; the row carries storage_key so serving never rebuilds the address itself.

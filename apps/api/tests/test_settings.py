@@ -10,6 +10,8 @@ DEFAULTED = (
     "STORAGE_REGION",
     "ASSETS_BUCKET",
     "OUTPUTS_BUCKET",
+    "WORKER_INTERNAL_HOST",
+    "WORKER_INTERNAL_PORT",
 )
 
 
@@ -42,6 +44,7 @@ def test_defaults_leave_only_the_secrets_required(
     monkeypatch.setenv("POSTGRES_PASSWORD", "secret")
     monkeypatch.setenv("GARAGE_DEFAULT_ACCESS_KEY", "key")
     monkeypatch.setenv("GARAGE_DEFAULT_SECRET_KEY", "another-secret")
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "shared-with-the-worker")
     for name in DEFAULTED:
         monkeypatch.delenv(name, raising=False)
 
@@ -59,6 +62,9 @@ def test_defaults_leave_only_the_secrets_required(
         storage_region="garage",
         assets_bucket="media-canvas-assets",
         outputs_bucket="media-canvas-outputs",
+        internal_api_token="shared-with-the-worker",
+        worker_internal_host="localhost",
+        worker_internal_port=4000,
     )
 
 
@@ -74,3 +80,32 @@ def test_an_unreadable_value_fails_naming_its_variable(
         load_settings(env_file=None)
 
     assert "POSTGRES_PORT" in str(failure.value)
+
+
+def test_a_missing_internal_credential_fails_naming_its_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("POSTGRES_PASSWORD", "secret")
+    monkeypatch.setenv("GARAGE_DEFAULT_ACCESS_KEY", "key")
+    monkeypatch.setenv("GARAGE_DEFAULT_SECRET_KEY", "another-secret")
+    monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
+
+    with pytest.raises(SettingsError) as failure:
+        load_settings(env_file=None)
+
+    assert "INTERNAL_API_TOKEN" in str(failure.value)
+
+
+def test_the_worker_is_reached_where_its_own_variables_say(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("POSTGRES_PASSWORD", "secret")
+    monkeypatch.setenv("GARAGE_DEFAULT_ACCESS_KEY", "key")
+    monkeypatch.setenv("GARAGE_DEFAULT_SECRET_KEY", "another-secret")
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "shared-with-the-worker")
+    monkeypatch.setenv("WORKER_INTERNAL_HOST", "worker")
+    monkeypatch.setenv("WORKER_INTERNAL_PORT", "4100")
+
+    settings = load_settings(env_file=None)
+
+    assert settings.worker_internal_url == "http://worker:4100"

@@ -5,6 +5,8 @@
 export type { AssetResolver } from "./assets.ts";
 export { compile } from "./compile.ts";
 export * from "./document.ts";
+export { inspectFont } from "./fonts.ts";
+export type { FontFacts, FontFormat, FontInspection, FontProblem } from "./fonts.ts";
 export { interpolationTokens, validateDocument } from "./validation.ts";
 export type { ValidationError } from "./validation.ts";
 export { resolve, typeCells, validate } from "./values.ts";

@@ -11,7 +11,7 @@ depends_on:
     - 73rm0x
     - 8h50hu
 created: 2026-08-14T07:13:32Z
-updated: 2026-08-15T07:13:26Z
+updated: 2026-08-19T11:06:49Z
 ---
 
 ## Problem Statement
@@ -214,3 +214,7 @@ From the 0egsmf issue-slicing session (2026-08-15). Two things this spec's slici
 **claude** — 2026-08-15T07:13:26Z
 
 Sliced 2026-08-15 into 22 sub-issues. Two decisions taken during slicing, both by the user. (1) The compiler's inlined font bytes (the seam decision on 1qoccb) land inside this spec's ADR-0006 compile budget, so the font-face block is its own memo entry keyed on the set of used Font Assets: a full recompile re-emits it only when that set changes and a per-element patch never touches it. Issue n5csrl carries an acceptance criterion that measures both budgets with fonts inlined, at the preview prototype's document sizes, rather than assuming they still hold. Rejected: a prototype session first (the measurement is cheap enough to be a criterion), and building it plainly with no criterion. (2) Two slices stop for user review before their dependents unblock — n5csrl (the canvas) and glkll2 (rotation, snapping, alignment) — because the preview's fidelity and the geometry aids' feel are judged by eye, not by criteria. The internal asset-bytes path this spec owed the render worker is in jr6mye. Bundled-font seeding stays with vn4r07 under spec 88v6vg; this spec only carries the bundled flag and the delete refusal.
+
+**claude** — 2026-08-19T11:06:49Z
+
+AMENDMENT to Dependencies (built on 21plhn, 2026-08-19): the api gains two runtime dependencies. python-multipart is the one this section already names. httpx is not named here and is added: FastAPI's asset upload has to call the worker's internal service, the api had no HTTP client, and httpx was already in the tree and the lockfile as apps/api's dev dependency (TestClient runs on it), so promoting it to a runtime dependency adds nothing new to the dependency graph and gives the async routes an async client. Rejected: urllib.request in a threadpool, which hand-rolls timeouts and error mapping for no gain. Also settled while building: the worker's font-inspection route is POST /fonts/inspect, not node 3ko2p7's /internal/fonts/inspect - the worker's internal service mounts /validate with no prefix (gxwr7t, and 0egsmf's contract), and every route on it is internal.

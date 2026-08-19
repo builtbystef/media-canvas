@@ -6,8 +6,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
-import type { DesignDocument, ValidationError } from "@media-canvas/core";
-import { typeCells, validate, validateDocument } from "@media-canvas/core";
+import type { DesignDocument, FontInspection, ValidationError } from "@media-canvas/core";
+import { inspectFont, typeCells, validate, validateDocument } from "@media-canvas/core";
 
 /** What the service needs to run: the credential every caller must present. */
 export type InternalServiceOptions = {
@@ -100,6 +100,10 @@ export function createInternalService(options: InternalServiceOptions): Server {
       void handleValidate(request, response);
       return;
     }
+    if (request.method === "POST" && request.url === "/fonts/inspect") {
+      void handleInspectFont(request, response);
+      return;
+    }
     send(response, 404, { message: "no such internal call" });
   });
 }
@@ -126,6 +130,32 @@ async function handleValidate(request: IncomingMessage, response: ServerResponse
     // the worker process down and every render queued behind it.
     send(response, 500, { message: `validation failed: ${String(failure)}` });
   }
+}
+
+/**
+ * Read an uploaded font file with the compiler's own parser, so that the
+ * parser that decides whether a font may be stored is the one that will later
+ * measure every line of text drawn in it.
+ *
+ * The bytes arrive as the body, because that is all this call takes: the api
+ * has not stored them yet, and will not unless the answer here is good.
+ */
+async function handleInspectFont(
+  request: IncomingMessage,
+  response: ServerResponse,
+): Promise<void> {
+  const bytes = await readBytes(request);
+  let inspection: FontInspection;
+  try {
+    inspection = inspectFont(bytes);
+  } catch (failure) {
+    // A parser that fails in a way it does not report as a parse failure
+    // would otherwise take the worker process down, and every render queued
+    // behind it, over one bad upload.
+    send(response, 500, { message: `font inspection failed: ${String(failure)}` });
+    return;
+  }
+  send(response, 200, inspection);
 }
 
 /**
@@ -180,6 +210,13 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
   let body = "";
   for await (const chunk of request) body += (chunk as Buffer).toString("utf8");
   return JSON.parse(body);
+}
+
+async function readBytes(request: IncomingMessage): Promise<ArrayBuffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(chunk as Buffer);
+  const body = Buffer.concat(chunks);
+  return body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer;
 }
 
 /** The one credential check: a bearer token equal to the configured one,

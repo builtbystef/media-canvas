@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -163,3 +163,42 @@ class Document(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class FontFormat(StrEnum):
+    """The two file formats a Font Asset is ever stored as."""
+
+    ttf = "ttf"
+    otf = "otf"
+
+
+class FontAsset(Base):
+    """One font file a Workspace holds.
+
+    Its identity is the pair: the Workspace, and the SHA-256 of the bytes. The
+    same file uploaded into two Workspaces is two assets with two stored
+    objects, so deleting one Workspace can never take another's bytes with it.
+
+    Family, subfamily, weight and italic exist so that a font picker can group
+    faces; nothing in the render path reads them — a text element names the
+    asset by its hash. `bundled` marks the vendored families seeded into a
+    Workspace, which differ from uploaded fonts in nothing else.
+    """
+
+    __tablename__ = "font_assets"
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
+    )
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    storage_key: Mapped[str] = mapped_column(String(200))
+    format: Mapped[FontFormat] = mapped_column(Enum(FontFormat, name="font_format"))
+    family: Mapped[str] = mapped_column(String(200))
+    subfamily: Mapped[str] = mapped_column(String(200))
+    weight: Mapped[int]
+    italic: Mapped[bool]
+    postscript_name: Mapped[str] = mapped_column(String(200))
+    byte_size: Mapped[int] = mapped_column(BigInteger)
+    bundled: Mapped[bool]
+    original_filename: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
