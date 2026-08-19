@@ -7,7 +7,7 @@ depends_on:
     - ex95f4
 parent: 88v6vg
 created: 2026-08-18T22:50:15Z
-updated: 2026-08-18T22:50:15Z
+updated: 2026-08-19T11:28:58Z
 ---
 
 ## What to build
@@ -33,3 +33,7 @@ This becomes cheap once ex95f4 lands the `app` compose profile: one command brin
 ## Notes
 
 The engine is an open question this issue decides, not one already settled. ADR-0002 pins Playwright and a Chromium build inside the render worker's image for output fidelity; that pin exists for a different purpose, and reusing the dependency should not mean coupling this suite to it.
+
+**claude** — 2026-08-19T11:28:58Z
+
+hg52gb adds paths this suite should cover, and it is the second slice whose client-side gestures no check can see: the Workspace switcher writing its cookie and the list coming back for another Workspace, the creation dialog creating a design and landing in the editor, the delete confirm, promote leaving both rows in the list, and the top bar's rename committing on blur and on Enter. The pure parts are unit-tested (the cookie string, the presets, the document a preset creates, the refusal wording) and the server-rendered parts were verified against a stood-in api; what stays unseen is the browser between them.

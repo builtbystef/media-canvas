@@ -41,3 +41,31 @@ export const failedToCreateWorkspace = (status: number | undefined) =>
 
 /** A refused code is worth asking for a new one; wrong digits are not. */
 export const codeIsSpent = (status: number | undefined) => status === 410;
+
+const DOCUMENT_CHANGE: Record<number, string> = {
+  401: "You have been signed out. Sign in again to carry on.",
+  403: "Only an Editor or an Owner of this workspace can change its documents.",
+  404: "That document is no longer here. Somebody may have deleted it.",
+};
+
+const DOCUMENT_PROMOTION: Record<number, string> = {
+  ...DOCUMENT_CHANGE,
+  422: "That document is already a template.",
+};
+
+const DOCUMENT_RENAME: Record<number, string> = {
+  ...DOCUMENT_CHANGE,
+  409: "This document changed elsewhere. Reload it before renaming, or the newer version is lost.",
+};
+
+/** Creating, deleting — anything the Workspace's Role decides. */
+export const failedToChangeDocument = (status: number | undefined) =>
+  explain(DOCUMENT_CHANGE, status);
+
+/** Promotion adds the one refusal that is about the document, not the caller. */
+export const failedToPromoteDocument = (status: number | undefined) =>
+  explain(DOCUMENT_PROMOTION, status);
+
+/** Renaming travels on the ordinary save, so it meets the Revision guard. */
+export const failedToRenameDocument = (status: number | undefined) =>
+  explain(DOCUMENT_RENAME, status);

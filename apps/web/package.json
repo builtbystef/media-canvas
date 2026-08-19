@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@media-canvas/api-client": "workspace:*",
+    "@media-canvas/core": "workspace:*",
     "next": "^16",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

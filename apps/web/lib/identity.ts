@@ -10,20 +10,21 @@ import { HOME, NEW_WORKSPACE, SIGN_IN } from "./routes";
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
 /**
- * Who this request is from, or nobody.
+ * What an api call made on the server needs to be this request's caller.
  *
- * The whole cookie header is handed to the api rather than the session cookie
- * by name: which cookie carries a session, and whether the one presented is
- * still good, are the api's questions, and this is the only place the web app
- * asks them.
+ * The whole cookie header is handed over rather than the session cookie by
+ * name: which cookie carries a session is the api's question, and the web app
+ * never learns the answer. Nothing is cached — every page decides what to
+ * show from a session that may have ended a moment ago.
  */
-export async function currentIdentity(): Promise<Identity | null> {
+export async function asThisCaller() {
   const carried = (await cookies()).toString();
-  const { data } = await getCurrentUser({
-    baseUrl: API_URL,
-    headers: { cookie: carried },
-    cache: "no-store",
-  });
+  return { baseUrl: API_URL, headers: { cookie: carried }, cache: "no-store" as const };
+}
+
+/** Who this request is from, or nobody. */
+export async function currentIdentity(): Promise<Identity | null> {
+  const { data } = await getCurrentUser(await asThisCaller());
   return data ?? null;
 }
 

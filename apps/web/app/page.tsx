@@ -1,38 +1,86 @@
+import { listDocuments } from "@media-canvas/api-client";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { signedInOrSignIn } from "../lib/identity";
-import { NEW_WORKSPACE } from "../lib/routes";
-import { SignOutButton } from "./sign-out-button";
+import { TABS, kindLabel, kindShown, tabNamed, updatedLabel } from "../lib/documents";
+import { asThisCaller, signedInOrSignIn } from "../lib/identity";
+import { NEW_WORKSPACE, editorPath, listPath } from "../lib/routes";
+import { WORKSPACE_COOKIE, chosenMembership, mayChangeDocuments } from "../lib/workspaces";
+import { DocumentActions } from "./document-actions";
+import { NewDesign } from "./new-design";
+import { Shell } from "./shell";
 
 /**
- * The product's front door.
+ * The product's front door: the documents of the Workspace you are in.
  *
- * It is a placeholder: the shell, the workspace switcher, and the document
- * list are hg52gb's. What this page owns, and keeps owning, is the decision
- * above it — that reaching the product signed out sends you to sign-in, and
- * that reaching it with no workspace sends you to make one.
+ * Designs and templates are one list with one row shape, because opening
+ * either is one code path. The tabs filter by asking the api for a kind; the
+ * order is the api's too — last update, newest first — so there is one place
+ * "newest first" is decided.
  */
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string | string[] }>;
+}) {
   const identity = await signedInOrSignIn();
-  if (identity.memberships.length === 0) redirect(NEW_WORKSPACE);
+  const chosen = chosenMembership(identity, (await cookies()).get(WORKSPACE_COOKIE)?.value);
+  // Somebody in no Workspace has nothing to list, and one screen changes that.
+  if (chosen === null) redirect(NEW_WORKSPACE);
+
+  const asked = (await searchParams).tab;
+  const tab = tabNamed(typeof asked === "string" ? asked : undefined);
+  const { data: documents } = await listDocuments({
+    ...(await asThisCaller()),
+    path: { workspaceId: chosen.workspace.id },
+    query: { kind: kindShown(tab) },
+  });
+  const mayChange = mayChangeDocuments(chosen.role);
+  const now = new Date();
+
   return (
-    <main className="panel">
-      <h1>Media Canvas</h1>
-      <p className="lead">
-        Signed in as <strong>{identity.user.email}</strong>.
-      </p>
-      <ul className="workspaces">
-        {identity.memberships.map(({ workspace, role }) => (
-          <li key={workspace.id}>
-            <strong>{workspace.name}</strong>
-            <span className="role">{role}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="choices">
-        <Link href={NEW_WORKSPACE}>Create another workspace</Link>
-        <SignOutButton />
-      </p>
-    </main>
+    <Shell memberships={identity.memberships} current={chosen}>
+      <main className="documents">
+        <div className="heading">
+          <h1>Documents</h1>
+          {mayChange && <NewDesign workspaceId={chosen.workspace.id} />}
+        </div>
+        <nav className="tabs">
+          {TABS.map(({ tab: named, label }) => (
+            <Link
+              key={named}
+              href={listPath(named)}
+              aria-current={named === tab ? "page" : undefined}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+        {documents === undefined ? (
+          <p className="problem" role="alert">
+            These documents could not be loaded. Reload the page to try again.
+          </p>
+        ) : documents.length === 0 ? (
+          <p className="lead">
+            {tab === "templates"
+              ? "No templates yet. A template is made by promoting a design."
+              : "Nothing here yet."}
+          </p>
+        ) : (
+          <ul className="rows">
+            {documents.map((row) => (
+              <li key={row.id}>
+                <Link href={editorPath(row.id)} className="title">
+                  {row.name}
+                </Link>
+                <span className="kind">{kindLabel(row.kind)}</span>
+                <span className="quiet">{updatedLabel(row.updatedAt, now)}</span>
+                {mayChange && <DocumentActions row={row} />}
+              </li>
+            ))}
+          </ul>
+        )}
+      </main>
+    </Shell>
   );
 }

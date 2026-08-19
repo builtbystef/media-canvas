@@ -1,3 +1,5 @@
+import type { Tab } from "./documents";
+
 /**
  * The pages of the app, by name.
  *
@@ -8,3 +10,9 @@
 export const HOME = "/";
 export const SIGN_IN = "/sign-in";
 export const NEW_WORKSPACE = "/workspaces/new";
+
+/** The editor, at the document's own url — one page for both kinds. */
+export const editorPath = (documentId: string) => `/documents/${documentId}`;
+
+/** The list, filtered. The tab that hides nothing is the plain list. */
+export const listPath = (tab: Tab) => (tab === "all" ? HOME : `${HOME}?tab=${tab}`);

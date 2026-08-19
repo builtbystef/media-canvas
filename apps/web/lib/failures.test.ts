@@ -4,6 +4,9 @@ import {
   codeIsSpent,
   failedToCreateWorkspace,
   failedToSendCode,
+  failedToChangeDocument,
+  failedToPromoteDocument,
+  failedToRenameDocument,
   failedToVerifyCode,
 } from "./failures.ts";
 
@@ -58,4 +61,34 @@ test("a refusal one call knows is not carried into another", () => {
   // and must not borrow its wording.
   expect(failedToCreateWorkspace(410)).toContain("could not be reached");
   expect(failedToSendCode(401)).toContain("could not be reached");
+});
+
+/**
+ * The refusals the shell can meet once somebody is inside.
+ *
+ * The api gates every document write on the Role in the record's Workspace and
+ * on the Revision the caller loaded (qqzqhz), so a refusal here is either a
+ * Role that changed under somebody, a document that is gone, or a save that
+ * would overwrite another one.
+ */
+
+test("a document refusal says which of the three things went wrong", () => {
+  const notAllowed = failedToChangeDocument(403);
+  const gone = failedToChangeDocument(404);
+  const changedElsewhere = failedToRenameDocument(409);
+
+  expect(new Set([notAllowed, gone, changedElsewhere]).size).toBe(3);
+  expect(notAllowed).toMatch(/Editor/);
+  expect(gone).toMatch(/no longer/);
+  expect(changedElsewhere).toMatch(/reload/i);
+});
+
+test("promoting has one refusal of its own: there is nothing to promote", () => {
+  expect(failedToPromoteDocument(422)).toMatch(/already a template/i);
+  expect(failedToPromoteDocument(403)).toBe(failedToChangeDocument(403));
+});
+
+test("a refusal nobody recognises still says something true", () => {
+  expect(failedToChangeDocument(500)).toBe(failedToChangeDocument(undefined));
+  expect(failedToRenameDocument(418)).toBe(failedToChangeDocument(undefined));
 });

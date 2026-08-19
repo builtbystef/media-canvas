@@ -1,5 +1,7 @@
-/* The plain styling the first screens need. The product's own look — light and
-   dark, the shell, the canvas — is hg52gb's; nothing here is a design system. */
+/* The app's styling. Light and dark are the system's: `color-scheme` and
+   `light-dark()` follow `prefers-color-scheme`, and there is no toggle. The
+   canvas is the one surface that takes no token from here — a document paints
+   its own background. */
 
 :root {
   color-scheme: light dark;
@@ -129,22 +131,226 @@ a {
   font-size: 0.9rem;
 }
 
-.workspaces {
+/* The shell: one bar across the top, and the page under it. */
+
+.shell,
+.editor {
+  align-self: start;
+  width: min(64rem, 100%);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--edge);
+  font-size: 0.9rem;
+}
+
+.wordmark {
+  font-weight: 700;
+  text-decoration: none;
+  color: inherit;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.switcher select {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* The document list. */
+
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.tabs a[aria-current="page"] {
+  color: inherit;
+  font-weight: 600;
+}
+
+.rows {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.workspaces li {
+.rows li {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   gap: 1rem;
-  padding: 0.7rem 0;
+  padding: 0.8rem 0;
   border-top: 1px solid var(--edge);
 }
 
-.role {
+.title {
+  flex: 1;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.title:hover {
+  text-decoration: underline;
+}
+
+.kind,
+.quiet {
   color: var(--quiet);
   font-size: 0.85rem;
-  text-transform: capitalize;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 0.9rem;
+}
+
+.actions .problem {
+  margin: 0;
+}
+
+button.primary {
+  padding: 0.5rem 0.9rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+button.danger {
+  padding: 0.5rem 0.9rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--alarm);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Dialogs: the creation dialog, and the confirm before a deletion. */
+
+.veil {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: light-dark(rgb(0 0 0 / 25%), rgb(0 0 0 / 55%));
+}
+
+.dialog {
+  width: min(30rem, 100%);
+  padding: 1.5rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.75rem;
+  background: var(--card);
+  text-align: left;
+}
+
+.dialog h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.presets button {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: inherit;
+  text-align: left;
+}
+
+.custom {
+  display: grid;
+  grid-template-columns: auto 5rem auto 5rem auto;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.5rem;
+  padding: 0.7rem;
+}
+
+.custom label {
+  margin: 0;
+}
+
+.custom button {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: inherit;
+}
+
+/* The editor's chrome, and the stage its canvas lands in. */
+
+.document-name {
+  width: min(20rem, 40%);
+  padding: 0.3rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  background: none;
+  font-weight: 600;
+}
+
+.document-name:hover {
+  border-color: var(--edge);
+}
+
+.stage {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 2rem 0;
+}
+
+/* No token from the theme reaches this: the canvas is the document's own. */
+.canvas {
+  width: min(36rem, 100%);
+  max-height: 60vh;
+  border: 1px solid var(--edge);
 }
