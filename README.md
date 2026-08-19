@@ -39,6 +39,22 @@ Those containers are the whole setup: the api reads its configuration from
 never needs a step of its own. `pnpm test` runs the api's tests against that
 same Postgres, in a database of their own that is recreated for each run.
 
+Renders happen in one pinned image and nowhere else (ADR-0002):
+
+```sh
+pnpm --filter worker run image:build        # build the pinned render worker image
+pnpm --filter worker run image:check        # smoke + environment checks, inside it
+pnpm --filter worker run environment:write  # rewrite the environment tuple
+```
+
+`apps/worker/environment.json` is that image's environment tuple — the base
+image, the Playwright package with the browser builds paired to it, the font
+set and its configuration, the page's viewport, scale, locale, timezone and
+color scheme, and the compiler and schema versions. Golden baselines are bound
+to it, so a change to the Dockerfile, to Playwright, to the bundled fonts or to
+the compiler is a change of environment: rewrite the tuple with the command
+above and re-bake the baselines it invalidates.
+
 Adding a table is adding a migration:
 
 ```sh

@@ -1,0 +1,29 @@
+# The build context for apps/worker/Dockerfile. Docker reads this file instead
+# of the root .dockerignore because it sits beside the Dockerfile it names, so
+# the api and web images (issue 1gffor) can keep contexts of their own.
+#
+# The workspace packages the worker does not use keep their package.json: a
+# filtered `pnpm install --frozen-lockfile` still checks every manifest the
+# lockfile names.
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+.git
+.venv
+.pnpm-store
+.beaver
+.claude
+.agents
+.vscode
+.vite-hooks
+sandbox
+apps/web/**
+!apps/web/package.json
+apps/api/**
+!apps/api/package.json
+packages/api-client/**
+!packages/api-client/package.json
