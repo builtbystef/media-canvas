@@ -44,6 +44,8 @@ export default async function EditorPage({ params }: { params: Promise<{ documen
         <span className="spacer" />
       </header>
       <EditorCanvas
+        documentId={documentId}
+        workspaceId={chosen?.workspace.id ?? null}
         stored={document.document}
         valid={validateDocument(document.document).length === 0}
       />

@@ -76,8 +76,8 @@ test("an svg sized to the canvas paints the background, then the elements in doc
   expect(compiled).toBe(
     svg(
       '<rect width="200" height="100" fill="#FFFFFF"/>',
-      '<rect x="0" y="0" width="40" height="20" fill="#FF0000"/>',
-      '<rect x="10" y="5" width="40" height="20" fill="#0000FF"/>',
+      '<rect data-element="bottom" x="0" y="0" width="40" height="20" fill="#FF0000"/>',
+      '<rect data-element="top" x="10" y="5" width="40" height="20" fill="#0000FF"/>',
     ),
   );
 });
@@ -88,7 +88,7 @@ test("a uniform corner radius stays a rect", () => {
   expect(compiled).toBe(
     svg(
       '<rect width="200" height="100" fill="#FFFFFF"/>',
-      '<rect x="0" y="0" width="40" height="20" rx="20" fill="#FF0000"/>',
+      '<rect data-element="r" x="0" y="0" width="40" height="20" rx="20" fill="#FF0000"/>',
     ),
   );
 });
@@ -96,7 +96,9 @@ test("a uniform corner radius stays a rect", () => {
 test("a corner radius of zero leaves the rect unrounded", () => {
   const compiled = compile(document([rect({ cornerRadius: 0 })]), assets());
 
-  expect(compiled).toContain('<rect x="0" y="0" width="40" height="20" fill="#FF0000"/>');
+  expect(compiled).toContain(
+    '<rect data-element="r" x="0" y="0" width="40" height="20" fill="#FF0000"/>',
+  );
 });
 
 test("per-corner radii compile to a path rounding only the corners that ask for it", () => {
@@ -114,7 +116,7 @@ test("per-corner radii compile to a path rounding only the corners that ask for 
   );
 
   expect(compiled).toContain(
-    '<path d="M 20 0 H 100 V 50 H 0 V 20 A 20 20 0 0 1 20 0 Z" fill="#FF0000"/>',
+    '<path data-element="r" d="M 20 0 H 100 V 50 H 0 V 20 A 20 20 0 0 1 20 0 Z" fill="#FF0000"/>',
   );
 });
 
@@ -133,7 +135,7 @@ test("per-corner radii round each corner clockwise from the top-left", () => {
   );
 
   expect(compiled).toContain(
-    '<path d="M 11 5 H 108 A 2 2 0 0 1 110 7 V 52 A 3 3 0 0 1 107 55 H 14 ' +
+    '<path data-element="r" d="M 11 5 H 108 A 2 2 0 0 1 110 7 V 52 A 3 3 0 0 1 107 55 H 14 ' +
       'A 4 4 0 0 1 10 51 V 6 A 1 1 0 0 1 11 5 Z"',
   );
 });
@@ -174,14 +176,16 @@ function vector(overrides: Partial<VectorElement> = {}): VectorElement {
 test("an ellipse fills its box", () => {
   const compiled = compile(document([ellipse({ x: 10, y: 20, width: 100, height: 50 })]), assets());
 
-  expect(compiled).toContain('<ellipse cx="60" cy="45" rx="50" ry="25" fill="#FF0000"/>');
+  expect(compiled).toContain(
+    '<ellipse data-element="r" cx="60" cy="45" rx="50" ry="25" fill="#FF0000"/>',
+  );
 });
 
 test("a vector scales its path from its own viewBox to the element's width and height", () => {
   const compiled = compile(document([vector({ x: 10, y: 20, width: 120, height: 60 })]), assets());
 
   expect(compiled).toContain(
-    '<path d="M0 0 L24 12 L0 24 Z" transform="translate(10 20) scale(5 2.5)" fill="#FF0000"/>',
+    '<path data-element="r" d="M0 0 L24 12 L0 24 Z" transform="translate(10 20) scale(5 2.5)" fill="#FF0000"/>',
   );
 });
 
@@ -320,7 +324,7 @@ test("a border strokes the edge with its declared color and width", () => {
   const compiled = compile(document([rect({ border: { color: "#0055FF", width: 4 } })]), assets());
 
   expect(compiled).toContain(
-    '<rect x="0" y="0" width="40" height="20" fill="#FF0000" stroke="#0055FF" stroke-width="4"/>',
+    '<rect data-element="r" x="0" y="0" width="40" height="20" fill="#FF0000" stroke="#0055FF" stroke-width="4"/>',
   );
 });
 
@@ -372,7 +376,7 @@ test("a shadow paints behind the element at its own offset, blur, color, and opa
         "</filter>",
       "</defs>",
       '<rect width="200" height="100" fill="#FFFFFF"/>',
-      '<g filter="url(#shadow-r)"><rect x="0" y="0" width="40" height="20" fill="#FF0000"/></g>',
+      '<g data-element="r" filter="url(#shadow-r)"><rect x="0" y="0" width="40" height="20" fill="#FF0000"/></g>',
     ),
   );
 });
@@ -404,7 +408,7 @@ test("element opacity fades the element as a whole", () => {
   const compiled = compile(document([rect({ opacity: 0.5 })]), assets());
 
   expect(compiled).toContain(
-    '<g opacity="0.5"><rect x="0" y="0" width="40" height="20" fill="#FF0000"/></g>',
+    '<g data-element="r" opacity="0.5"><rect x="0" y="0" width="40" height="20" fill="#FF0000"/></g>',
   );
 });
 
@@ -415,7 +419,7 @@ test("rotation turns the element clockwise about its own center", () => {
   );
 
   expect(compiled).toContain(
-    '<g transform="rotate(30 60 45)"><rect x="10" y="20" width="100" height="50" fill="#FF0000"/></g>',
+    '<g data-element="r" transform="rotate(30 60 45)"><rect x="10" y="20" width="100" height="50" fill="#FF0000"/></g>',
   );
 });
 
@@ -432,7 +436,7 @@ test("a fully painted element wears its transform, opacity, and shadow on one wr
   );
 
   expect(compiled).toContain(
-    '<g transform="rotate(90 20 10)" opacity="0.25" filter="url(#shadow-r)">',
+    '<g data-element="r" transform="rotate(90 20 10)" opacity="0.25" filter="url(#shadow-r)">',
   );
 });
 
@@ -675,7 +679,7 @@ test("a text element paints in its own color and casts its own shadow", () => {
 
   expect(compiled).toContain('fill="#FF0080" fill-opacity="0.502" xml:space="preserve"');
   expect(compiled).toContain('<tspan x="0" y="38.79">Price: 4.99</tspan>');
-  expect(compiled).toContain('<g filter="url(#shadow-t)">');
+  expect(compiled).toContain('<g data-element="t" filter="url(#shadow-t)">');
   expect(compiled).toContain(
     '<feDropShadow dx="2" dy="3" stdDeviation="2" flood-color="#000000" flood-opacity="0.5"/>',
   );
@@ -793,7 +797,7 @@ test("an image draws the asset the resolver names, inside its frame and clipped 
       '<clipPath id="clip-i"><rect x="10" y="20" width="400" height="400"/></clipPath>',
       "</defs>",
       '<rect width="200" height="100" fill="#FFFFFF"/>',
-      '<image href="https://assets.test/photo" x="10" y="20" width="400" height="400" ' +
+      '<image data-element="i" href="https://assets.test/photo" x="10" y="20" width="400" height="400" ' +
         'preserveAspectRatio="none" clip-path="url(#clip-i)"/>',
     ),
   );
@@ -808,7 +812,7 @@ test("an authored image draws at the offset and scale its crop was authored with
   // The crop places the asset's own 800×600 pixels: three quarters of that is
   // 600×450, drawn 50 left and 20 up from the frame's corner.
   expect(compiled).toContain(
-    '<image href="https://assets.test/photo" x="-40" y="0" width="600" height="450"',
+    '<image data-element="i" href="https://assets.test/photo" x="-40" y="0" width="600" height="450"',
   );
 });
 
@@ -984,9 +988,9 @@ test("a group draws its children in order, at the coordinates its own origin giv
   expect(compiled).toBe(
     svg(
       '<rect width="200" height="100" fill="#FFFFFF"/>',
-      '<g transform="translate(100 50)">' +
-        '<rect x="10" y="10" width="40" height="20" fill="#FF0000"/>' +
-        '<rect x="30" y="10" width="40" height="20" fill="#FF0000"/>' +
+      '<g data-element="g" transform="translate(100 50)">' +
+        '<rect data-element="under" x="10" y="10" width="40" height="20" fill="#FF0000"/>' +
+        '<rect data-element="over" x="30" y="10" width="40" height="20" fill="#FF0000"/>' +
         "</g>",
     ),
   );
@@ -1005,9 +1009,9 @@ test("groups nest to any depth, each origin counted from the one above it", () =
   );
 
   expect(compiled).toContain(
-    '<g transform="translate(100 50)">' +
-      '<g transform="translate(10 5)">' +
-      '<rect x="1" y="1" width="40" height="20" fill="#FF0000"/>' +
+    '<g data-element="outer" transform="translate(100 50)">' +
+      '<g data-element="inner" transform="translate(10 5)">' +
+      '<rect data-element="r" x="1" y="1" width="40" height="20" fill="#FF0000"/>' +
       "</g></g>",
   );
 });
@@ -1023,9 +1027,9 @@ test("group opacity fades the group as one unit, not each child on its own", () 
   expect(compiled).toBe(
     svg(
       '<rect width="200" height="100" fill="#FFFFFF"/>',
-      '<g opacity="0.5">' +
-        '<rect x="0" y="0" width="40" height="20" fill="#FF0000"/>' +
-        '<rect x="20" y="0" width="40" height="20" fill="#FF0000"/>' +
+      '<g data-element="g" opacity="0.5">' +
+        '<rect data-element="under" x="0" y="0" width="40" height="20" fill="#FF0000"/>' +
+        '<rect data-element="over" x="20" y="0" width="40" height="20" fill="#FF0000"/>' +
         "</g>",
     ),
   );
@@ -1046,7 +1050,7 @@ test("group rotation turns the whole arrangement about the middle of its childre
   );
 
   // Children spanning local x 0..200 and y 0..100 turn about (100, 50).
-  expect(compiled).toContain('<g transform="rotate(30 100 50)">');
+  expect(compiled).toContain('<g data-element="g" transform="rotate(30 100 50)">');
 });
 
 test("a rotated group turns about a center in its own coordinates, wherever it sits", () => {
@@ -1063,7 +1067,7 @@ test("a rotated group turns about a center in its own coordinates, wherever it s
     assets(),
   );
 
-  expect(compiled).toContain('<g transform="translate(30 20) rotate(30 100 50)">');
+  expect(compiled).toContain('<g data-element="g" transform="translate(30 20) rotate(30 100 50)">');
 });
 
 test("a hidden group draws nothing, and neither does anything under it", () => {
@@ -1080,7 +1084,7 @@ test("a hidden group draws nothing, and neither does anything under it", () => {
   expect(compiled).toBe(
     svg(
       '<rect width="200" height="100" fill="#FFFFFF"/>',
-      '<rect x="0" y="0" width="40" height="20" fill="#FF0000"/>',
+      '<rect data-element="sibling" x="0" y="0" width="40" height="20" fill="#FF0000"/>',
     ),
   );
 });
@@ -1094,8 +1098,8 @@ test("a hidden child inside a visible group hides only itself", () => {
   );
 
   expect(compiled).toContain(
-    '<g transform="translate(100 0)">' +
-      '<rect x="20" y="0" width="40" height="20" fill="#FF0000"/>' +
+    '<g data-element="g" transform="translate(100 0)">' +
+      '<rect data-element="kept" x="20" y="0" width="40" height="20" fill="#FF0000"/>' +
       "</g>",
   );
 });
@@ -1172,7 +1176,43 @@ test("a group's text and image children are drawn from the assets they name, as 
     { ...imageAssets(), fontBytes: (fontAssetId) => fontAssets().fontBytes(fontAssetId) },
   );
 
-  expect(compiled).toContain('<image href="https://assets.test/photo" x="0" y="0"');
+  expect(compiled).toContain(
+    '<image data-element="i" href="https://assets.test/photo" x="0" y="0"',
+  );
   expect(compiled).toContain('<text font-family="font-' + oswaldBold.id + '"');
   expect(compiled).toContain(`@font-face{font-family:"font-${oswaldBold.id}"`);
+});
+
+/* An element's own node: the one node in the markup that stands for it, and
+ * carries its id. The editor patches that node per gesture (ADR-0006) and
+ * hit-tests by walking up to it, so an element that named two nodes, or none,
+ * would leave both without an answer. */
+
+test("an element names itself on the node it is drawn as", () => {
+  const compiled = compile(document([rect({ id: "hero" })]), assets());
+
+  expect(compiled).toContain('<rect data-element="hero" x="0" y="0"');
+});
+
+test("an element that already needs a group of its own is named there, and only there", () => {
+  const compiled = compile(document([rect({ id: "turned", rotation: 45 })]), assets());
+
+  expect(compiled).toContain('<g data-element="turned" transform="rotate(45 20 10)">');
+  expect(compiled).not.toContain("<rect data-element");
+});
+
+test("an element drawn as several nodes is gathered into one that carries its name", () => {
+  const compiled = compile(document([text({ id: "headline" })]), fontAssets());
+
+  expect(compiled).toContain('<g data-element="headline"><text');
+});
+
+test("a group names itself, and so does every child inside it", () => {
+  const compiled = compile(
+    document([group([rect({ id: "inside" })], { id: "outer", x: 10 })]),
+    assets(),
+  );
+
+  expect(compiled).toContain('<g data-element="outer" transform="translate(10 0)">');
+  expect(compiled).toContain('<rect data-element="inside"');
 });

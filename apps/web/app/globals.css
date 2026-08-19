@@ -341,16 +341,31 @@ button.danger {
   border-color: var(--edge);
 }
 
+/* The stage is what the canvas is looked at through: it scrolls, and scrolling
+   it is how the canvas is panned. There is no pasteboard around the canvas
+   (ADR-0008) — what falls outside it is clipped, here as in an export. */
 .stage {
-  display: grid;
-  justify-items: center;
-  gap: 0.5rem;
-  padding: 2rem 0;
+  height: min(70vh, 42rem);
+  margin: 1.5rem 0;
+  padding: 3rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--page);
+  border: 1px solid var(--edge);
+  border-radius: 0.5rem;
+}
+
+/* The canvas at the size the zoom draws it, so that the stage scrolls by as
+   much as the zoom asks for. */
+.canvas-frame {
+  margin: 0 auto;
 }
 
 /* No token from the theme reaches this: the canvas is the document's own. */
 .canvas {
-  width: min(36rem, 100%);
-  max-height: 60vh;
-  border: 1px solid var(--edge);
+  box-shadow: 0 0.25rem 1.5rem light-dark(rgb(0 0 0 / 15%), rgb(0 0 0 / 45%));
+}
+
+.canvas > svg {
+  display: block;
 }

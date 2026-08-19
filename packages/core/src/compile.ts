@@ -36,16 +36,60 @@ type LoadedFont = { bytes: ArrayBuffer; font: Font };
  *  big it is when something has to be fitted to it. */
 type LoadedImage = { url: string; size?: { width: number; height: number } };
 
+/** One `<defs>` entry: the markup, and the id the element that asked for it
+ *  points at. The id travels with it so that a preview replacing one element's
+ *  node can replace that element's definitions too, and drop the ones it no
+ *  longer asks for. */
+export type Definition = { id: string; markup: string };
+
+/** What one element compiled to: its markup, the definitions it and everything
+ *  inside it left behind, and the Font Assets it drew with. Everything here is
+ *  decided by the element alone — its coordinates are its parent's — so a
+ *  cached entry is as good inside a full compile as inside a single patch. */
+export type CompiledElement = {
+  markup: string;
+  definitions: Definition[];
+  fonts: string[];
+};
+
+/** What survives between compilations of the same document (ADR-0006). Both
+ *  element caches are keyed on object identity: an edit that replaces the
+ *  elements it changes, and nothing else, leaves every other entry standing.
+ *  The parsed fonts and the block of font faces are keyed by Font Asset id
+ *  instead, because bytes served under one id never change. */
+export type Caches = {
+  /** Line breaking, the single largest cost in a compile. */
+  layouts: WeakMap<TextElement, TextLayout>;
+  /** Emitted markup, per element. */
+  markup: WeakMap<Element, CompiledElement>;
+  /** Font Assets parsed once, however many compilations follow. */
+  fonts: Map<string, LoadedFont>;
+  /** The whole `<style>` block, keyed on the set of Font Assets the document
+   *  draws with: re-emitted only when that set changes, since inlining the
+   *  bytes is the rest of a compile's cost. */
+  faces: Map<string, string>;
+};
+
+export function newCaches(): Caches {
+  return { layouts: new WeakMap(), markup: new WeakMap(), fonts: new Map(), faces: new Map() };
+}
+
 /** The state one compilation threads through the element tree. `defs` collects
  *  gradients and filters in the order elements ask for them, so that the same
  *  document always yields the same `<defs>` block; `usedFonts` collects, in the
  *  same way, the Font Assets that something drawn actually asks for. */
 type Context = {
-  defs: string[];
+  defs: Definition[];
   fonts: Map<string, LoadedFont>;
   images: Map<string, LoadedImage>;
   usedFonts: Set<string>;
+  caches: Caches;
 };
+
+/** A definition the element being compiled points at by id. */
+function define(context: Context, id: string, markup: string): void {
+  context.defs.push({ id, markup });
+}
 
 /** ` name="value"`, skipping every attribute whose value is absent. */
 type Attribute = [name: string, value: string | undefined];
@@ -159,7 +203,9 @@ function fillAttributes(fill: Fill | VarRef, box: Box, id: string, context: Cont
   if (typeof fill === "string") return solidFillAttributes(fill);
   if (fill.type === "linear") {
     const line = gradientLine(fill.angle, box);
-    context.defs.push(
+    define(
+      context,
+      id,
       `<linearGradient${attributes([
         ["id", id],
         ["gradientUnits", "userSpaceOnUse"],
@@ -172,7 +218,9 @@ function fillAttributes(fill: Fill | VarRef, box: Box, id: string, context: Cont
   } else {
     // The SVG default — a bounding-box unit circle — is already the element's
     // box, centered, so a radial gradient needs no geometry of its own.
-    context.defs.push(
+    define(
+      context,
+      id,
       `<radialGradient${attributes([["id", id]])}>${compileStops(fill.stops)}</radialGradient>`,
     );
   }
@@ -245,11 +293,17 @@ function compileRectShape(
   cornerRadius: CornerRadius | undefined,
   box: Box,
   painting: Attribute[],
+  named: Attribute[] = [],
 ): string {
   if (typeof cornerRadius === "object") {
-    return `<path${attributes([["d", roundedRectPath(cornerRadius, box)], ...painting])}/>`;
+    return `<path${attributes([
+      ...named,
+      ["d", roundedRectPath(cornerRadius, box)],
+      ...painting,
+    ])}/>`;
   }
   return `<rect${attributes([
+    ...named,
     ["x", num(box.x)],
     ["y", num(box.y)],
     ["width", num(box.width)],
@@ -387,14 +441,24 @@ function loadAssets<T>(
 /** The Font Assets the document names, parsed. A font the resolver cannot
  *  supply fails the whole compilation: there is no fallback face to fall back
  *  to, and skipping the text would ship an asset missing its words. */
-function loadFonts(doc: DesignDocument, assets: AssetResolver): Map<string, LoadedFont> {
+function loadFonts(
+  doc: DesignDocument,
+  assets: AssetResolver,
+  caches: Caches,
+): Map<string, LoadedFont> {
   const referenced = new Map<string, string[]>();
   textElementsByFont(doc.elements, referenced);
   return loadAssets(
     referenced,
     (fontAssetId) => {
+      // The bytes served under one Font Asset id are the same bytes forever,
+      // so a preview parses each face once and reuses it for every compile.
+      const held = caches.fonts.get(fontAssetId);
+      if (held) return held;
       const bytes = assets.fontBytes(fontAssetId);
-      return { bytes, font: parseFont(bytes) };
+      const loaded = { bytes, font: parseFont(bytes) };
+      caches.fonts.set(fontAssetId, loaded);
+      return loaded;
     },
     "compile could not load every Font Asset the document references",
   );
@@ -425,10 +489,27 @@ function needsIntrinsicSize(element: ImageElement): boolean {
   return element.content === undefined && element.fitMode !== "stretch";
 }
 
+/** Whether an element is drawn inside a group node of its own: because it has
+ *  a rotation, an opacity or a shadow to hang there, or because what it draws
+ *  is several nodes and one of them alone cannot stand for the element. */
+function needsGroup(element: Element, severalNodes = false): boolean {
+  const shadow = "shadow" in element ? element.shadow : undefined;
+  return severalNodes || element.rotation !== 0 || element.opacity !== 1 || shadow !== undefined;
+}
+
+/** The attribute that names an element in the markup, on the one node that is
+ *  the element's own: what a per-element patch replaces, and what the editor
+ *  walks up to from whatever the pointer hit (ADR-0006). It is written once —
+ *  on the group when there is one, on the shape when there is not. */
+function nameOf(element: Element, grouped: boolean): Attribute[] {
+  return grouped ? [] : [["data-element", element.id]];
+}
+
 /** Rotation, opacity, and shadow belong to the element rather than to its
  *  geometry, so they ride on a wrapper — which also keeps the shadow's filter
  *  outside any transform the shape itself needs. An element that asks for none
- *  of the three is emitted bare. */
+ *  of the three, and draws as one node, is emitted bare with its own name on
+ *  that node. */
 function wrap(
   element: Element,
   shape: string,
@@ -437,14 +518,16 @@ function wrap(
   /** What the shadow's filter region has to cover, when the element's own box
    *  is not it — a text block's glyphs reach past their line boxes. */
   inkBox: Box = box,
+  severalNodes = false,
 ): string {
   const shadow = "shadow" in element ? element.shadow : undefined;
   const border = "border" in element ? element.border : undefined;
-  if (element.rotation === 0 && element.opacity === 1 && !shadow) return shape;
+  if (!needsGroup(element, severalNodes)) return shape;
   const filterId = `shadow-${xmlId(element.id)}`;
-  if (shadow) context.defs.push(shadowFilter(shadow, filterId, inkBox, border));
+  if (shadow) define(context, filterId, shadowFilter(shadow, filterId, inkBox, border));
   const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   return `<g${attributes([
+    ["data-element", element.id],
     [
       "transform",
       element.rotation === 0
@@ -588,15 +671,23 @@ function imageShape(element: ImageElement, frame: Box, painting: Attribute[]): s
 /** An image element: the asset drawn into the frame, clipped to the element's
  *  shape. The clip is always emitted — a frame is a clip too — so that nothing
  *  the frame does not hold can reach the canvas. */
-function compileImage(element: ImageElement, frame: Box, context: Context): string {
+function compileImage(
+  element: ImageElement,
+  frame: Box,
+  context: Context,
+  named: Attribute[] = [],
+): string {
   if (isVarRef(element.src)) unresolved(element.src);
   const src = element.src;
   const clipId = `clip-${xmlId(element.id)}`;
-  context.defs.push(
+  define(
+    context,
+    clipId,
     `<clipPath${attributes([["id", clipId]])}>${imageShape(element, frame, [])}</clipPath>`,
   );
   const box = imageBox(element, frame, src, context);
   const drawn = `<image${attributes([
+    ...named,
     ["href", loadedImage(src, context).url],
     ["x", num(box.x)],
     ["y", num(box.y)],
@@ -652,7 +743,7 @@ function ownBox(element: Element, context: Context): Box | undefined {
     return inside && { ...inside, x: inside.x + element.x, y: inside.y + element.y };
   }
   if (element.type === "text") {
-    const layout = layoutText(element, loadedFont(element.fontAssetId, context).font);
+    const layout = layoutOf(element, context);
     if (layout.lines.length === 0) return undefined;
     return { x: element.x, y: layout.top, width: element.width, height: layout.height };
   }
@@ -680,9 +771,48 @@ function childrenBounds(group: GroupElement, context: Context): Box | undefined 
   return union(boxes);
 }
 
+/** Where a text element's lines fall, laid out once per element object. Line
+ *  breaking is what a compile spends its time on (ADR-0006), and both the
+ *  markup and the element's own extent ask for the same answer. */
+function layoutOf(element: TextElement, context: Context): TextLayout {
+  const cached = context.caches.layouts.get(element);
+  if (cached) return cached;
+  const layout = layoutText(element, loadedFont(element.fontAssetId, context).font);
+  context.caches.layouts.set(element, layout);
+  return layout;
+}
+
+/** One element's compiled markup, from the cache when the element is the same
+ *  object as last time (ADR-0006). What it drew with is remembered alongside
+ *  the markup, because a cache hit still has to leave its definitions and its
+ *  Font Assets in the compilation that asked for it.
+ *
+ *  The element is compiled into a context of its own so that what it leaves
+ *  behind is its own and can be replayed; the loaded assets and the caches are
+ *  the surrounding compilation's. */
+function compileElement(element: Element, context: Context): string {
+  const cached = context.caches.markup.get(element);
+  if (cached) {
+    adopt(cached, context);
+    return cached.markup;
+  }
+  const own: Context = { ...context, defs: [], usedFonts: new Set() };
+  const markup = compileOwnMarkup(element, own);
+  const compiled = { markup, definitions: own.defs, fonts: [...own.usedFonts] };
+  context.caches.markup.set(element, compiled);
+  adopt(compiled, context);
+  return markup;
+}
+
+/** What one element left behind, carried into the compilation around it. */
+function adopt(compiled: CompiledElement, context: Context): void {
+  context.defs.push(...compiled.definitions);
+  for (const fontAssetId of compiled.fonts) context.usedFonts.add(fontAssetId);
+}
+
 /** An invisible element compiles to nothing at all: no markup, and no
  *  definition either, so it cannot reach anything that is drawn. */
-function compileElement(element: Element, context: Context): string {
+function compileOwnMarkup(element: Element, context: Context): string {
   if (isVarRef(element.visible)) unresolved(element.visible);
   if (!element.visible) return "";
   switch (element.type) {
@@ -692,12 +822,18 @@ function compileElement(element: Element, context: Context): string {
         ...fillAttributes(element.fill, box, `fill-${xmlId(element.id)}`, context),
         ...borderAttributes(element.border),
       ];
-      const shape = compileRectShape(element.cornerRadius, box, painting);
+      const shape = compileRectShape(
+        element.cornerRadius,
+        box,
+        painting,
+        nameOf(element, needsGroup(element)),
+      );
       return wrap(element, shape, box, context);
     }
     case "ellipse": {
       const box = { x: element.x, y: element.y, width: element.width, height: element.height };
       const shape = `<ellipse${attributes([
+        ...nameOf(element, needsGroup(element)),
         ["cx", num(box.x + box.width / 2)],
         ["cy", num(box.y + box.height / 2)],
         ["rx", num(box.width / 2)],
@@ -712,6 +848,7 @@ function compileElement(element: Element, context: Context): string {
       const scaleX = element.viewBox.width === 0 ? 0 : box.width / element.viewBox.width;
       const scaleY = element.viewBox.height === 0 ? 0 : box.height / element.viewBox.height;
       const shape = `<path${attributes([
+        ...nameOf(element, needsGroup(element)),
         ["d", element.path],
         [
           "transform",
@@ -727,12 +864,17 @@ function compileElement(element: Element, context: Context): string {
     }
     case "image": {
       const box = { x: element.x, y: element.y, width: element.width, height: element.height };
-      return wrap(element, compileImage(element, box, context), box, context);
+      // A bordered image draws its border beside the clipped pixels, so two
+      // nodes stand where one element is, and the group is what carries it.
+      const severalNodes = element.border !== undefined;
+      const grouped = needsGroup(element, severalNodes);
+      const drawn = compileImage(element, box, context, nameOf(element, grouped));
+      return wrap(element, drawn, box, context, box, severalNodes);
     }
     case "text": {
       if (isVarRef(element.color)) unresolved(element.color);
       const { font } = loadedFont(element.fontAssetId, context);
-      const layout = layoutText(element, font);
+      const layout = layoutOf(element, context);
       const first = layout.lines[0];
       const last = layout.lines.at(-1);
       // Empty content collapses the box to no content height, so there is
@@ -752,7 +894,9 @@ function compileElement(element: Element, context: Context): string {
         width: right - left,
         height: last.baseline + layout.descent - top,
       };
-      return wrap(element, shape, box, context, ink);
+      // A line the font has no glyph for is drawn beside the text node, so a
+      // text element is always gathered into a group that carries its name.
+      return wrap(element, shape, box, context, ink, true);
     }
     case "group": {
       const children = element.children.map((child) => compileElement(child, context)).join("");
@@ -771,6 +915,7 @@ function compileElement(element: Element, context: Context): string {
         : undefined;
       const transform = [origin, turn].filter((part) => part !== undefined).join(" ");
       return `<g${attributes([
+        ["data-element", element.id],
         ["transform", transform === "" ? undefined : transform],
         ["opacity", element.opacity === 1 ? undefined : num(element.opacity)],
       ])}>${children}</g>`;
@@ -784,12 +929,18 @@ function compileElement(element: Element, context: Context): string {
  * at the bottom. The same document compiles to the same string every time.
  */
 export function compile(doc: DesignDocument, assets: AssetResolver): string {
-  const context: Context = {
-    defs: [],
-    fonts: loadFonts(doc, assets),
-    images: loadImages(doc, assets),
-    usedFonts: new Set(),
-  };
+  return compileDocument(doc, assets, newCaches());
+}
+
+/** The compilation the caches of a preview live across (ADR-0006). `compile`
+ *  is this with caches nothing else holds on to, which is what a renderer that
+ *  compiles a document once wants. */
+export function compileDocument(
+  doc: DesignDocument,
+  assets: AssetResolver,
+  caches: Caches,
+): string {
+  const context = contextFor(doc, assets, caches);
   const canvasBox = { x: 0, y: 0, width: doc.canvas.width, height: doc.canvas.height };
   const background = `<rect${attributes([
     ["width", num(doc.canvas.width)],
@@ -801,9 +952,8 @@ export function compile(doc: DesignDocument, assets: AssetResolver): string {
     .filter((markup) => markup !== "");
   // The font faces come first, and only for the Font Assets something drawn
   // actually asked for, so that nothing invisible drags its bytes along.
-  const faces = [...context.usedFonts].map((fontAssetId) => fontFace(fontAssetId, context));
-  const styles = faces.length === 0 ? [] : [`<style>${faces.join("")}</style>`];
-  const definitions = [...styles, ...context.defs];
+  const styles = fontFaces(context);
+  const definitions = [...styles, ...context.defs.map((definition) => definition.markup)];
   const defs = definitions.length === 0 ? [] : ["<defs>", ...definitions, "</defs>"];
   return [
     `<svg${attributes([
@@ -817,4 +967,50 @@ export function compile(doc: DesignDocument, assets: AssetResolver): string {
     ...elements,
     "</svg>",
   ].join("\n");
+}
+
+/** One element of a document, compiled on its own: what a preview puts in
+ *  place of that element's node, with the definitions it owns now, and the
+ *  ones it owned before and no longer does (ADR-0006).
+ *
+ *  An element's markup is decided by the element alone, so compiling it apart
+ *  from its document says exactly what compiling the document again would. */
+export function compileElementOf(
+  doc: DesignDocument,
+  element: Element,
+  assets: AssetResolver,
+  caches: Caches,
+): CompiledElement {
+  const context = contextFor(doc, assets, caches);
+  compileElement(element, context);
+  const compiled = caches.markup.get(element);
+  if (!compiled) throw new Error(`compile left no markup for the element "${element.id}"`);
+  return compiled;
+}
+
+/** The assets a document draws with, taken once, plus the caches that outlive
+ *  the compilation. */
+function contextFor(doc: DesignDocument, assets: AssetResolver, caches: Caches): Context {
+  return {
+    defs: [],
+    fonts: loadFonts(doc, assets, caches),
+    images: loadImages(doc, assets),
+    usedFonts: new Set(),
+    caches,
+  };
+}
+
+/** The `<style>` block carrying the bytes of every Font Asset the document
+ *  drew with — one memo entry for the whole block, keyed on that set, because
+ *  inlining a font is what a compile spends its remaining time on. A document
+ *  that draws with no font has no block at all. */
+function fontFaces(context: Context): string[] {
+  const used = [...context.usedFonts];
+  if (used.length === 0) return [];
+  const key = used.join(" ");
+  const cached = context.caches.faces.get(key);
+  if (cached !== undefined) return [cached];
+  const block = `<style>${used.map((fontAssetId) => fontFace(fontAssetId, context)).join("")}</style>`;
+  context.caches.faces.set(key, block);
+  return [block];
 }

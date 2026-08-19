@@ -5,7 +5,7 @@ state: todo
 priority: medium
 parent: ek7pq1
 created: 2026-08-19T11:28:20Z
-updated: 2026-08-19T11:28:20Z
+updated: 2026-08-19T12:16:02Z
 ---
 
 ## What to build
@@ -21,3 +21,9 @@ The slices after it need the answer for more than a Role: the Assets panel (qbbl
 - [ ] `DocumentView` carries the id of the Workspace the document belongs to; `DocumentSummary` is unchanged, since a list is already read through one Workspace.
 - [ ] The editor decides what it offers from the Role in that Workspace, rather than from the Workspace the shell is switched to.
 - [ ] `openapi.json` and the generated client are regenerated and committed.
+
+## Notes
+
+**claude** — 2026-08-19T12:16:02Z
+
+The canvas (n5csrl) now reads the shell's chosen Workspace too: it builds every asset URL from it, so a document deep-linked from another Workspace cannot fetch its fonts or images and shows the missing-asset message instead of drawing. That makes this issue worth more than the rename gate it was raised for.
