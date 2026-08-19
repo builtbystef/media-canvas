@@ -202,3 +202,32 @@ class FontAsset(Base):
     bundled: Mapped[bool]
     original_filename: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ImageAsset(Base):
+    """One image file a Workspace holds.
+
+    Its identity is the pair, exactly as a Font Asset's is: the Workspace, and
+    the SHA-256 of the bytes. Those bytes are the normalized ones — an upload
+    is re-encoded upright and stripped of its camera and location data before
+    anything here is written — so the id names what a client downloads and
+    what the worker verifies.
+
+    Width and height are the post-normalization numbers, which are the only
+    ones that exist: a photo the camera flagged as rotated is stored the way
+    it is meant to be seen, and is recorded that way too.
+    """
+
+    __tablename__ = "image_assets"
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
+    )
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    storage_key: Mapped[str] = mapped_column(String(200))
+    content_type: Mapped[str] = mapped_column(String(100))
+    width: Mapped[int]
+    height: Mapped[int]
+    byte_size: Mapped[int] = mapped_column(BigInteger)
+    original_filename: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

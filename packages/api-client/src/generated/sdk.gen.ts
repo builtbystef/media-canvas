@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
+import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -220,6 +220,25 @@ export const promoteDocument = <ThrowOnError extends boolean = false>(options: O
 export const uploadFont = <ThrowOnError extends boolean = false>(options: Options<UploadFontData, ThrowOnError>): RequestResult<UploadFontResponses, UploadFontErrors, ThrowOnError> => (options.client ?? client).post<UploadFontResponses, UploadFontErrors, ThrowOnError>({
     ...formDataBodySerializer,
     url: '/api/v1/workspaces/{workspaceId}/fonts',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Upload Image
+ *
+ * Take an image into this Workspace. Editor-level; a Viewer is refused.
+ *
+ * Answers 201 with the new record, or 200 with the record this Workspace
+ * already held for these bytes — a re-upload is a no-op by construction, and
+ * the editor never has to explain a duplicate.
+ */
+export const uploadImage = <ThrowOnError extends boolean = false>(options: Options<UploadImageData, ThrowOnError>): RequestResult<UploadImageResponses, UploadImageErrors, ThrowOnError> => (options.client ?? client).post<UploadImageResponses, UploadImageErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    url: '/api/v1/workspaces/{workspaceId}/images',
     ...options,
     headers: {
         'Content-Type': null,

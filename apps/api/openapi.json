@@ -782,6 +782,60 @@
         }
       }
     },
+    "/api/v1/workspaces/{workspaceId}/images": {
+      "post": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Upload Image",
+        "description": "Take an image into this Workspace. Editor-level; a Viewer is refused.\n\nAnswers 201 with the new record, or 200 with the record this Workspace\nalready held for these bytes \u2014 a re-upload is a no-op by construction, and\nthe editor never has to explain a duplicate.",
+        "operationId": "uploadImage",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspaceid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_uploadImage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageAssetView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The file is not an asset this product takes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetRefusalView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Get Health",
@@ -868,6 +922,20 @@
           "file"
         ],
         "title": "Body_uploadFont"
+      },
+      "Body_uploadImage": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_uploadImage"
       },
       "CodeRequest": {
         "properties": {
@@ -1196,6 +1264,51 @@
           "memberships"
         ],
         "title": "Identity"
+      },
+      "ImageAssetView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "contentType": {
+            "type": "string",
+            "title": "Contenttype"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "byteSize": {
+            "type": "integer",
+            "title": "Bytesize"
+          },
+          "originalFilename": {
+            "type": "string",
+            "title": "Originalfilename"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "contentType",
+          "width",
+          "height",
+          "byteSize",
+          "originalFilename",
+          "createdAt"
+        ],
+        "title": "ImageAssetView",
+        "description": "One Image Asset, as the editor's Assets panel and canvas read it."
       },
       "MemberView": {
         "properties": {

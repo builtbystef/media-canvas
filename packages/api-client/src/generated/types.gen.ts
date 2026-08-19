@@ -24,6 +24,16 @@ export type BodyUploadFont = {
 };
 
 /**
+ * Body_uploadImage
+ */
+export type BodyUploadImage = {
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
  * CodeRequest
  */
 export type CodeRequest = {
@@ -248,6 +258,42 @@ export type Identity = {
      * Memberships
      */
     memberships: Array<MembershipView>;
+};
+
+/**
+ * ImageAssetView
+ *
+ * One Image Asset, as the editor's Assets panel and canvas read it.
+ */
+export type ImageAssetView = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Contenttype
+     */
+    contentType: string;
+    /**
+     * Width
+     */
+    width: number;
+    /**
+     * Height
+     */
+    height: number;
+    /**
+     * Bytesize
+     */
+    byteSize: number;
+    /**
+     * Originalfilename
+     */
+    originalFilename: string;
+    /**
+     * Createdat
+     */
+    createdAt: string;
 };
 
 /**
@@ -944,6 +990,36 @@ export type UploadFontResponses = {
 };
 
 export type UploadFontResponse = UploadFontResponses[keyof UploadFontResponses];
+
+export type UploadImageData = {
+    body: BodyUploadImage;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/images';
+};
+
+export type UploadImageErrors = {
+    /**
+     * The file is not an asset this product takes.
+     */
+    422: AssetRefusalView;
+};
+
+export type UploadImageError = UploadImageErrors[keyof UploadImageErrors];
+
+export type UploadImageResponses = {
+    /**
+     * Successful Response
+     */
+    201: ImageAssetView;
+};
+
+export type UploadImageResponse = UploadImageResponses[keyof UploadImageResponses];
 
 export type GetHealthData = {
     body?: never;

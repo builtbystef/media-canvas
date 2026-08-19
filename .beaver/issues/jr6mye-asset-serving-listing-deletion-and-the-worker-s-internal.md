@@ -8,7 +8,7 @@ depends_on:
     - t60pvx
 parent: ek7pq1
 created: 2026-08-15T07:12:12Z
-updated: 2026-08-19T11:06:49Z
+updated: 2026-08-19T11:15:39Z
 ---
 
 ## What to build
@@ -34,3 +34,7 @@ Contract written 2026-08-16: the worker-facing asset-bytes route is GET /interna
 **claude** — 2026-08-19T11:06:49Z
 
 Built alongside 21plhn (font upload), 2026-08-19: the upload response FontAssetView carries id, format, family, subfamily, weight, italic, postscriptName, byteSize, bundled, originalFilename, createdAt - everything the spec lists except url, because the serving route is yours. Add url to that model when the route lands; it is additive and the view is already shared-shaped. Storage keys are {workspaceId}/fonts/{id}.{ttf|otf} in the assets bucket, and the api reaches them through media_canvas_api.storage; the row carries storage_key so serving never rebuilds the address itself.
+
+**claude** — 2026-08-19T11:15:39Z
+
+Image upload landed with t60pvx, 2026-08-19: ImageAssetView carries id, contentType, width, height, byteSize, originalFilename, createdAt — everything the spec lists except url, for the same reason FontAssetView does, because the serving route is yours. Keys are {workspaceId}/images/{id}.{png|jpg|webp} in the assets bucket, and the row carries storage_key with the content type beside it, so serving never rebuilds either.
