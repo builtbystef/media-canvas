@@ -48,6 +48,20 @@ export function internalServiceConfig(env: Record<string, string | undefined>): 
   return { token, port };
 }
 
+/**
+ * The one listen failure worth a sentence of its own: the port the
+ * environment named belongs to something else. Everything else a listen can
+ * fail with is rarer and not ours to paraphrase, so it has no explanation
+ * here and surfaces whole.
+ */
+export function explainListenFailure(failure: unknown, port: number): string | undefined {
+  if ((failure as NodeJS.ErrnoException | null)?.code !== "EADDRINUSE") return undefined;
+  return (
+    `WORKER_INTERNAL_PORT: port ${String(port)} is already in use — ` +
+    "stop what is holding it, or name another port."
+  );
+}
+
 /** One problem with one Row: the Variable at fault where the problem is about
  *  a Variable, and the index of the Row it is in. */
 export type RowError = ValidationError & { rowIndex: number };
