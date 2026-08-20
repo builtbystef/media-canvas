@@ -1,10 +1,8 @@
 ---
 id: n5csrl
 title: 'The canvas: compiled preview, memoized patching, and zoom'
-state: in-progress
+state: done
 priority: high
-labels:
-    - needs-review
 depends_on:
     - hg52gb
     - jr6mye
@@ -14,7 +12,7 @@ depends_on:
     - f2hjkt
 parent: ek7pq1
 created: 2026-08-15T07:12:18Z
-updated: 2026-08-19T12:16:02Z
+updated: 2026-08-20T09:13:58Z
 ---
 
 ## What to build
@@ -70,3 +68,7 @@ Built 2026-08-19. The canvas draws the compiler's own markup, mounted once and p
 - Nothing was seen in a browser during this session — this sandbox has neither the compose stack nor a browser binary. The DOM glue (`mounted-preview.ts`: XML-parsed nodes, node replacement, `<defs>` upkeep) is the part that has run nowhere yet; vmz1ew is where a browser will exercise it.
 
 **What you must do.** This slice's closure waits on your review, because the preview's fidelity is judged by eye: open a design, check that it is the document and not an approximation, zoom in and out at the cursor, pan, reload and find the view where you left it, and drag an element past the canvas edge to see it clipped rather than parked. Close this issue to approve it (8919ix and ljzbq7 unblock when you do), or write a note with what you want changed and remove the `needs-review` label.
+
+**claude** — 2026-08-20T09:13:58Z
+
+Reviewed in a browser by the user on 2026-08-20 and approved. Every check ran against a seeded document (gradient, shadowed card, ellipse-clipped image, text, rotated group, one element hanging over the corner): fidelity by eye, zoom at the cursor to both ends of the 5-1600 range, the four pan bindings, the SVG subtree untouched across zoom, view restored on reload, clipping at the canvas edge, and the blocking sentence when the Image Asset was deleted. Patching still has no UI path; its evidence stays the core tests and the bench.
