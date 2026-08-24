@@ -23,6 +23,7 @@ catalog:
   playwright-core: 1.62.1
   opentype.js: ^1.3.4
   zod: ^4.4.3
+  zustand: ^5.0.15
 overrides:
   vite: "catalog:"
 peerDependencyRules:

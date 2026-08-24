@@ -1,8 +1,9 @@
 "use client";
 
-import type { DesignDocument, Preview } from "@media-canvas/core";
+import type { DesignDocument, Element as DocumentElement, Preview } from "@media-canvas/core";
 import { createPreview } from "@media-canvas/core";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useStore } from "zustand";
 import { loadAssets, missingAssets, resolverFor } from "../../../lib/canvas-assets";
 import {
   type CanvasView,
@@ -12,23 +13,38 @@ import {
   zoomAt,
   zoomBy,
 } from "../../../lib/canvas-view";
+import {
+  moveElements,
+  renameElement,
+  reorderElement,
+  setElementVisibility,
+} from "../../../lib/document-operations";
+import { createEditorStore } from "../../../lib/editor-store";
+import {
+  type Bounds,
+  marqueeSelection,
+  selectionTarget,
+  toggleSelection,
+  unionBounds,
+} from "../../../lib/selection";
+import { LayerList } from "./layer-list";
 import { applyUpdate } from "./mounted-preview";
 
-/**
- * The canvas: the compiled document itself.
- *
- * What is drawn here is the markup the render worker screenshots, from the
- * same core compiler — so anything the editor can show that the compiler
- * cannot express would be a bug. It is mounted into a container React never
- * reconciles, and every later document value reaches that container through
- * the preview's own answer (ADR-0006): one node patched, or one full compile.
- *
- * Zoom is a transform on the wrapper around that markup, never a compile at
- * another scale, so the preview's memo caches survive every zoom change. The
- * canvas clips at its own edge exactly as an exported file does — there is no
- * pasteboard (ADR-0008), and off-canvas elements will be reached through the
- * overlay and the layer list (issue 8919ix).
- */
+type Gesture =
+  | {
+      kind: "move";
+      pointerId: number;
+      clientX: number;
+      clientY: number;
+      document: DesignDocument;
+      ids: string[];
+    }
+  | { kind: "marquee"; pointerId: number; start: Point; current: Point; shifted: boolean };
+type Point = { x: number; y: number };
+
+/** The compiled Design Document, its mounted-markup interactions, overlay, and
+ * layer tree. Document edits enter through pure operations so ADR-0006's
+ * identity-keyed preview caches remain correct. */
 export function EditorCanvas({
   documentId,
   workspaceId,
@@ -40,67 +56,82 @@ export function EditorCanvas({
   stored: Record<string, unknown>;
   valid: boolean;
 }) {
+  const initial = useRef(valid ? (stored as unknown as DesignDocument) : null);
+  const [store] = useState(() => createEditorStore(initial.current));
+  const design = useStore(store, (state) => state.document);
+  const selected = useStore(store, (state) => state.selected);
+  const enteredPath = useStore(store, (state) => state.enteredPath);
+  const replaceDocument = useStore(store, (state) => state.replaceDocument);
+  const select = useStore(store, (state) => state.select);
+  const currentDesign = useRef(design);
+  currentDesign.current = design;
+  const [selectionBox, setSelectionBox] = useState<Bounds | null>(null);
+  const [marquee, setMarquee] = useState<Bounds | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
+  const canvasSpace = useRef<HTMLDivElement>(null);
   const preview = useRef<Preview | null>(null);
   const pending = useRef<{ left: number; top: number } | null>(null);
   const panning = useRef<{ x: number; y: number } | null>(null);
+  const gesture = useRef<Gesture | null>(null);
   const spaceHeld = useRef(false);
   const remembering = useRef(false);
   const [zoom, setZoom] = useState<number | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-
-  const design = valid ? (stored as unknown as DesignDocument) : null;
   const canvas = design?.canvas;
 
-  // Opening the document: everything it references is fetched first, because
-  // the compiler asks for font bytes and image sizes as it draws and answers
-  // synchronously. Nothing is drawn until all of it is in hand.
+  // Opening waits for all assets, then mounts the compiler's SVG once.
   useEffect(() => {
-    if (design === null || canvas === undefined) return;
+    const document = initial.current;
+    if (document === null) return;
     const workspace = workspaceId;
     if (workspace === null) {
       setProblem("This document's Workspace is not the one this window is in.");
       return;
     }
     let left = false;
-    async function open(document: DesignDocument, area: DesignDocument["canvas"]) {
-      const library = await loadAssets(workspace!, document);
+    async function open() {
+      const library = await loadAssets(workspace!, document!);
       if (left) return;
-      const missing = missingAssets(document, library);
+      const missing = missingAssets(document!, library);
       if (missing.length > 0) {
-        // The panel that names each missing asset and offers to replace it is
-        // its own slice (issue ljzbq7); until then, this says what is gone.
         setProblem(`This document cannot be drawn: ${missing.join(", ")} could not be fetched.`);
         return;
       }
       const opened = createPreview(resolverFor(library));
       preview.current = opened;
-      if (host.current) applyUpdate(host.current, opened.update(document));
+      if (host.current && currentDesign.current) {
+        applyUpdate(host.current, opened.update(currentDesign.current));
+      }
       const remembered = readView(window.localStorage, documentId);
-      const view = remembered ?? firstView(area, viewport.current);
+      const view = remembered ?? firstView(document!.canvas, viewport.current);
       pending.current = { left: view.left, top: view.top };
       setZoom(view.zoom);
     }
-    open(design, canvas).catch(() => {
-      // Whatever went wrong — the assets could not be fetched, or the compiler
-      // refused the document — nothing half-drawn is left standing.
-      setProblem("This document could not be opened, so nothing is drawn.");
-    });
+    open().catch(() => setProblem("This document could not be opened, so nothing is drawn."));
     return () => {
       left = true;
     };
-  }, [design, canvas, workspaceId, documentId]);
+  }, [workspaceId, documentId]);
 
-  // Every later value of the document reaches the mounted markup here, and
-  // never through rendering: one element patched, or one full compile.
-  useEffect(() => {
+  // Later snapshots patch only what their identities say changed.
+  useLayoutEffect(() => {
     if (design === null || preview.current === null || host.current === null) return;
     applyUpdate(host.current, preview.current.update(design));
   }, [design]);
 
-  // A zoom moves what is under the cursor, so the scroll it asks for is set
-  // once the new size is laid out.
+  // The overlay reads the mounted markup's real bounds; it never duplicates
+  // compiler geometry. Those bounds continue to exist when SVG clipping hides
+  // an Element beyond the canvas.
+  useLayoutEffect(() => {
+    if (zoom === null) return;
+    setSelectionBox(
+      unionBounds(
+        selected.flatMap((id) => elementBounds(id, host.current, canvasSpace.current, zoom)),
+      ),
+    );
+  }, [design, selected, zoom]);
+
   useLayoutEffect(() => {
     const view = viewport.current;
     if (view === null || pending.current === null) return;
@@ -109,15 +140,11 @@ export function EditorCanvas({
     pending.current = null;
   }, [zoom]);
 
-  // Wheel and pinch. The listener is the element's own, because a passive one
-  // cannot keep the browser from zooming the page instead of the canvas.
   useEffect(() => {
     const view = viewport.current;
     const shown = zoom;
     if (view === null || shown === null) return;
     function wheeled(event: WheelEvent) {
-      // Chromium reports a trackpad pinch as a wheel with ctrl held, so the
-      // two gestures are one binding.
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
       const held = host.current?.getBoundingClientRect();
@@ -137,10 +164,15 @@ export function EditorCanvas({
     return () => view.removeEventListener("wheel", wheeled);
   }, [zoom, documentId]);
 
-  // Space held turns any pointer into a hand, as the interaction model says.
   useEffect(() => {
     function pressed(event: KeyboardEvent) {
       if (event.code === "Space") spaceHeld.current = true;
+      if (event.code !== "Escape") return;
+      if (enteredPath.length === 0) select([]);
+      else {
+        const exited = enteredPath.at(-1)!;
+        select([exited], enteredPath.slice(0, -1));
+      }
     }
     function released(event: KeyboardEvent) {
       if (event.code === "Space") spaceHeld.current = false;
@@ -151,9 +183,9 @@ export function EditorCanvas({
       window.removeEventListener("keydown", pressed);
       window.removeEventListener("keyup", released);
     };
-  }, []);
+  }, [enteredPath, select]);
 
-  if (problem !== null) {
+  if (problem !== null)
     return (
       <main className="stage">
         <p className="problem" role="alert">
@@ -161,8 +193,7 @@ export function EditorCanvas({
         </p>
       </main>
     );
-  }
-  if (design === null || canvas === undefined) {
+  if (design === null || canvas === undefined)
     return (
       <main className="stage">
         <p className="problem" role="alert">
@@ -170,72 +201,273 @@ export function EditorCanvas({
         </p>
       </main>
     );
-  }
 
   const scale = zoom ?? 1;
   return (
-    <main
-      className="stage"
-      ref={viewport}
-      onScroll={() => {
-        // Panning fires this every frame; where the view got to is worth
-        // remembering once a frame, not once an event.
-        if (remembering.current || zoom === null) return;
-        remembering.current = true;
-        requestAnimationFrame(() => {
-          remembering.current = false;
+    <div className="editor-workspace">
+      <LayerList
+        document={design}
+        selected={selected}
+        onSelect={(id, parentPath) => select([id], parentPath)}
+        onRename={(id, name) => replaceDocument((current) => renameElement(current, id, name))}
+        onVisibility={(id, visible) =>
+          replaceDocument((current) => setElementVisibility(current, id, visible))
+        }
+        onReorder={(path, id, index) =>
+          replaceDocument((current) => reorderElement(current, path, id, index))
+        }
+      />
+      <main
+        className="stage"
+        ref={viewport}
+        onScroll={() => rememberView(remembering, viewport.current, zoom, documentId)}
+        onDoubleClick={(event) => {
+          const chain = mountedChainAt(event.clientX, event.clientY, host.current);
+          const target = selectionTarget(chain, enteredPath);
+          if (target === null || findElement(design.elements, target)?.type !== "group") return;
+          const path = [...enteredPath, target];
+          const child = selectionTarget(chain, path);
+          select(child === null ? [] : [child], path);
+        }}
+        onPointerDown={(event) => {
+          if (event.button === 1 || (event.button === 0 && spaceHeld.current)) {
+            event.preventDefault();
+            panning.current = { x: event.clientX, y: event.clientY };
+            event.currentTarget.setPointerCapture(event.pointerId);
+            return;
+          }
+          if (event.button !== 0 || zoom === null) return;
+          const handle = (event.target as globalThis.Element).closest?.(".selection-handle");
+          const chain = handle ? [] : mountedChainAt(event.clientX, event.clientY, host.current);
+          const target = handle
+            ? (selected[0] ?? null)
+            : selectionTarget(chain, enteredPath, event.metaKey || event.ctrlKey);
+          if (target === null) {
+            select([], []);
+            const point = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
+            if (
+              point.x >= 0 &&
+              point.y >= 0 &&
+              point.x <= canvas.width &&
+              point.y <= canvas.height
+            ) {
+              gesture.current = {
+                kind: "marquee",
+                pointerId: event.pointerId,
+                start: point,
+                current: point,
+                shifted: event.shiftKey,
+              };
+              setMarquee(boundsBetween(point, point));
+            }
+          } else {
+            const next = event.shiftKey
+              ? toggleSelection(selected, target)
+              : selected.includes(target)
+                ? selected
+                : [target];
+            select(next);
+            if (next.length > 0)
+              gesture.current = {
+                kind: "move",
+                pointerId: event.pointerId,
+                clientX: event.clientX,
+                clientY: event.clientY,
+                document: design,
+                ids: next,
+              };
+          }
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          const from = panning.current;
           const view = viewport.current;
-          if (view === null) return;
-          writeView(window.localStorage, documentId, {
-            zoom,
-            left: view.scrollLeft,
-            top: view.scrollTop,
-          });
-        });
-      }}
-      onPointerDown={(event) => {
-        if (event.button !== 1 && !(event.button === 0 && spaceHeld.current)) return;
-        event.preventDefault();
-        panning.current = { x: event.clientX, y: event.clientY };
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        const from = panning.current;
-        const view = viewport.current;
-        if (from === null || view === null) return;
-        view.scrollLeft -= event.clientX - from.x;
-        view.scrollTop -= event.clientY - from.y;
-        panning.current = { x: event.clientX, y: event.clientY };
-      }}
-      onPointerUp={(event) => {
-        if (panning.current === null) return;
-        panning.current = null;
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }}
-    >
-      <div
-        className="canvas-frame"
-        style={{ width: canvas.width * scale, height: canvas.height * scale }}
+          if (from !== null && view !== null) {
+            view.scrollLeft -= event.clientX - from.x;
+            view.scrollTop -= event.clientY - from.y;
+            panning.current = { x: event.clientX, y: event.clientY };
+            return;
+          }
+          const active = gesture.current;
+          if (active?.pointerId !== event.pointerId || zoom === null) return;
+          if (active.kind === "move") {
+            replaceDocument(() =>
+              moveElements(
+                active.document,
+                active.ids,
+                (event.clientX - active.clientX) / zoom,
+                (event.clientY - active.clientY) / zoom,
+              ),
+            );
+          } else {
+            active.current = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
+            setMarquee(boundsBetween(active.start, active.current));
+          }
+        }}
+        onPointerUp={(event) => {
+          panning.current = null;
+          const active = gesture.current;
+          if (active?.pointerId === event.pointerId && active.kind === "marquee" && zoom !== null) {
+            const bounds = boundsBetween(active.start, active.current);
+            const ids = siblingsAt(design.elements, enteredPath)
+              .map((element) => ({
+                id: element.id,
+                bounds: elementBounds(element.id, host.current, canvasSpace.current, zoom)[0]!,
+              }))
+              .filter((candidate) => candidate.bounds !== undefined);
+            const found = marqueeSelection(bounds, ids);
+            select(active.shifted ? found.reduce(toggleSelection, selected) : found);
+          }
+          gesture.current = null;
+          setMarquee(null);
+          if (event.currentTarget.hasPointerCapture(event.pointerId))
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
       >
-        {/* React mounts this container and never looks inside it again. */}
         <div
-          className="canvas"
-          ref={host}
-          style={{
-            width: canvas.width,
-            height: canvas.height,
-            transform: `scale(${String(scale)})`,
-            transformOrigin: "0 0",
-            visibility: zoom === null ? "hidden" : "visible",
-          }}
-        />
-      </div>
-    </main>
+          className="canvas-frame"
+          style={{ width: canvas.width * scale, height: canvas.height * scale }}
+        >
+          <div
+            className="canvas-space"
+            ref={canvasSpace}
+            style={{
+              width: canvas.width,
+              height: canvas.height,
+              transform: `scale(${String(scale)})`,
+              transformOrigin: "0 0",
+              visibility: zoom === null ? "hidden" : "visible",
+            }}
+          >
+            <div className="canvas" ref={host} />
+            <div className="canvas-overlay" aria-hidden="true">
+              {selectionBox && <SelectionBox bounds={selectionBox} />}
+              {marquee && <div className="marquee" style={boxStyle(marquee)} />}
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }
 
-/** Where a document lands when this browser remembers nothing about it: the
- *  whole canvas in view, scrolled to its top-left. */
+function SelectionBox({ bounds }: { bounds: Bounds }) {
+  return (
+    <div className="selection-box" style={boxStyle(bounds)}>
+      {["nw", "ne", "sw", "se"].map((corner) => (
+        <span className={`selection-handle ${corner}`} key={corner} />
+      ))}
+    </div>
+  );
+}
+
+function boxStyle(bounds: Bounds) {
+  return {
+    left: bounds.left,
+    top: bounds.top,
+    width: bounds.right - bounds.left,
+    height: bounds.bottom - bounds.top,
+  };
+}
+
+function mountedChainAt(
+  clientX: number,
+  clientY: number,
+  host: globalThis.Element | null,
+): string[] {
+  const hit = document.elementFromPoint(clientX, clientY);
+  if (hit === null || host === null || !host.contains(hit)) return [];
+  const chain: string[] = [];
+  for (
+    let node: globalThis.Element | null = hit;
+    node !== null && node !== host;
+    node = node.parentElement
+  ) {
+    const id = node.getAttribute("data-element");
+    if (id !== null) chain.push(id);
+  }
+  return chain;
+}
+
+function elementBounds(
+  id: string,
+  host: globalThis.Element | null,
+  space: globalThis.Element | null,
+  zoom: number,
+): Bounds[] {
+  const node = host?.querySelector(`[data-element="${CSS.escape(id)}"]`);
+  if (!node || !space) return [];
+  const bounds = node.getBoundingClientRect();
+  const origin = space.getBoundingClientRect();
+  return [
+    {
+      left: (bounds.left - origin.left) / zoom,
+      top: (bounds.top - origin.top) / zoom,
+      right: (bounds.right - origin.left) / zoom,
+      bottom: (bounds.bottom - origin.top) / zoom,
+    },
+  ];
+}
+
+function canvasPoint(
+  clientX: number,
+  clientY: number,
+  space: globalThis.Element | null,
+  zoom: number,
+): Point {
+  const origin = space?.getBoundingClientRect();
+  return { x: (clientX - (origin?.left ?? 0)) / zoom, y: (clientY - (origin?.top ?? 0)) / zoom };
+}
+
+function boundsBetween(a: Point, b: Point): Bounds {
+  return {
+    left: Math.min(a.x, b.x),
+    top: Math.min(a.y, b.y),
+    right: Math.max(a.x, b.x),
+    bottom: Math.max(a.y, b.y),
+  };
+}
+
+function findElement(elements: readonly DocumentElement[], id: string): DocumentElement | null {
+  for (const element of elements) {
+    if (element.id === id) return element;
+    if (element.type === "group") {
+      const found = findElement(element.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function siblingsAt(elements: DocumentElement[], path: readonly string[]): DocumentElement[] {
+  let siblings = elements;
+  for (const id of path) {
+    const group = siblings.find((element) => element.id === id);
+    if (group?.type !== "group") return [];
+    siblings = group.children;
+  }
+  return siblings;
+}
+
+function rememberView(
+  remembering: { current: boolean },
+  viewport: HTMLDivElement | null,
+  zoom: number | null,
+  documentId: string,
+) {
+  if (remembering.current || zoom === null) return;
+  remembering.current = true;
+  requestAnimationFrame(() => {
+    remembering.current = false;
+    if (viewport)
+      writeView(window.localStorage, documentId, {
+        zoom,
+        left: viewport.scrollLeft,
+        top: viewport.scrollTop,
+      });
+  });
+}
+
 function firstView(canvas: DesignDocument["canvas"], viewport: HTMLElement | null): CanvasView {
   const area = viewport?.getBoundingClientRect();
   return {

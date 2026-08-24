@@ -341,6 +341,65 @@ button.danger {
   border-color: var(--edge);
 }
 
+/* The layers and canvas are two views of the same selection. */
+.editor-workspace {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.layers {
+  min-width: 0;
+  margin-top: 1.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.5rem;
+  background: var(--card);
+}
+
+.layers h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.layer-tree,
+.layer-tree ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layer-tree ol {
+  padding-left: 0.8rem;
+}
+
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 0.3rem;
+}
+
+.layer-row[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.layer-row input {
+  min-width: 0;
+  padding: 0.25rem;
+  border-color: transparent;
+  background: transparent;
+  font-size: 0.8rem;
+}
+
+.visibility {
+  width: 1.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--quiet);
+}
+
 /* The stage is what the canvas is looked at through: it scrolls, and scrolling
    it is how the canvas is panned. There is no pasteboard around the canvas
    (ADR-0008) — what falls outside it is clipped, here as in an export. */
@@ -353,12 +412,17 @@ button.danger {
   background: var(--page);
   border: 1px solid var(--edge);
   border-radius: 0.5rem;
+  touch-action: none;
 }
 
 /* The canvas at the size the zoom draws it, so that the stage scrolls by as
    much as the zoom asks for. */
 .canvas-frame {
   margin: 0 auto;
+}
+
+.canvas-space {
+  position: relative;
 }
 
 /* No token from the theme reaches this: the canvas is the document's own. */
@@ -368,4 +432,51 @@ button.danger {
 
 .canvas > svg {
   display: block;
+}
+
+.canvas-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.selection-box,
+.marquee {
+  position: absolute;
+  border: 1px solid var(--accent);
+}
+
+.selection-handle {
+  position: absolute;
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 1px solid var(--accent);
+  background: var(--card);
+  pointer-events: auto;
+}
+
+.selection-handle.nw {
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+}
+.selection-handle.ne {
+  right: 0;
+  top: 0;
+  transform: translate(50%, -50%);
+}
+.selection-handle.sw {
+  left: 0;
+  bottom: 0;
+  transform: translate(-50%, 50%);
+}
+.selection-handle.se {
+  right: 0;
+  bottom: 0;
+  transform: translate(50%, 50%);
+}
+
+.marquee {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
