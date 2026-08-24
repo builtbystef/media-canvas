@@ -5,11 +5,15 @@
     "allowUnsandboxedCommands": false,
     "autoAllowBashIfSandboxed": true,
     "network": {
-      "allowAllUnixSockets": true
+      "allowedDomains": [
+        "localhost",
+        "127.0.0.1"
+      ]
     },
     "filesystem": {
       "denyRead": [
         "~/Main",
+        "~/dotfiles",
         "~/.ssh",
         "~/.gnupg",
         "~/.aws",
@@ -27,20 +31,31 @@
         "~/.npmrc",
         "~/.pgpass",
         "/run/docker.sock",
-        "/run/podman/podman.sock",
         "/run/user/1000/podman/podman.sock",
         "/run/user/1000/keyring",
         "/run/user/1000/gnupg"
       ],
-      "allowWrite": ["/tmp", "~/.cache", "~/.npm", "~/.local/share/pnpm", "~/go/pkg/mod"],
-      "denyWrite": ["~/.cache/ccache", "~/.cache/go-build"]
+      "allowWrite": [
+        "/tmp",
+        "~/.cache",
+        "~/.npm",
+        "~/.local/share/pnpm",
+        "~/go/pkg/mod"
+      ],
+      "denyWrite": [
+        "~/.cache/ccache",
+        "~/.cache/go-build"
+      ]
     }
   },
   "permissions": {
-    "allow": ["WebFetch(domain:*)"],
+    "allow": [
+      "WebFetch(domain:*)"
+    ],
     "deny": [
       "Read(~/Main/**)",
       "Edit(~/Main/**)",
+      "Read(~/dotfiles/**)",
       "Read(~/.ssh/**)",
       "Read(~/.gnupg/**)",
       "Read(~/.aws/**)",
@@ -80,8 +95,6 @@
       "Edit(~/.profile)",
       "Edit(~/.gitconfig)",
       "Edit(~/dotfiles/**)",
-      "Read(.env)",
-      "Read(.env.local)",
       "Read(.env.development)",
       "Read(.env.development.local)",
       "Read(.env.production)",
