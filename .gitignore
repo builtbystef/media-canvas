@@ -33,6 +33,9 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 
+# Dev-stack unix sockets published by compose for the sandboxed agents
+.dev/
+
 # Logs, editor and OS noise
 *.log
 .DS_Store

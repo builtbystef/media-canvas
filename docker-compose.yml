@@ -17,6 +17,10 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # The unix socket, published into the repository for the sandboxed
+      # coding agents: their sandbox isolates the network namespace, so the
+      # loopback port above is unreachable from inside it — the socket is not.
+      - ./.dev/run/pg:/var/run/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U media_canvas -d media_canvas"]
       interval: 10s
@@ -25,9 +29,15 @@ services:
       start_period: 10s
 
   redis:
-    # No volume: Redis carries only the work signal, and a lost queue is
-    # reconcilable from Postgres (ADR-0004).
+    # No data volume: Redis carries only the work signal, and a lost queue is
+    # reconcilable from Postgres (ADR-0004). The bind mount below is not data —
+    # it publishes the unix socket for the sandboxed coding agents, exactly as
+    # the Postgres socket above; TCP keeps serving everything else.
     image: redis:8
+    command:
+      ["redis-server", "--unixsocket", "/var/run/redis/redis.sock", "--unixsocketperm", "777"]
+    volumes:
+      - ./.dev/run/redis:/var/run/redis
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:

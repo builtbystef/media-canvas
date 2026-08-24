@@ -9,6 +9,13 @@ One command vocabulary covers both languages: root pnpm scripts fan out through 
 
 `pnpm check` deliberately runs format + lint + typecheck as one pass. After changing an endpoint, `pnpm build` regenerates the OpenAPI schema and typed client — commit them (CI fails on drift). `pnpm run ci` is check + test + build.
 
+## Reaching the dev stack from inside the sandbox
+
+Sandboxed agent sessions (Claude Code, Pi) run in an isolated network namespace: the stack's loopback ports (Postgres 5432, Redis 6379, Garage 3900) are unreachable from sandboxed commands, and no config re-opens them. The stack publishes two other doors:
+
+- Postgres and Redis answer on unix sockets under `.dev/run/`: `psql "host=$PWD/.dev/run/pg user=media_canvas dbname=media_canvas"` and `redis-cli -s .dev/run/redis/redis.sock`. The same paths work in connection URLs (`?host=` for Postgres, `unix://` for Redis).
+- Garage answers through the sandbox's egress proxy at `http://stack.local:3900`. `stack.local` is an `/etc/hosts` alias for 127.0.0.1; unlike `localhost` it is not on the sandbox's `NO_PROXY` list, so proxy-honouring clients (curl, httpx, boto3) reach it.
+
 ## Project docs & tracker
 
 ### Domain glossary
