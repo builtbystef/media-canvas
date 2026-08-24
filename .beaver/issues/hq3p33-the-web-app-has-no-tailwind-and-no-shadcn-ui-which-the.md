@@ -7,7 +7,7 @@ labels:
     - needs-review
 parent: ek7pq1
 created: 2026-08-19T11:28:32Z
-updated: 2026-08-24T10:23:54Z
+updated: 2026-08-24T10:33:06Z
 ---
 
 ## What to build
@@ -79,3 +79,21 @@ Also worth knowing for whoever reviews: the editor could not draw at all until t
 Checks: pnpm check green, 21 test files / 235 TypeScript tests green. apps/api pytest still fails with 118 SettingsError in this sandbox, which reproduces on a clean tree — the environment cannot read .env.
 
 Still open for the reviewer: dark mode was not walked, and neither were the signed-out, Viewer, and Editor variants of the document list. Close to approve, or note what to change and remove needs-review.
+
+**claude** — 2026-08-24T10:33:06Z
+
+Dark walked in the user's own Chrome (Claude in Chrome, not the proxied sandbox browser), so this covers real rasterisation and compositing rather than an HTTP bridge.
+
+Dark, system preference only, no toggle anywhere: document list, New design dialog, editor, inspector, delete AlertDialog. All read correctly.
+
+Criterion 3 confirmed by eye rather than by argument: on a dark page the Canvas is white, because the document paints its own background. The only app-owned thing touching it is the shadow it casts on the stage.
+
+Both dafc9ea fixes re-confirmed in the real browser: bottom-right handle resized 593x742 to 802x1185 with x/y unchanged, then 891x1334; the top-left rotation zone turned the rect to 26 degrees. Alignment toolbar labels wrap and are fully legible in dark.
+
+Base UI Select labels are names everywhere they appear: workspace shows 'Test Workspace', Visible shows 'Visible', Alignment 'Left', Growth anchor 'Top' — no raw ids or booleans.
+
+Not a regression, noted so no one re-reports it: the Typography section's Font Asset is a plain text input holding the asset hash, not a family picker. Byte-identical in 745cab2 — the picker is later work, and vn4r07's criteria are where it is written down.
+
+One anomaly seen once and NOT reproduced: after a handle drag the tool palette showed Ellipse pressed when Select had been armed. Six deliberate attempts to reproduce failed — arming by click and by keyboard both track the store, and Select survives a resize drag. Recording it rather than filing it, since I could not make it happen twice.
+
+Still not covered: the signed-out caller and the Viewer role. Testing those means clearing the user's own session, so it stays with the reviewer.
