@@ -1,0 +1,57 @@
+{
+  "$schema": "https://raw.githubusercontent.com/gotgenes/pi-packages/main/schemas/permissions.schema.json",
+
+  "yoloMode": false,
+  "permissionReviewLog": true,
+
+  "permission": {
+    "*": "allow",
+    "path": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow",
+      "*.pem": "deny",
+      "*.key": "deny",
+      ".pi/*": "deny",
+      "*/.pi/*": "deny",
+      ".claude/*": "deny",
+      "*/.claude/*": "deny",
+      "~/.claude/*": "allow",
+      "~/.pi/*": "allow",
+      "~/Main/*": "deny",
+      "~/dotfiles/*": "deny",
+      "~/.ssh/*": "deny",
+      "~/.gnupg/*": "deny",
+      "~/.aws/*": "deny",
+      "~/.kube/*": "deny",
+      "~/.docker/*": "deny",
+      "~/.config/gh/*": "deny",
+      "~/.config/gcloud/*": "deny",
+      "~/.local/share/keyrings/*": "deny",
+      "~/.claude/.credentials.json": "deny",
+      "~/.claude.json": "deny",
+      "~/.claude.json.backup": "deny",
+      "~/.codex/auth.json": "deny",
+      "~/.pi/agent/auth.json": "deny",
+      "~/.netrc": "deny",
+      "~/.npmrc": "deny",
+      "~/.pgpass": "deny",
+      "/run/docker.sock": "deny",
+      "/run/podman/podman.sock": "deny"
+    },
+    "bash": {
+      "*": "allow",
+      "sudo*": "deny",
+      "su *": "deny",
+      "doas*": "deny",
+      "pkexec*": "deny",
+      "ssh *": "deny",
+      "scp *": "deny",
+      "git push*": "deny",
+      "docker*": "deny",
+      "podman*": "deny"
+    },
+    "external_directory": "deny"
+  }
+}
