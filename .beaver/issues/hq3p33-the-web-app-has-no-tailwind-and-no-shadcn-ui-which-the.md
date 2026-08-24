@@ -7,7 +7,7 @@ labels:
     - needs-review
 parent: ek7pq1
 created: 2026-08-19T11:28:32Z
-updated: 2026-08-24T09:12:07Z
+updated: 2026-08-24T10:23:54Z
 ---
 
 ## What to build
@@ -61,3 +61,21 @@ FOLLOW-UP, same session, after the user reviewed the note above. Two of its deci
 - ONE HAZARD FOUND AND AVOIDED WHILE WIRING IT. Upstream's scaffold gives `next/font` the variable `--font-sans` and also declares `--font-sans` in `@theme inline`, so `<html>` ends up with two declarations of one custom property, one of which is `--font-sans: var(--font-sans)`. A custom property that resolves to itself is a cycle, and CSS drops a cyclic property outright — which leaves whether the face renders at all decided by which declaration the cascade picks. Here `next/font` gets `--font-geist` and the theme maps `--font-sans: var(--font-geist), system-ui, sans-serif`. Verified in the built CSS: `--font-geist:"Geist", "Geist Fallback"` on the document element, `html{font-family:var(--font-geist), system-ui, sans-serif}`, six `@font-face` rules pointing at `/_next/static/media`.
 
 Checks re-run after the change: `pnpm check` green (141 formatted, 91 checked), `pnpm build` green, 235 TypeScript tests green. `apps/api`'s pytest still errors on the missing api environment, unchanged and unrelated. STILL UNVERIFIED, and still the reason this issue is open: nothing has been rendered in a browser — see the last section of the previous note for what to walk through.
+
+**claude** — 2026-08-24T10:23:54Z
+
+Exercised against a running stack on 2026-08-24, which the first pass could not do. Two regressions from the conversion, both fixed in dafc9ea.
+
+1. Resize, scale, and rotate were dead. Pointer-down asks `closest` for `.selection-handle` and `.rotation-zone`; the conversion replaced those marker classes with Tailwind utilities and did not put the markers back, so every lookup answered null and each gesture returned early. Hit-testing now reads `data-handle` and `data-rotate`, and the comment above the placement tables names them as the contract so the next restyle does not drop them again.
+
+2. The alignment toolbar clipped six of eight labels — 'horizontal centres' rendered as 'rizontal centr', cut at both ends. shadcn's Button is nowrap and fixed-height, so `truncate` on a centred flex row clips symmetrically and never draws an ellipsis. Labels wrap to a second line now, and the two grids are back to the one three-column grid the CSS had.
+
+Verified in the browser: rect draws, bottom-right handle resizes 561x686 to 811x1060 with x/y unchanged, top-left rotation zone turns it to 78.9 degrees, tool palette arms by click and by keyboard, workspace and inspector Selects show names rather than raw values, the canvas keeps its own white against the app's theme.
+
+Found but NOT fixed: vt33m4, published at high priority. `handle` is `undefined` rather than `null` when a press misses a handle, so `handle !== null` passes and every canvas press is taken for a handle drag once anything is selected — the selection cannot be changed or cleared with the pointer. Byte-identical in 745cab2, so it predates this issue; it comes from the resize slice (7ih7wa) and had been latent because the editor had not been run against a live stack.
+
+Also worth knowing for whoever reviews: the editor could not draw at all until the nine bundled families were uploaded by hand, because vn4r07 (seed bundled fonts into a new Workspace) is still todo. Any fresh Workspace hits the same wall.
+
+Checks: pnpm check green, 21 test files / 235 TypeScript tests green. apps/api pytest still fails with 118 SettingsError in this sandbox, which reproduces on a clean tree — the environment cannot read .env.
+
+Still open for the reviewer: dark mode was not walked, and neither were the signed-out, Viewer, and Editor variants of the document list. Close to approve, or note what to change and remove needs-review.
