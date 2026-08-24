@@ -11,7 +11,7 @@ depends_on:
     - 73rm0x
     - 8h50hu
 created: 2026-08-14T07:13:32Z
-updated: 2026-08-19T11:06:49Z
+updated: 2026-08-24T08:44:34Z
 ---
 
 ## Problem Statement
@@ -218,3 +218,13 @@ Sliced 2026-08-15 into 22 sub-issues. Two decisions taken during slicing, both b
 **claude** — 2026-08-19T11:06:49Z
 
 AMENDMENT to Dependencies (built on 21plhn, 2026-08-19): the api gains two runtime dependencies. python-multipart is the one this section already names. httpx is not named here and is added: FastAPI's asset upload has to call the worker's internal service, the api had no HTTP client, and httpx was already in the tree and the lockfile as apps/api's dev dependency (TestClient runs on it), so promoting it to a runtime dependency adds nothing new to the dependency graph and gives the async routes an async client. Rejected: urllib.request in a threadpool, which hand-rolls timeouts and error mapping for no gain. Also settled while building: the worker's font-inspection route is POST /fonts/inspect, not node 3ko2p7's /internal/fonts/inspect - the worker's internal service mounts /validate with no prefix (gxwr7t, and 0egsmf's contract), and every route on it is internal.
+
+**claude** — 2026-08-24T08:44:34Z
+
+AMENDMENT to Dependencies (built on hq3p33, 2026-08-24): the stack this section names is ADOPTED, not amended away. The user decided it directly. `apps/web` is now Tailwind v4 + shadcn/ui, Base UI variant, and the two slices that had shipped in plain CSS (jmpc8g, hg52gb) plus everything built on them since (gw6v31's inspector, glkll2's geometry aids) are converted. What this section owes a later session:
+
+- WHAT ACTUALLY GOT INSTALLED. `tailwindcss` and `@tailwindcss/postcss` are the Tailwind half; Tailwind v4 has no JS config, so `apps/web/postcss.config.mjs` is the whole wiring and the theme is CSS. The shadcn half is not one package — the registry writes components into the repo, and they are written against `@base-ui/react` (the primitives), `class-variance-authority` (the variant tables), `clsx` + `tailwind-merge` (the `cn` helper), `lucide-react` (the icons), and `tw-animate-css` (the enter/exit keyframes). Those five are what `shadcn init` installs alongside the components: they are this section's named dependency arriving, not new ones, and the reasons are also in `pnpm-workspace.yaml`'s catalog.
+- THE `shadcn` PACKAGE ITSELF IS DELIBERATELY ABSENT. Upstream's `globals.css` opens `@import "shadcn/tailwind.css"`, which needs the CLI package as a project dependency. This workspace's `trustPolicy: no-downgrade` refuses its dependency tree (`@babel/core` -> `semver@6.3.1`, provenance dropped between releases). That file is vendored verbatim at `apps/web/app/shadcn.css` instead — byte-identical to shadcn 4.19.0's `dist/tailwind.css`, excluded from the formatter in `vite.config.ts`, with the refresh command in its header. Do not "fix" this by installing `shadcn`; the supply-chain policy is the older decision.
+- STYLE AND THEME. `components.json` pins `style: "base-nova"` — the `base-*` prefix is what selects Base UI over Radix — with `baseColor: "neutral"`, which is what "stock shadcn tokens" resolves to today. Dark is the system's: Tailwind v4's `dark:` variant already means `prefers-color-scheme: dark`, so the variant is left alone, upstream's `@custom-variant dark (&:is(.dark *))` is deleted, and the dark token values sit under that media query. There is no `.dark` class and no `next-themes`.
+- ONE DEPARTURE FROM THE PRESET, ON PURPOSE. `nova` ships Geist through `next/font/google`. `--font-sans` stays the system stack instead, so rendering a page fetches nothing at build time. Change it by editing that one token in `app/globals.css`.
+- ADDING A COMPONENT. `npx shadcn@latest add <name>` from `apps/web`. It reads `components.json`, writes into `components/ui`, and installs into the workspace catalog. If it reaches for the `shadcn` package again, generate in a scratch project outside the workspace and copy the files across, as this session did.

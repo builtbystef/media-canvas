@@ -4,6 +4,18 @@ import { deleteDocument, promoteDocument, type DocumentSummary } from "@media-ca
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { failedToChangeDocument, failedToPromoteDocument } from "../lib/failures";
+import { Problem } from "../components/problem";
+import { Button } from "../components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 
 /**
  * What a row can do to its document besides open it.
@@ -11,7 +23,8 @@ import { failedToChangeDocument, failedToPromoteDocument } from "../lib/failures
  * Promotion is offered on a design only — a template has nothing to be
  * promoted into — and it leaves the list showing both, the design and the
  * template it now has. Deleting asks first, because nothing else in the
- * product undoes it.
+ * product undoes it: an alert dialog rather than a plain one, so the choice
+ * is what the surface is for and escape does not stand in for cancelling.
  */
 export function DocumentActions({ row }: { row: DocumentSummary }) {
   const router = useRouter();
@@ -45,52 +58,45 @@ export function DocumentActions({ row }: { row: DocumentSummary }) {
   }
 
   return (
-    <div className="actions">
+    <div className="flex items-center gap-1">
       {row.kind === "design" && (
-        <button type="button" className="plain" disabled={busy} onClick={() => void promote()}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={() => void promote()}
+        >
           Promote
-        </button>
+        </Button>
       )}
-      <button type="button" className="plain" disabled={busy} onClick={() => setConfirming(true)}>
-        Delete
-      </button>
-      <p className="problem" role="alert">
-        {problem}
-      </p>
-      {confirming && (
-        <div className="veil" role="presentation" onClick={() => setConfirming(false)}>
-          <div
-            className="dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`delete-${row.id}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 id={`delete-${row.id}`}>Delete “{row.name}”?</h2>
-            <p className="lead">
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogTrigger
+          render={<Button type="button" variant="ghost" size="sm" disabled={busy} />}
+        >
+          Delete
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete “{row.name}”?</AlertDialogTitle>
+            <AlertDialogDescription>
               This cannot be undone. A template promoted from this document is not deleted with it.
-            </p>
-            <p className="choices">
-              <button
-                type="button"
-                className="danger"
-                disabled={busy}
-                onClick={() => void remove()}
-              >
-                {busy ? "Deleting…" : "Delete"}
-              </button>
-              <button
-                type="button"
-                className="plain"
-                disabled={busy}
-                onClick={() => setConfirming(false)}
-              >
-                Cancel
-              </button>
-            </p>
-          </div>
-        </div>
-      )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busy}
+              onClick={() => void remove()}
+            >
+              {busy ? "Deleting…" : "Delete"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <Problem message={problem} />
     </div>
   );
 }

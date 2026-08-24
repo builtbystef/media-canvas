@@ -1,700 +1,145 @@
-/* The app's styling. Light and dark are the system's: `color-scheme` and
-   `light-dark()` follow `prefers-color-scheme`, and there is no toggle. The
-   canvas is the one surface that takes no token from here — a document paints
-   its own background. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./shadcn.css";
+
+/* Stock shadcn tokens (the Base UI `nova` preset, neutral base colour), with
+   one change: dark is the system's, not a class. Tailwind's `dark:` variant
+   already means `prefers-color-scheme: dark`, so the variant is left alone and
+   the dark values are declared under the same media query — there is no
+   toggle, and nothing to put a `.dark` class on. `color-scheme` tells the
+   browser's own widgets the same thing.
+
+   The canvas takes nothing from here: a document paints its own background,
+   and the compiled SVG is the worker's markup, not this theme's. */
+
+@theme inline {
+  /* The app's face. Stock shadcn is Geist; this stays on the system's own
+     face, so nothing is fetched at build time to render a page. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: var(--font-sans);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
 
 :root {
   color-scheme: light dark;
-  --ink: light-dark(#18181b, #ededf0);
-  --quiet: light-dark(#5a5a63, #a1a1ac);
-  --page: light-dark(#f6f6f7, #131315);
-  --card: light-dark(#ffffff, #1c1c1f);
-  --edge: light-dark(#d8d8dd, #35353b);
-  --accent: light-dark(#1a56db, #7aa2f7);
-  --alarm: light-dark(#b42318, #f97066);
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 2rem 1rem;
-  background: var(--page);
-  color: var(--ink);
-  font:
-    1rem/1.55 system-ui,
-    sans-serif;
-}
-
-.panel {
-  width: min(26rem, 100%);
-  padding: 2rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.75rem;
-  background: var(--card);
-}
-
-h1 {
-  margin: 0 0 0.5rem;
-  font-size: 1.4rem;
-}
-
-.lead,
-.aside {
-  color: var(--quiet);
-}
-
-.lead {
-  margin: 0 0 1.5rem;
-}
-
-.aside {
-  margin: 1.5rem 0 0;
-  font-size: 0.85rem;
-}
-
-label {
-  display: block;
-  margin-bottom: 0.35rem;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-input {
-  width: 100%;
-  padding: 0.6rem 0.7rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.5rem;
-  background: var(--card);
-  color: inherit;
-  font: inherit;
-}
-
-input:focus-visible,
-button:focus-visible,
-a:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-button {
-  font: inherit;
-  cursor: pointer;
-}
-
-button[type="submit"] {
-  width: 100%;
-  padding: 0.6rem 1rem;
-  border: none;
-  border-radius: 0.5rem;
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-button.plain,
-a {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-/* The live region is always in the document so that a message inserted into it
-   is announced, and out of the layout while it holds nothing. */
-.problem {
-  margin: 0.6rem 0 0;
-  color: var(--alarm);
-  font-size: 0.9rem;
-}
-
-.problem:empty {
-  display: none;
-}
-
-.choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin: 1rem 0 0;
-  font-size: 0.9rem;
-}
-
-/* The shell: one bar across the top, and the page under it. */
-
-.shell,
-.editor {
-  align-self: start;
-  width: min(64rem, 100%);
-}
-
-.bar {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--edge);
-  font-size: 0.9rem;
-}
-
-.wordmark {
-  font-weight: 700;
-  text-decoration: none;
-  color: inherit;
-}
-
-.spacer {
-  flex: 1;
-}
-
-.switcher select {
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.5rem;
-  background: var(--card);
-  color: inherit;
-  font: inherit;
-  font-size: 0.9rem;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
-/* The document list. */
-
-.heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.tabs {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.tabs a[aria-current="page"] {
-  color: inherit;
-  font-weight: 600;
-}
-
-.rows {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.rows li {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.8rem 0;
-  border-top: 1px solid var(--edge);
-}
-
-.title {
-  flex: 1;
-  color: inherit;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.title:hover {
-  text-decoration: underline;
-}
-
-.kind,
-.quiet {
-  color: var(--quiet);
-  font-size: 0.85rem;
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  font-size: 0.9rem;
-}
-
-.actions .problem {
-  margin: 0;
-}
-
-button.primary {
-  padding: 0.5rem 0.9rem;
-  border: none;
-  border-radius: 0.5rem;
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
-}
-
-button.danger {
-  padding: 0.5rem 0.9rem;
-  border: none;
-  border-radius: 0.5rem;
-  background: var(--alarm);
-  color: #fff;
-  font-weight: 600;
-}
-
-/* Dialogs: the creation dialog, and the confirm before a deletion. */
-
-.veil {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: light-dark(rgb(0 0 0 / 25%), rgb(0 0 0 / 55%));
-}
-
-.dialog {
-  width: min(30rem, 100%);
-  padding: 1.5rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.75rem;
-  background: var(--card);
-  text-align: left;
-}
-
-.dialog h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1.15rem;
-}
-
-.presets {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0.5rem;
-  margin: 0 0 1rem;
-  padding: 0;
-  list-style: none;
-}
-
-.presets button {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  width: 100%;
-  padding: 0.6rem 0.7rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.5rem;
-  background: var(--card);
-  color: inherit;
-  text-align: left;
-}
-
-.custom {
-  display: grid;
-  grid-template-columns: auto 5rem auto 5rem auto;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.5rem;
-  padding: 0.7rem;
-}
-
-.custom label {
-  margin: 0;
-}
-
-.custom button {
-  padding: 0.45rem 0.8rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.5rem;
-  background: var(--card);
-  color: inherit;
-}
-
-/* The editor's chrome, and the stage its canvas lands in. */
-
-.document-name {
-  width: min(20rem, 40%);
-  padding: 0.3rem 0.4rem;
-  border: 1px solid transparent;
-  border-radius: 0.4rem;
-  background: none;
-  font-weight: 600;
-}
-
-.document-name:hover {
-  border-color: var(--edge);
-}
-
-/* The layers and canvas are two views of the same selection. */
-.editor-workspace {
-  display: grid;
-  grid-template-columns: 14rem minmax(0, 1fr) 16rem;
-  gap: 1rem;
-}
-
-.editor-left {
-  min-width: 0;
-  margin-top: 1.5rem;
-}
-
-.tools {
-  display: grid;
-  gap: 0.3rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.tools button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.25rem;
-  min-width: 0;
-  padding: 0.35rem 0.45rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.35rem;
-  background: var(--card);
-  color: inherit;
-  font-size: 0.75rem;
-}
-
-.tools button[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
-.tools kbd {
-  color: var(--quiet);
-  font: inherit;
-}
-
-.layers {
-  min-width: 0;
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.5rem;
-  background: var(--card);
-}
-
-.layers h2 {
-  margin: 0 0 0.5rem;
-  font-size: 0.9rem;
-}
-
-.layer-tree,
-.layer-tree ol {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.layer-tree ol {
-  padding-left: 0.8rem;
-}
-
-.layer-row {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  border-radius: 0.3rem;
-}
-
-.layer-row[aria-selected="true"] {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
-.layer-row input {
-  min-width: 0;
-  padding: 0.25rem;
-  border-color: transparent;
-  background: transparent;
-  font-size: 0.8rem;
-}
-
-.visibility {
-  width: 1.5rem;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--quiet);
-}
-
-/* Every authored property is edited in this right-hand surface. */
-.inspector {
-  min-width: 0;
-  max-height: min(70vh, 42rem);
-  margin-top: 1.5rem;
-  padding: 0.75rem;
-  overflow: auto;
-  border: 1px solid var(--edge);
-  border-radius: 0.5rem;
-  background: var(--card);
-}
-
-.inspector h2,
-.inspector h3 {
-  margin: 0;
-  font-size: 0.9rem;
-}
-
-.inspector h3 {
-  margin-bottom: 0.5rem;
-}
-
-.inspector section {
-  padding: 0.75rem 0;
-  border-top: 1px solid var(--edge);
-}
-
-.inspector label {
-  margin-bottom: 0.5rem;
-  font-size: 0.75rem;
-}
-
-.inspector input,
-.inspector select {
-  width: 100%;
-  min-width: 0;
-  padding: 0.3rem 0.4rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.3rem;
-  background: var(--card);
-  color: inherit;
-  font: inherit;
-}
-
-.inspector input[type="color"] {
-  height: 2rem;
-  padding: 0.15rem;
-}
-
-.inspector button {
-  padding: 0.25rem 0.4rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.3rem;
-  background: var(--card);
-  color: inherit;
-  font-size: 0.75rem;
-}
-
-.inspector-note {
-  margin: 0.2rem 0 0.6rem;
-  color: var(--quiet);
-  font-size: 0.72rem;
-}
-
-.alignment-toolbar {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.3rem;
-  margin-bottom: 0.75rem;
-}
-
-.alignment-toolbar button:disabled {
-  opacity: 0.45;
-}
-
-.inspector-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 0.4rem;
-}
-
-.scrub-label {
-  cursor: ew-resize;
-  user-select: none;
-}
-
-.inspector .toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.inspector .toggle input {
-  width: auto;
-}
-
-.gradient-preview {
-  height: 2rem;
-  margin-bottom: 0.5rem;
-  border: 1px solid var(--edge);
-  border-radius: 0.3rem;
-}
-
-.gradient-stops,
-.gradient-stop {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.gradient-stop {
-  grid-template-columns: 2rem minmax(0, 1fr) auto auto;
-  align-items: center;
-}
-
-.gradient-stop input[type="range"] {
-  padding: 0;
-}
-
-/* The stage is what the canvas is looked at through: it scrolls, and scrolling
-   it is how the canvas is panned. There is no pasteboard around the canvas
-   (ADR-0008) — what falls outside it is clipped, here as in an export. */
-.stage {
-  height: min(70vh, 42rem);
-  margin: 1.5rem 0;
-  padding: 3rem;
-  overflow: auto;
-  overscroll-behavior: contain;
-  background: var(--page);
-  border: 1px solid var(--edge);
-  border-radius: 0.5rem;
-  touch-action: none;
-}
-
-/* The canvas at the size the zoom draws it, so that the stage scrolls by as
-   much as the zoom asks for. */
-.canvas-frame {
-  margin: 0 auto;
-}
-
-.canvas-space {
-  position: relative;
-}
-
-/* No token from the theme reaches this: the canvas is the document's own. */
-.canvas {
-  box-shadow: 0 0.25rem 1.5rem light-dark(rgb(0 0 0 / 15%), rgb(0 0 0 / 45%));
-}
-
-.canvas > svg {
-  display: block;
-}
-
-.canvas-overlay {
-  position: absolute;
-  inset: 0;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.selection-box,
-.marquee {
-  position: absolute;
-  border: 1px solid var(--accent);
-}
-
-.selection-handle {
-  position: absolute;
-  z-index: 2;
-  width: 0.55rem;
-  height: 0.55rem;
-  border: 1px solid var(--accent);
-  background: var(--card);
-  pointer-events: auto;
-}
-
-.selection-handle.top-left {
-  left: 0;
-  top: 0;
-  transform: translate(-50%, -50%);
-}
-.selection-handle.top {
-  left: 50%;
-  top: 0;
-  transform: translate(-50%, -50%);
-}
-.selection-handle.top-right {
-  right: 0;
-  top: 0;
-  transform: translate(50%, -50%);
-}
-.selection-handle.right {
-  right: 0;
-  top: 50%;
-  transform: translate(50%, -50%);
-}
-.selection-handle.bottom-right {
-  right: 0;
-  bottom: 0;
-  transform: translate(50%, 50%);
-}
-.selection-handle.bottom {
-  left: 50%;
-  bottom: 0;
-  transform: translate(-50%, 50%);
-}
-.selection-handle.bottom-left {
-  left: 0;
-  bottom: 0;
-  transform: translate(-50%, 50%);
-}
-.selection-handle.left {
-  left: 0;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.rotation-zone {
-  position: absolute;
-  z-index: 1;
-  width: 1.35rem;
-  height: 1.35rem;
-  pointer-events: auto;
-  cursor: grab;
-}
-.rotation-zone.top-left {
-  left: 0;
-  top: 0;
-  transform: translate(-100%, -100%);
-}
-.rotation-zone.top-right {
-  right: 0;
-  top: 0;
-  transform: translate(100%, -100%);
-}
-.rotation-zone.bottom-right {
-  right: 0;
-  bottom: 0;
-  transform: translate(100%, 100%);
-}
-.rotation-zone.bottom-left {
-  left: 0;
-  bottom: 0;
-  transform: translate(-100%, 100%);
-}
-
-.snap-guide {
-  position: absolute;
-  background: var(--accent);
-}
-.snap-guide.x {
-  top: 0;
-  bottom: 0;
-  width: 1px;
-}
-.snap-guide.y {
-  left: 0;
-  right: 0;
-  height: 1px;
-}
 
-.marquee {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans antialiased;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

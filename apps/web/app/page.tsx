@@ -6,6 +6,8 @@ import { TABS, kindLabel, kindShown, tabNamed, updatedLabel } from "../lib/docum
 import { asThisCaller, signedInOrSignIn } from "../lib/identity";
 import { NEW_WORKSPACE, editorPath, listPath } from "../lib/routes";
 import { WORKSPACE_COOKIE, chosenMembership, mayChangeDocuments } from "../lib/workspaces";
+import { Problem } from "../components/problem";
+import { buttonVariants } from "../components/ui/button";
 import { DocumentActions } from "./document-actions";
 import { NewDesign } from "./new-design";
 import { Shell } from "./shell";
@@ -40,41 +42,51 @@ export default async function Home({
 
   return (
     <Shell memberships={identity.memberships} current={chosen}>
-      <main className="documents">
-        <div className="heading">
-          <h1>Documents</h1>
+      <main className="mt-6">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="font-heading text-xl font-semibold">Documents</h1>
           {mayChange && <NewDesign workspaceId={chosen.workspace.id} />}
         </div>
-        <nav className="tabs">
+        <nav className="mt-3 flex gap-1">
           {TABS.map(({ tab: named, label }) => (
             <Link
               key={named}
               href={listPath(named)}
               aria-current={named === tab ? "page" : undefined}
+              className={buttonVariants({
+                variant: named === tab ? "secondary" : "ghost",
+                size: "sm",
+              })}
             >
               {label}
             </Link>
           ))}
         </nav>
         {documents === undefined ? (
-          <p className="problem" role="alert">
-            These documents could not be loaded. Reload the page to try again.
-          </p>
+          <Problem
+            className="mt-4"
+            message="These documents could not be loaded. Reload the page to try again."
+          />
         ) : documents.length === 0 ? (
-          <p className="lead">
+          <p className="mt-6 text-sm text-muted-foreground">
             {tab === "templates"
               ? "No templates yet. A template is made by promoting a design."
               : "Nothing here yet."}
           </p>
         ) : (
-          <ul className="rows">
+          <ul className="mt-3">
             {documents.map((row) => (
-              <li key={row.id}>
-                <Link href={editorPath(row.id)} className="title">
+              <li key={row.id} className="flex items-center gap-4 border-t py-3">
+                <Link
+                  href={editorPath(row.id)}
+                  className="flex-1 text-sm font-medium hover:underline"
+                >
                   {row.name}
                 </Link>
-                <span className="kind">{kindLabel(row.kind)}</span>
-                <span className="quiet">{updatedLabel(row.updatedAt, now)}</span>
+                <span className="text-xs text-muted-foreground">{kindLabel(row.kind)}</span>
+                <span className="text-xs text-muted-foreground">
+                  {updatedLabel(row.updatedAt, now)}
+                </span>
                 {mayChange && <DocumentActions row={row} />}
               </li>
             ))}

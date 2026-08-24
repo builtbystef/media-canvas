@@ -4,6 +4,17 @@ import { requestSignInCode, verifySignInCode } from "@media-canvas/api-client";
 import { useState } from "react";
 import { HOME } from "../../lib/routes";
 import { codeIsSpent, failedToSendCode, failedToVerifyCode } from "../../lib/failures";
+import { Problem } from "../../components/problem";
+import { Button } from "../../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 
 const CODE_LENGTH = 6;
 
@@ -60,95 +71,104 @@ export function SignInForm() {
   }
 
   return (
-    <main className="panel">
-      <h1>Sign in</h1>
-      {sentTo === null ? (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void sendCode(address.trim());
-          }}
-        >
-          <p className="lead">
-            Type your email address and we will send you a code. There is no password.
-          </p>
-          <label htmlFor="email">Email address</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            autoFocus
-            required
-            value={address}
-            onChange={(event) => setAddress(event.target.value)}
-          />
-          <Problem message={problem} />
-          <button type="submit" disabled={busy}>
-            {busy ? "Sending…" : "Send me a code"}
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={submitCode}>
-          <p className="lead">
-            We sent a code to <strong>{sentTo}</strong>.
-          </p>
-          <label htmlFor="code">Sign-in code</label>
-          <input
-            id="code"
-            name="code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern={`\\d{${CODE_LENGTH}}`}
-            maxLength={CODE_LENGTH}
-            autoFocus
-            required
-            value={code}
-            onChange={(event) =>
-              setCode(event.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))
-            }
-          />
-          <Problem message={problem} />
-          <button type="submit" disabled={busy || code.length < CODE_LENGTH}>
-            {busy ? "Checking…" : "Sign in"}
-          </button>
-          <p className="choices">
-            <button
-              type="button"
-              className="plain"
-              disabled={busy}
-              onClick={() => void sendCode(sentTo)}
-            >
-              {spent ? "Send a new code" : "Send another code"}
-            </button>
-            <button
-              type="button"
-              className="plain"
-              disabled={busy}
-              onClick={() => {
-                setSentTo(null);
-                setProblem(null);
-                setSpent(false);
+    <main className="w-[min(26rem,100%)]">
+      <Card>
+        <CardHeader>
+          <CardTitle>Sign in</CardTitle>
+          <CardDescription>
+            {sentTo === null ? (
+              "Type your email address and we will send you a code. There is no password."
+            ) : (
+              <>
+                We sent a code to <strong className="font-medium">{sentTo}</strong>.
+              </>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sentTo === null ? (
+            <form
+              className="grid gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void sendCode(address.trim());
               }}
             >
-              Use a different address
-            </button>
-          </p>
-          {process.env.NODE_ENV !== "production" && (
-            <p className="aside">
-              No mail service is configured in development — the code is printed in the api log.
-            </p>
+              <Label htmlFor="email">Email address</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                autoFocus
+                required
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+              />
+              <Problem message={problem} />
+              <Button type="submit" className="mt-2 w-full" disabled={busy}>
+                {busy ? "Sending…" : "Send me a code"}
+              </Button>
+            </form>
+          ) : (
+            <form className="grid gap-2" onSubmit={submitCode}>
+              <Label htmlFor="code">Sign-in code</Label>
+              <Input
+                id="code"
+                name="code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern={`\\d{${CODE_LENGTH}}`}
+                maxLength={CODE_LENGTH}
+                autoFocus
+                required
+                value={code}
+                onChange={(event) =>
+                  setCode(event.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))
+                }
+              />
+              <Problem message={problem} />
+              <Button
+                type="submit"
+                className="mt-2 w-full"
+                disabled={busy || code.length < CODE_LENGTH}
+              >
+                {busy ? "Checking…" : "Sign in"}
+              </Button>
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="px-0"
+                  disabled={busy}
+                  onClick={() => void sendCode(sentTo)}
+                >
+                  {spent ? "Send a new code" : "Send another code"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setSentTo(null);
+                    setProblem(null);
+                    setSpent(false);
+                  }}
+                >
+                  Use a different address
+                </Button>
+              </div>
+              {process.env.NODE_ENV !== "production" && (
+                <p className="text-xs text-muted-foreground">
+                  No mail service is configured in development — the code is printed in the api log.
+                </p>
+              )}
+            </form>
           )}
-        </form>
-      )}
+        </CardContent>
+      </Card>
     </main>
-  );
-}
-
-function Problem({ message }: { message: string | null }) {
-  return (
-    <p className="problem" role="alert">
-      {message}
-    </p>
   );
 }

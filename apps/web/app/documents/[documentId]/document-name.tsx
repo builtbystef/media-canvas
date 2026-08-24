@@ -3,6 +3,8 @@
 import { saveDocument, type DocumentView } from "@media-canvas/api-client";
 import { useRef, useState } from "react";
 import { failedToRenameDocument } from "../../../lib/failures";
+import { Problem } from "../../../components/problem";
+import { Input } from "../../../components/ui/input";
 
 /**
  * The document's name, renamed where it is displayed.
@@ -47,8 +49,10 @@ export function DocumentName({ loaded }: { loaded: DocumentView }) {
 
   return (
     <>
-      <input
-        className="document-name"
+      {/* A field that does not look like one until it is reached for: the
+          name is chrome first, and an input second. */}
+      <Input
+        className="w-[min(20rem,40%)] border-transparent font-medium hover:border-input"
         aria-label="Document name"
         value={typed}
         disabled={busy}
@@ -62,9 +66,7 @@ export function DocumentName({ loaded }: { loaded: DocumentView }) {
           }
         }}
       />
-      <p className="problem" role="alert">
-        {problem}
-      </p>
+      <Problem message={problem} />
     </>
   );
 }

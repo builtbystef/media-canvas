@@ -7,6 +7,7 @@ import { kindLabel } from "../../../lib/documents";
 import { asThisCaller, signedInOrSignIn } from "../../../lib/identity";
 import { HOME } from "../../../lib/routes";
 import { WORKSPACE_COOKIE, chosenMembership, mayChangeDocuments } from "../../../lib/workspaces";
+import { buttonVariants } from "../../../components/ui/button";
 import { DocumentName } from "./document-name";
 import { EditorCanvas } from "./editor-canvas";
 
@@ -34,14 +35,18 @@ export default async function EditorPage({ params }: { params: Promise<{ documen
   const mayRename = chosen !== null && mayChangeDocuments(chosen.role);
 
   return (
-    <div className="editor">
-      <header className="bar">
-        <Link href={HOME} className="wordmark">
+    <div className="w-[min(64rem,100%)] self-start">
+      <header className="flex items-center gap-3 border-b pb-4">
+        <Link href={HOME} className={buttonVariants({ variant: "ghost", size: "sm" })}>
           ← Documents
         </Link>
-        {mayRename ? <DocumentName loaded={document} /> : <span>{document.name}</span>}
-        <span className="kind">{kindLabel(document.kind)}</span>
-        <span className="spacer" />
+        {mayRename ? (
+          <DocumentName loaded={document} />
+        ) : (
+          <span className="text-sm font-medium">{document.name}</span>
+        )}
+        <span className="text-xs text-muted-foreground">{kindLabel(document.kind)}</span>
+        <span className="flex-1" />
       </header>
       <EditorCanvas
         documentId={documentId}

@@ -3,6 +3,13 @@
 import type { MembershipView } from "@media-canvas/api-client";
 import { useRouter } from "next/navigation";
 import { rememberedWorkspace } from "../lib/workspaces";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 
 /**
  * Which Workspace the shell is showing, and how to show another one.
@@ -21,21 +28,36 @@ export function WorkspaceSwitcher({
 }) {
   const router = useRouter();
 
-  function switchTo(workspaceId: string) {
+  // Base UI reports `null` for a cleared selection; this list is never empty
+  // and never clears, so nothing to switch to is nothing to do.
+  function switchTo(workspaceId: string | null) {
+    if (workspaceId === null) return;
     document.cookie = rememberedWorkspace(workspaceId);
     router.refresh();
   }
 
   return (
-    <label className="switcher">
-      <span className="visually-hidden">Workspace</span>
-      <select name="workspace" value={current} onChange={(event) => switchTo(event.target.value)}>
+    // `items` is what the closed trigger reads a name off: without it Base UI
+    // falls back to stringifying the value, and the value here is an id.
+    <Select
+      name="workspace"
+      value={current}
+      onValueChange={switchTo}
+      items={memberships.map(({ workspace }) => ({
+        value: workspace.id,
+        label: workspace.name,
+      }))}
+    >
+      <SelectTrigger size="sm" aria-label="Workspace">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
         {memberships.map(({ workspace }) => (
-          <option key={workspace.id} value={workspace.id}>
+          <SelectItem key={workspace.id} value={workspace.id}>
             {workspace.name}
-          </option>
+          </SelectItem>
         ))}
-      </select>
-    </label>
+      </SelectContent>
+    </Select>
   );
 }

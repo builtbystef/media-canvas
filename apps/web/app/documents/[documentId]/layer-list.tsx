@@ -2,6 +2,9 @@
 
 import type { DesignDocument, Element } from "@media-canvas/core";
 import type { DragEvent } from "react";
+import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
 
 export function LayerList({
   document,
@@ -19,9 +22,12 @@ export function LayerList({
   onReorder: (parentPath: string[], id: string, index: number) => void;
 }) {
   return (
-    <aside className="layers" aria-label="Layers">
-      <h2>Layers</h2>
-      <ol className="layer-tree">
+    <aside
+      className="mt-3 min-w-0 rounded-lg bg-card p-3 ring-1 ring-foreground/10"
+      aria-label="Layers"
+    >
+      <h2 className="font-heading mb-2 text-sm font-medium">Layers</h2>
+      <ol>
         <Rows
           elements={document.elements}
           parentPath={[]}
@@ -48,7 +54,7 @@ function Rows(props: RowsProps) {
     .map(({ element, index }) => (
       <li key={element.id}>
         <div
-          className="layer-row"
+          className="flex items-center gap-1 rounded-md aria-selected:bg-accent aria-selected:text-accent-foreground"
           aria-selected={props.selected.includes(element.id)}
           draggable
           onClick={() => props.onSelect(element.id, props.parentPath)}
@@ -56,18 +62,21 @@ function Rows(props: RowsProps) {
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => dropped(event, props.parentPath, index, props.onReorder)}
         >
-          <button
-            className="visibility"
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
             aria-label={`${element.visible === false ? "Show" : "Hide"} ${element.name ?? element.type}`}
             onClick={(event) => {
               event.stopPropagation();
               props.onVisibility(element.id, element.visible === false);
             }}
           >
-            {element.visible === false ? "○" : "●"}
-          </button>
-          <input
+            {element.visible === false ? <EyeOffIcon /> : <EyeIcon />}
+          </Button>
+          <Input
+            className="h-6 border-transparent bg-transparent px-1 text-xs dark:bg-transparent"
             aria-label={`Name ${element.type} layer`}
             value={element.name ?? ""}
             placeholder={element.type}
@@ -76,7 +85,7 @@ function Rows(props: RowsProps) {
           />
         </div>
         {element.type === "group" && (
-          <ol>
+          <ol className="pl-3">
             <Rows
               {...props}
               elements={element.children}

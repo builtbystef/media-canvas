@@ -46,6 +46,9 @@ import {
   toggleSelection,
   unionBounds,
 } from "../../../lib/selection";
+import { cn } from "../../../lib/utils";
+import { Problem } from "../../../components/problem";
+import { ToggleGroup, ToggleGroupItem } from "../../../components/ui/toggle-group";
 import { Inspector } from "./inspector";
 import { LayerList } from "./layer-list";
 import { applyUpdate } from "./mounted-preview";
@@ -97,6 +100,14 @@ type Gesture =
       delta: number;
       snapped: boolean;
     };
+
+/**
+ * The stage is what the canvas is looked at through: it scrolls, and scrolling
+ * it is how the canvas is panned. There is no pasteboard around the canvas
+ * (ADR-0008) — what falls outside it is clipped, here as in an export.
+ */
+const STAGE =
+  "my-6 h-[min(70vh,42rem)] touch-none overflow-auto overscroll-contain rounded-lg border bg-background p-12";
 
 /** The compiled Design Document, its mounted-markup interactions, overlay, and
  * layer tree. Document edits enter through pure operations so ADR-0006's
@@ -272,25 +283,21 @@ export function EditorCanvas({
 
   if (problem !== null)
     return (
-      <main className="stage">
-        <p className="problem" role="alert">
-          {problem}
-        </p>
+      <main className={STAGE}>
+        <Problem message={problem} />
       </main>
     );
   if (design === null || canvas === undefined)
     return (
-      <main className="stage">
-        <p className="problem" role="alert">
-          This document is not a v1 Design Document, so there is nothing to draw.
-        </p>
+      <main className={STAGE}>
+        <Problem message="This document is not a v1 Design Document, so there is nothing to draw." />
       </main>
     );
 
   const scale = zoom ?? 1;
   return (
-    <div className="editor-workspace">
-      <div className="editor-left">
+    <div className="grid grid-cols-[14rem_minmax(0,1fr)_16rem] gap-4">
+      <div className="mt-6 min-w-0">
         <ToolPalette active={activeTool} onArm={armTool} />
         <LayerList
           document={design}
@@ -306,7 +313,7 @@ export function EditorCanvas({
         />
       </div>
       <main
-        className="stage"
+        className={STAGE}
         ref={viewport}
         onScroll={() => rememberView(remembering, viewport.current, zoom, documentId)}
         onDoubleClick={(event) => {
@@ -589,11 +596,11 @@ export function EditorCanvas({
         }}
       >
         <div
-          className="canvas-frame"
+          className="mx-auto"
           style={{ width: canvas.width * scale, height: canvas.height * scale }}
         >
           <div
-            className="canvas-space"
+            className="relative"
             ref={canvasSpace}
             style={{
               width: canvas.width,
@@ -603,8 +610,17 @@ export function EditorCanvas({
               visibility: zoom === null ? "hidden" : "visible",
             }}
           >
-            <div className="canvas" ref={host} />
-            <div className="canvas-overlay" aria-hidden="true">
+            {/* No token from the theme reaches inside this: the canvas is the
+                document's own, and the compiled SVG is the worker's markup.
+                Only the shadow it casts on the stage belongs to the app. */}
+            <div
+              className="shadow-[0_0.25rem_1.5rem_rgb(0_0_0/15%)] dark:shadow-[0_0.25rem_1.5rem_rgb(0_0_0/45%)] [&>svg]:block"
+              ref={host}
+            />
+            <div
+              className="pointer-events-none absolute inset-0 overflow-visible"
+              aria-hidden="true"
+            >
               {selectionBox && (
                 <SelectionBox
                   bounds={selectionBox}
@@ -618,12 +634,20 @@ export function EditorCanvas({
               )}
               {guides.map((guide) => (
                 <span
-                  className={`snap-guide ${guide.axis}`}
+                  className={cn(
+                    "absolute bg-primary",
+                    guide.axis === "x" ? "inset-y-0 w-px" : "inset-x-0 h-px",
+                  )}
                   key={`${guide.axis}:${String(guide.position)}`}
                   style={guide.axis === "x" ? { left: guide.position } : { top: guide.position }}
                 />
               ))}
-              {marquee && <div className="marquee" style={boxStyle(marquee)} />}
+              {marquee && (
+                <div
+                  className="absolute border border-primary bg-primary/10"
+                  style={boxStyle(marquee)}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -661,7 +685,7 @@ export function EditorCanvas({
       {editingTextId !== null && (
         <textarea
           aria-label="Text content"
-          className="visually-hidden"
+          className="sr-only"
           defaultValue=""
           readOnly
           ref={textInput}
@@ -679,21 +703,32 @@ function ToolPalette({ active, onArm }: { active: Tool; onArm: (tool: Tool) => v
     { tool: "ellipse", label: "Ellipse", key: "O" },
     { tool: "hand", label: "Hand", key: "H" },
   ];
+  // Exactly one tool is armed at any moment, and arming is what the group
+  // reports — an emptied value is the same tool pressed again, not "no tool".
   return (
-    <div aria-label="Drawing tools" className="tools" role="toolbar">
+    <ToggleGroup
+      aria-label="Drawing tools"
+      className="grid w-full grid-cols-2"
+      value={[active]}
+      onValueChange={(value) => {
+        const [armed] = value;
+        if (armed !== undefined) onArm(armed as Tool);
+      }}
+    >
       {tools.map(({ tool, label, key }) => (
-        <button
-          aria-pressed={active === tool}
+        <ToggleGroupItem
           key={tool}
-          onClick={() => onArm(tool)}
+          value={tool}
+          variant="outline"
+          size="sm"
+          className="min-w-0 justify-between"
           title={`${label} (${key})`}
-          type="button"
         >
           {label}
-          <kbd>{key}</kbd>
-        </button>
+          <kbd className="font-sans text-muted-foreground">{key}</kbd>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }
 
@@ -705,14 +740,44 @@ function isTypingTarget(target: EventTarget | null): boolean {
   );
 }
 
+/** Where each handle sits on the selection's edge, and the rotation zone just
+ * outside the corner it belongs to. Both are placed by their own centre. */
+const HANDLE_AT: Record<Handle, string> = {
+  "top-left": "left-0 top-0 -translate-x-1/2 -translate-y-1/2",
+  top: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2",
+  "top-right": "right-0 top-0 translate-x-1/2 -translate-y-1/2",
+  right: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2",
+  "bottom-right": "right-0 bottom-0 translate-x-1/2 translate-y-1/2",
+  bottom: "left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2",
+  "bottom-left": "left-0 bottom-0 -translate-x-1/2 translate-y-1/2",
+  left: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2",
+};
+
+const ROTATION_AT = {
+  "top-left": "left-0 top-0 -translate-x-full -translate-y-full",
+  "top-right": "right-0 top-0 translate-x-full -translate-y-full",
+  "bottom-right": "right-0 bottom-0 translate-x-full translate-y-full",
+  "bottom-left": "left-0 bottom-0 -translate-x-full translate-y-full",
+} as const;
+
 function SelectionBox({ bounds, handles }: { bounds: Bounds; handles: readonly Handle[] }) {
   return (
-    <div className="selection-box" style={boxStyle(bounds)}>
+    <div className="absolute border border-primary" style={boxStyle(bounds)}>
       {handles.map((handle) => (
-        <span className={`selection-handle ${handle}`} data-handle={handle} key={handle} />
+        <span
+          className={cn(
+            "pointer-events-auto absolute z-2 size-2.5 border border-primary bg-background",
+            HANDLE_AT[handle],
+          )}
+          data-handle={handle}
+          key={handle}
+        />
       ))}
       {(["top-left", "top-right", "bottom-right", "bottom-left"] as const).map((corner) => (
-        <span className={`rotation-zone ${corner}`} key={`rotate-${corner}`} />
+        <span
+          className={cn("pointer-events-auto absolute z-1 size-5 cursor-grab", ROTATION_AT[corner])}
+          key={`rotate-${corner}`}
+        />
       ))}
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import type {
   Border,
   DesignDocument,
@@ -20,6 +20,34 @@ import {
   updateGradientStop,
   updateSelectedElements,
 } from "../../../lib/inspector-operations";
+import { cn } from "../../../lib/utils";
+import { Button } from "../../../components/ui/button";
+import { Checkbox } from "../../../components/ui/checkbox";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../components/ui/select";
+import { Slider } from "../../../components/ui/slider";
+
+/** The inspector's own repeats: the panel, a section inside it, the note under
+ * a heading, and the two-up grid its paired numbers sit in. */
+const PANEL =
+  "mt-6 max-h-[min(70vh,42rem)] min-w-0 overflow-auto rounded-lg bg-card p-3 ring-1 ring-foreground/10";
+const SECTION = "border-t py-3";
+const HEADING = "font-heading text-sm font-medium";
+const NOTE = "text-xs text-muted-foreground";
+const PAIR = "grid grid-cols-2 gap-x-1.5";
+/** One labelled control, stacked; the label is a scrub target where the value
+ * is a number, so it carries the resize cursor and takes no text selection. */
+const FIELD = "mb-2 grid gap-1 text-xs";
+const SCRUB = "cursor-ew-resize select-none";
+const CONTROL = "h-7 w-full min-w-0 text-xs";
+const SWATCH = "px-1 py-1";
 
 type Change = (document: DesignDocument) => DesignDocument;
 type EditElement = (element: Element) => Element;
@@ -73,9 +101,9 @@ export function Inspector({
 
   if (elements.length === 0) {
     return (
-      <aside className="inspector" aria-label="Inspector">
-        <h2>Canvas</h2>
-        <p className="inspector-note">Canvas properties</p>
+      <aside className={PANEL} aria-label="Inspector">
+        <h2 className={HEADING}>Canvas</h2>
+        <p className={cn(NOTE, "mb-2")}>Canvas properties</p>
         <NumberField
           document={document}
           label="Width"
@@ -116,14 +144,14 @@ export function Inspector({
   const allImages = elements.every((element) => element.type === "image");
 
   return (
-    <aside className="inspector" aria-label="Inspector">
+    <aside className={PANEL} aria-label="Inspector">
       <AlignmentToolbar count={elements.length} onAlign={onAlign} onDistribute={onDistribute} />
-      <h2>Element properties</h2>
-      <p className="inspector-note">
+      <h2 className={HEADING}>Element properties</h2>
+      <p className={NOTE}>
         {elements.length === 1 ? elements[0]!.type : `${String(elements.length)} Elements`}
       </p>
-      <section>
-        <h3>Element</h3>
+      <section className={SECTION}>
+        <h3 className={cn(HEADING, "mb-2")}>Element</h3>
         <TextField
           label="Name"
           value={commonValue(elements, (element) => element.name ?? "")}
@@ -144,7 +172,7 @@ export function Inspector({
             commitElements((element) => ({ ...element, visible: visible === "true" }))
           }
         />
-        <div className="inspector-grid">
+        <div className={PAIR}>
           {number(
             "X",
             (element) => element.x,
@@ -252,7 +280,7 @@ export function Inspector({
           }
         >
           {shadow.kind === "same" && shadow.value !== undefined && (
-            <div className="inspector-grid">
+            <div className={PAIR}>
               {number("X", (element) => shadowOf(element)?.dx, setShadowNumber("dx"))}
               {number("Y", (element) => shadowOf(element)?.dy, setShadowNumber("dy"))}
               {number("Blur", (element) => shadowOf(element)?.blur, setShadowNumber("blur"), {
@@ -281,8 +309,8 @@ export function Inspector({
       )}
 
       {corners.kind !== "none" && (
-        <section>
-          <h3>Corner radius</h3>
+        <section className={SECTION}>
+          <h3 className={cn(HEADING, "mb-2")}>Corner radius</h3>
           <CornerEditor
             value={corners}
             onCommit={(cornerRadius) =>
@@ -295,9 +323,9 @@ export function Inspector({
       )}
 
       {allText && (
-        <section>
-          <h3>Typography</h3>
-          <p className="inspector-note">Applies to the whole text Element.</p>
+        <section className={SECTION}>
+          <h3 className={cn(HEADING, "mb-2")}>Typography</h3>
+          <p className={NOTE}>Applies to the whole text Element.</p>
           <TextField
             label="Font Asset"
             value={commonValue(elements, (element) =>
@@ -309,7 +337,7 @@ export function Inspector({
               )
             }
           />
-          <div className="inspector-grid">
+          <div className={PAIR}>
             {number("Size", textNumber("fontSize"), setTextNumber("fontSize"), { min: 1 })}
             {number("Line height", textNumber("lineHeight"), setTextNumber("lineHeight"), {
               min: 0.01,
@@ -372,8 +400,8 @@ export function Inspector({
       )}
 
       {allImages && (
-        <section>
-          <h3>Image</h3>
+        <section className={SECTION}>
+          <h3 className={cn(HEADING, "mb-2")}>Image</h3>
           <TextField
             label="Image Asset"
             value={commonValue(elements, (element) =>
@@ -445,25 +473,50 @@ function AlignmentToolbar({
     ["middle-vertical", "Align vertical middles"],
     ["bottom", "Align bottom"],
   ];
+  // The six align actions are two rows of three; the two distribute actions
+  // are a row of their own. The panel is narrow, so a label that does not fit
+  // its cell is clipped rather than allowed to push the grid wider — the full
+  // wording is on the button's title and accessible name.
   return (
-    <div className="alignment-toolbar" aria-label="Align and distribute" role="toolbar">
-      {actions.map(([action, label]) => (
-        <button
+    <div className="mb-3 grid gap-1" aria-label="Align and distribute" role="toolbar">
+      <div className="grid grid-cols-3 gap-1">
+        {actions.map(([action, label]) => (
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            className="min-w-0 truncate"
+            title={label}
+            aria-label={label}
+            onClick={() => onAlign(action)}
+            key={action}
+          >
+            {label.replace("Align ", "")}
+          </Button>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        <Button
           type="button"
-          title={label}
-          aria-label={label}
-          onClick={() => onAlign(action)}
-          key={action}
+          variant="outline"
+          size="xs"
+          className="min-w-0 truncate"
+          disabled={count < 3}
+          onClick={() => onDistribute("horizontal")}
         >
-          {label.replace("Align ", "")}
-        </button>
-      ))}
-      <button type="button" disabled={count < 3} onClick={() => onDistribute("horizontal")}>
-        Distribute H
-      </button>
-      <button type="button" disabled={count < 3} onClick={() => onDistribute("vertical")}>
-        Distribute V
-      </button>
+          Distribute H
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          className="min-w-0 truncate"
+          disabled={count < 3}
+          onClick={() => onDistribute("vertical")}
+        >
+          Distribute V
+        </Button>
+      </div>
     </div>
   );
 }
@@ -494,9 +547,9 @@ function NumberField({
   const clamp = (candidate: number) =>
     Math.max(min ?? -Infinity, Math.min(max ?? Infinity, candidate));
   return (
-    <label className="number-field">
+    <Label className={FIELD}>
       <span
-        className="scrub-label"
+        className={SCRUB}
         onPointerDown={(event) => {
           event.preventDefault();
           const start = document;
@@ -519,7 +572,8 @@ function NumberField({
       >
         {label}
       </span>
-      <input
+      <Input
+        className={CONTROL}
         key={`${label}:${value.kind}:${String(shown)}`}
         type="number"
         defaultValue={shown === undefined || digits === undefined ? shown : shown.toFixed(digits)}
@@ -535,7 +589,7 @@ function NumberField({
           if (event.key === "Enter") event.currentTarget.blur();
         }}
       />
-    </label>
+    </Label>
   );
 }
 
@@ -550,9 +604,10 @@ function TextField({
 }) {
   if (value.kind === "none") return null;
   return (
-    <label>
+    <Label className={FIELD}>
       {label}
-      <input
+      <Input
+        className={CONTROL}
         key={`${label}:${value.kind}:${value.kind === "same" ? value.value : ""}`}
         defaultValue={value.kind === "same" ? value.value : undefined}
         placeholder={value.kind === "mixed" ? "Mixed" : undefined}
@@ -561,7 +616,7 @@ function TextField({
           if (event.key === "Enter") event.currentTarget.blur();
         }}
       />
-    </label>
+    </Label>
   );
 }
 
@@ -576,22 +631,36 @@ function SelectField({
   options: readonly (readonly [string, string])[];
   onCommit: (value: string) => void;
 }) {
+  // The trigger is a button, so the label points at it by id rather than
+  // wrapping it — a `<label>` around a button labels nothing. `items` is what
+  // the closed trigger reads its text off; without it Base UI would show the
+  // stored value ("left") where the option's wording belongs ("Left").
+  const id = useId();
   if (value.kind === "none") return null;
+  const items = Object.fromEntries([...options, ["", "Mixed"] as const]);
   return (
-    <label>
-      {label}
-      <select
+    <div className={FIELD}>
+      <Label htmlFor={id}>{label}</Label>
+      <Select
+        items={items}
         value={value.kind === "same" ? value.value : ""}
-        onChange={(event) => onCommit(event.currentTarget.value)}
+        onValueChange={(next) => {
+          if (next !== null) onCommit(next);
+        }}
       >
-        {value.kind === "mixed" && <option value="">Mixed</option>}
-        {options.map(([option, text]) => (
-          <option value={option} key={option}>
-            {text}
-          </option>
-        ))}
-      </select>
-    </label>
+        <SelectTrigger id={id} size="sm" className={cn(CONTROL, "justify-between")}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {value.kind === "mixed" && <SelectItem value="">Mixed</SelectItem>}
+          {options.map(([option, text]) => (
+            <SelectItem value={option} key={option}>
+              {text}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -604,17 +673,18 @@ function ColorField({
   value: Common<string>;
   onCommit: (value: string) => void;
 }) {
-  if (value.kind === "none") return <p className="inspector-note">{label}: bound to a Variable</p>;
+  if (value.kind === "none") return <p className={NOTE}>{label}: bound to a Variable</p>;
   const color = value.kind === "same" ? value.value.slice(0, 7) : "#000000";
   return (
-    <label>
+    <Label className={FIELD}>
       {label}
-      <input
+      <Input
+        className={cn(CONTROL, SWATCH)}
         type="color"
         value={color}
         onChange={(event) => onCommit(event.currentTarget.value.toUpperCase())}
       />
-    </label>
+    </Label>
   );
 }
 
@@ -639,16 +709,16 @@ function FillEditor({
       : { kind: "same", value: fill as Fill };
   if (common.kind === "none")
     return (
-      <section>
-        <h3>{label}</h3>
-        <p className="inspector-note">Bound to a Variable</p>
+      <section className={SECTION}>
+        <h3 className={cn(HEADING, "mb-2")}>{label}</h3>
+        <p className={NOTE}>Bound to a Variable</p>
       </section>
     );
   const current = common.kind === "same" ? common.value : undefined;
   const mode = typeof current === "string" ? "solid" : (current?.type ?? "");
   return (
-    <section>
-      <h3>{label}</h3>
+    <section className={SECTION}>
+      <h3 className={cn(HEADING, "mb-2")}>{label}</h3>
       <SelectField
         label="Type"
         value={common.kind === "mixed" ? { kind: "mixed" } : { kind: "same", value: mode }}
@@ -664,7 +734,10 @@ function FillEditor({
       )}
       {typeof current === "object" && current !== null && !("$var" in current) && (
         <>
-          <div className="gradient-preview" style={{ background: gradientCss(current) }} />
+          <div
+            className="mb-2 h-8 rounded-md border"
+            style={{ background: gradientCss(current) }}
+          />
           {current.type === "linear" && (
             <FillNumber
               document={document}
@@ -674,10 +747,14 @@ function FillEditor({
               onCommit={(start, angle) => onChange({ ...current, angle }, start)}
             />
           )}
-          <div className="gradient-stops">
+          <div className="grid gap-1.5">
             {current.stops.map((stop, index) => (
-              <div className="gradient-stop" key={index}>
-                <input
+              <div
+                className="grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-1.5"
+                key={index}
+              >
+                <Input
+                  className={cn(CONTROL, SWATCH, "w-8")}
                   aria-label={`Stop ${String(index + 1)} color`}
                   type="color"
                   value={stop.color.slice(0, 7)}
@@ -689,55 +766,53 @@ function FillEditor({
                     )
                   }
                 />
-                <input
+                {/* Dragging a stop is one gesture: every move previews against
+                    the document the drag started from, and the release is what
+                    commits — so the whole drag is one Undo Entry. */}
+                <Slider
                   aria-label={`Stop ${String(index + 1)} offset`}
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
+                  min={0}
+                  max={1}
+                  step={0.01}
                   value={stop.offset}
-                  onPointerDown={() => {
-                    gestureStart.current = document;
-                  }}
-                  onInput={(event) =>
+                  onValueChange={(next) => {
+                    gestureStart.current ??= document;
                     onPreview?.(
-                      gestureStart.current ?? document,
-                      updateGradientStop(current, index, {
-                        offset: event.currentTarget.valueAsNumber,
-                      }),
-                    )
-                  }
-                  onPointerUp={(event) => {
+                      gestureStart.current,
+                      updateGradientStop(current, index, { offset: next as number }),
+                    );
+                  }}
+                  onValueCommitted={(next) => {
                     onChange(
-                      updateGradientStop(current, index, {
-                        offset: event.currentTarget.valueAsNumber,
-                      }),
+                      updateGradientStop(current, index, { offset: next as number }),
                       gestureStart.current ?? document,
                     );
                     gestureStart.current = null;
                   }}
-                  onKeyUp={(event) =>
-                    onChange(
-                      updateGradientStop(current, index, {
-                        offset: event.currentTarget.valueAsNumber,
-                      }),
-                    )
-                  }
                 />
-                <output>{Math.round(stop.offset * 100)}%</output>
-                <button
+                <output className="text-xs text-muted-foreground tabular-nums">
+                  {Math.round(stop.offset * 100)}%
+                </output>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-xs"
                   disabled={current.stops.length <= 2}
                   onClick={() => onChange(removeGradientStop(current, index))}
                   aria-label={`Remove stop ${String(index + 1)}`}
                 >
                   −
-                </button>
+                </Button>
               </div>
             ))}
-            <button type="button" onClick={() => onChange(addGradientStop(current))}>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => onChange(addGradientStop(current))}
+            >
               Add stop
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -759,9 +834,9 @@ function FillNumber({
   onCommit: (start: DesignDocument, value: number) => void;
 }) {
   return (
-    <label className="number-field">
+    <Label className={FIELD}>
       <span
-        className="scrub-label"
+        className={SCRUB}
         onPointerDown={(event) => {
           event.preventDefault();
           const start = document;
@@ -783,7 +858,8 @@ function FillNumber({
       >
         {label}
       </span>
-      <input
+      <Input
+        className={CONTROL}
         type="number"
         defaultValue={value}
         onBlur={(event) => {
@@ -794,7 +870,7 @@ function FillNumber({
           if (event.key === "Enter") event.currentTarget.blur();
         }}
       />
-    </label>
+    </Label>
   );
 }
 
@@ -808,14 +884,15 @@ function SimpleNumber({
   onCommit: (value: number) => void;
 }) {
   return (
-    <label>
+    <Label className={FIELD}>
       {label}
-      <input
+      <Input
+        className={CONTROL}
         type="number"
         value={value}
         onChange={(event) => onCommit(event.currentTarget.valueAsNumber)}
       />
-    </label>
+    </Label>
   );
 }
 
@@ -831,19 +908,16 @@ function OptionalPaint({
   children: React.ReactNode;
 }) {
   return (
-    <section>
-      <h3>{label}</h3>
-      <label className="toggle">
-        <input
-          type="checkbox"
+    <section className={SECTION}>
+      <h3 className={cn(HEADING, "mb-2")}>{label}</h3>
+      <Label className="mb-2">
+        <Checkbox
           checked={enabled.kind === "same" && enabled.value}
-          ref={(node) => {
-            if (node) node.indeterminate = enabled.kind === "mixed";
-          }}
-          onChange={(event) => onToggle(event.currentTarget.checked)}
+          indeterminate={enabled.kind === "mixed"}
+          onCheckedChange={(checked) => onToggle(checked)}
         />
         Enabled
-      </label>
+      </Label>
       {children}
     </section>
   );
@@ -862,14 +936,16 @@ function CornerEditor({
     value: number | { topLeft: number; topRight: number; bottomRight: number; bottomLeft: number },
   ) => void;
 }) {
-  if (value.kind !== "same") return <p className="inspector-note">Mixed</p>;
+  if (value.kind !== "same") return <p className={NOTE}>Mixed</p>;
   const current = value.value ?? 0;
   if (typeof current === "number")
     return (
       <>
         <SimpleNumber label="All corners" value={current} onCommit={onCommit} />
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="xs"
           onClick={() =>
             onCommit({
               topLeft: current,
@@ -880,11 +956,11 @@ function CornerEditor({
           }
         >
           Edit separately
-        </button>
+        </Button>
       </>
     );
   return (
-    <div className="inspector-grid">
+    <div className={PAIR}>
       {(["topLeft", "topRight", "bottomRight", "bottomLeft"] as const).map((corner) => (
         <SimpleNumber
           key={corner}

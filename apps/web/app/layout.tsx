@@ -11,7 +11,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      {/* Every page is one block on an otherwise empty field: a card the width
+          of its content, or the editor spread as wide as it is allowed. */}
+      <body className="grid min-h-screen place-items-center px-4 py-8">
         <RecheckOnRestore />
         {children}
       </body>
