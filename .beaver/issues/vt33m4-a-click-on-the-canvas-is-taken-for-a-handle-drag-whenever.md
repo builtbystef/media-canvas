@@ -1,13 +1,14 @@
 ---
 id: vt33m4
 title: A click on the canvas is taken for a handle drag whenever anything is selected
-state: todo
+state: done
+assignee: agent
 priority: high
 labels:
     - bug
 parent: ek7pq1
 created: 2026-08-24T10:22:21Z
-updated: 2026-08-24T10:22:21Z
+updated: 2026-08-24T17:11:28Z
 ---
 
 ## What is wrong
@@ -58,3 +59,9 @@ against a live stack until now.
 - [ ] Pressing an actual resize handle still begins a handle drag, and rotation zones still begin a rotate.
 - [ ] The guard cannot silently regress: the handle is `null` rather than `undefined` when no handle was pressed, and the cast no longer claims otherwise.
 - [ ] A test at the seam covers "press with a selection, not on a handle" so the branch order is pinned.
+
+## Notes
+
+**agent** — 2026-08-24T17:11:28Z
+
+Completed the pointer-down fix. Handle hit-testing now normalizes a missing data-handle target to null, validates actual handle names without a Handle cast, and only enters the handle branch for a real handle; non-handle presses therefore continue into canvas/Element selection while the existing rotation branch remains first. Added seam tests for a selected Element press away from a handle and for an actual handle press. Verification: pnpm check passed; all 237 TypeScript tests passed; all 118 API tests passed when run directly with the documented Postgres socket and stack.local storage endpoint. The root pnpm test wrapper cannot expose the Postgres socket to its Vite+ task sandbox in this agent environment, so that wrapper's API invocation was also attempted but could not reach Postgres.

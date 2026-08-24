@@ -8,7 +8,7 @@ import type {
 } from "@media-canvas/core";
 import { describe, expect, it } from "vitest";
 import { createEditorStore } from "./editor-store";
-import { applyHandleDrag, handlesForSelection } from "./resize-scale";
+import { applyHandleDrag, handleForPointerTarget, handlesForSelection } from "./resize-scale";
 
 const base = {
   rotation: 0,
@@ -25,6 +25,20 @@ function documentWith(...elements: DesignDocument["elements"]): DesignDocument {
 }
 
 describe("Resize and Scale handles", () => {
+  it("lets a selected Element press fall through when it is not on a handle", () => {
+    const target = { closest: () => null };
+
+    expect(handleForPointerTarget(target)).toBeNull();
+  });
+
+  it("recognises an actual handle press", () => {
+    const target = {
+      closest: () => ({ getAttribute: () => "bottom-right" }),
+    };
+
+    expect(handleForPointerTarget(target)).toBe("bottom-right");
+  });
+
   it("resizes in a rotated Element's local frame and leaves its opposite edge pinned", () => {
     const element: RectElement = {
       ...base,

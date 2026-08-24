@@ -46,6 +46,16 @@ const TEXT_HANDLES: Handle[] = [
   "left",
 ];
 
+type PointerTarget = {
+  closest?: (selector: string) => { getAttribute: (name: string) => string | null } | null;
+};
+
+export function handleForPointerTarget(target: PointerTarget): Handle | null {
+  const value = target.closest?.("[data-handle]")?.getAttribute("data-handle") ?? null;
+  for (const handle of RESIZE_HANDLES) if (handle === value) return handle;
+  return null;
+}
+
 export function handlesForSelection(elements: readonly Element[]): Handle[] {
   if (elements.length !== 1) return elements.length === 0 ? [] : CORNERS;
   const element = elements[0]!;

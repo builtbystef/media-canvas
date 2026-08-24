@@ -38,7 +38,12 @@ import {
   type ElementBounds,
   type Guide,
 } from "../../../lib/placement";
-import { applyHandleDrag, type Handle, handlesForSelection } from "../../../lib/resize-scale";
+import {
+  applyHandleDrag,
+  type Handle,
+  handleForPointerTarget,
+  handlesForSelection,
+} from "../../../lib/resize-scale";
 import {
   type Bounds,
   marqueeSelection,
@@ -373,8 +378,7 @@ export function EditorCanvas({
             event.currentTarget.setPointerCapture(event.pointerId);
             return;
           }
-          const handleNode = (event.target as globalThis.Element).closest?.("[data-handle]");
-          const handle = handleNode?.getAttribute("data-handle") as Handle | null;
+          const handle = handleForPointerTarget(event.target as globalThis.Element);
           if (handle !== null && selectionBox !== null && selected.length > 0) {
             gesture.current = {
               kind: "handle",
