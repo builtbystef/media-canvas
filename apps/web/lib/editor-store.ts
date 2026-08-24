@@ -2,6 +2,7 @@ import type { DesignDocument, Element } from "@media-canvas/core";
 import { createStore } from "zustand/vanilla";
 import { addElement } from "./document-operations";
 import type { Tool } from "./drawing-tools";
+import { applyHandleDrag, type Handle, type HandleDragOptions, type Point } from "./resize-scale";
 
 export type EditorState = {
   document: DesignDocument | null;
@@ -13,6 +14,13 @@ export type EditorState = {
   select: (selected: string[], enteredPath?: string[]) => void;
   armTool: (tool: Tool) => void;
   createElement: (element: Element) => void;
+  commitHandleDrag: (
+    ids: readonly string[],
+    handle: Handle,
+    delta: Point,
+    options?: HandleDragOptions,
+    gestureStart?: DesignDocument,
+  ) => void;
 };
 
 /** One store owns editor document and selection state. The next undo slice can
@@ -39,6 +47,14 @@ export function createEditorStore(document: DesignDocument | null) {
         enteredPath: [],
         activeTool: "select",
         editingTextId: element.type === "text" ? element.id : null,
+      })),
+    commitHandleDrag: (ids, handle, delta, options, gestureStart) =>
+      set((state) => ({
+        document:
+          state.document === null
+            ? null
+            : applyHandleDrag(gestureStart ?? state.document, ids, handle, delta, options),
+        selected: [...ids],
       })),
   }));
 }

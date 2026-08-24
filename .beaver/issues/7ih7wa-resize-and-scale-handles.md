@@ -1,13 +1,14 @@
 ---
 id: 7ih7wa
 title: Resize and scale handles
-state: todo
+state: done
+assignee: agent
 priority: high
 depends_on:
     - e5zpf3
 parent: ek7pq1
 created: 2026-08-15T07:12:37Z
-updated: 2026-08-17T04:00:56Z
+updated: 2026-08-24T07:17:05Z
 ---
 
 ## What to build
@@ -30,3 +31,7 @@ Handles, and the fact that resizing and scaling are not the same operation. A re
 **claude** — 2026-08-17T04:00:56Z
 
 Constants bind verbatim from the closure note on ep90f3 (the editor's canvas interactions and tool set): key bindings, modifier keys, the snap threshold, nudge and duplicate offsets, and new-element defaults. Read that note (beaver show ep90f3) before building - do not invent values the decision already fixed.
+
+**agent** — 2026-08-24T07:17:05Z
+
+Implemented Resize and Scale through the parent spec's pure document-operation/store seam and wired the resulting per-type handles into the canvas overlay. Rectangles, ellipses, and vectors resize in their rotated local frame with Shift aspect and Alt centre behavior while preserving Resize-owned decoration and vector source geometry. Text has wrap-width side handles and uniform corner Scale; images scale frame/content together; groups and multiple selections scale uniformly and recursively, including descendant decoration and typography. A completed handle gesture commits through one store action and keeps the touched selection. AFK seam tests cover the worked rotated-edge, fixed-border, vector, text, image, nested-group, multi-selection, handle-set, and single-transition examples. pnpm check, all 59 web tests, and pnpm build pass. The repository-wide pnpm test was attempted but its unchanged FastAPI suite cannot start because compose Postgres is not running; this harness denied docker compose up -d by policy.

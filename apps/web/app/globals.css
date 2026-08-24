@@ -491,25 +491,45 @@ button.danger {
   pointer-events: auto;
 }
 
-.selection-handle.nw {
+.selection-handle.top-left {
   left: 0;
   top: 0;
   transform: translate(-50%, -50%);
 }
-.selection-handle.ne {
+.selection-handle.top {
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -50%);
+}
+.selection-handle.top-right {
   right: 0;
   top: 0;
   transform: translate(50%, -50%);
 }
-.selection-handle.sw {
+.selection-handle.right {
+  right: 0;
+  top: 50%;
+  transform: translate(50%, -50%);
+}
+.selection-handle.bottom-right {
+  right: 0;
+  bottom: 0;
+  transform: translate(50%, 50%);
+}
+.selection-handle.bottom {
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, 50%);
+}
+.selection-handle.bottom-left {
   left: 0;
   bottom: 0;
   transform: translate(-50%, 50%);
 }
-.selection-handle.se {
-  right: 0;
-  bottom: 0;
-  transform: translate(50%, 50%);
+.selection-handle.left {
+  left: 0;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .marquee {

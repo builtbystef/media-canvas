@@ -29,6 +29,7 @@ import {
   toolForKey,
 } from "../../../lib/drawing-tools";
 import { createEditorStore } from "../../../lib/editor-store";
+import { applyHandleDrag, type Handle, handlesForSelection } from "../../../lib/resize-scale";
 import {
   type Bounds,
   marqueeSelection,
@@ -57,6 +58,19 @@ type Gesture =
       current: Point;
       constrained: boolean;
       fromCenter: boolean;
+    }
+  | {
+      kind: "handle";
+      pointerId: number;
+      clientX: number;
+      clientY: number;
+      document: DesignDocument;
+      ids: string[];
+      handle: Handle;
+      bounds: Bounds;
+      delta: Point;
+      keepAspect: boolean;
+      fromCenter: boolean;
     };
 
 /** The compiled Design Document, its mounted-markup interactions, overlay, and
@@ -84,6 +98,7 @@ export function EditorCanvas({
   const select = useStore(store, (state) => state.select);
   const armTool = useStore(store, (state) => state.armTool);
   const createElement = useStore(store, (state) => state.createElement);
+  const commitHandleDrag = useStore(store, (state) => state.commitHandleDrag);
   const currentDesign = useRef(design);
   currentDesign.current = design;
   const [selectionBox, setSelectionBox] = useState<Bounds | null>(null);
@@ -302,11 +317,27 @@ export function EditorCanvas({
             event.currentTarget.setPointerCapture(event.pointerId);
             return;
           }
-          const handle = (event.target as globalThis.Element).closest?.(".selection-handle");
-          const chain = handle ? [] : mountedChainAt(event.clientX, event.clientY, host.current);
-          const target = handle
-            ? (selected[0] ?? null)
-            : selectionTarget(chain, enteredPath, event.metaKey || event.ctrlKey);
+          const handleNode = (event.target as globalThis.Element).closest?.(".selection-handle");
+          const handle = handleNode?.getAttribute("data-handle") as Handle | null;
+          if (handle !== null && selectionBox !== null && selected.length > 0) {
+            gesture.current = {
+              kind: "handle",
+              pointerId: event.pointerId,
+              clientX: event.clientX,
+              clientY: event.clientY,
+              document: design,
+              ids: selected,
+              handle,
+              bounds: selectionBox,
+              delta: { x: 0, y: 0 },
+              keepAspect: event.shiftKey,
+              fromCenter: event.altKey,
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
+            return;
+          }
+          const chain = mountedChainAt(event.clientX, event.clientY, host.current);
+          const target = selectionTarget(chain, enteredPath, event.metaKey || event.ctrlKey);
           if (target === null) {
             select([], []);
             const point = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
@@ -364,6 +395,20 @@ export function EditorCanvas({
                 (event.clientY - active.clientY) / zoom,
               ),
             );
+          } else if (active.kind === "handle") {
+            active.delta = {
+              x: (event.clientX - active.clientX) / zoom,
+              y: (event.clientY - active.clientY) / zoom,
+            };
+            active.keepAspect = event.shiftKey;
+            active.fromCenter = event.altKey;
+            replaceDocument(() =>
+              applyHandleDrag(active.document, active.ids, active.handle, active.delta, {
+                bounds: active.bounds,
+                keepAspect: active.keepAspect,
+                fromCenter: active.fromCenter,
+              }),
+            );
           } else {
             active.current = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
             if (active.kind === "draw") {
@@ -385,7 +430,19 @@ export function EditorCanvas({
         onPointerUp={(event) => {
           panning.current = null;
           const active = gesture.current;
-          if (active?.pointerId === event.pointerId && active.kind === "draw") {
+          if (active?.pointerId === event.pointerId && active.kind === "handle") {
+            commitHandleDrag(
+              active.ids,
+              active.handle,
+              active.delta,
+              {
+                bounds: active.bounds,
+                keepAspect: active.keepAspect,
+                fromCenter: active.fromCenter,
+              },
+              active.document,
+            );
+          } else if (active?.pointerId === event.pointerId && active.kind === "draw") {
             createElement(
               createDrawnElement(
                 active.tool,
@@ -434,7 +491,17 @@ export function EditorCanvas({
           >
             <div className="canvas" ref={host} />
             <div className="canvas-overlay" aria-hidden="true">
-              {selectionBox && <SelectionBox bounds={selectionBox} />}
+              {selectionBox && (
+                <SelectionBox
+                  bounds={selectionBox}
+                  handles={handlesForSelection(
+                    selected.flatMap((id) => {
+                      const element = findElement(design.elements, id);
+                      return element === null ? [] : [element];
+                    }),
+                  )}
+                />
+              )}
               {marquee && <div className="marquee" style={boxStyle(marquee)} />}
             </div>
           </div>
@@ -487,11 +554,11 @@ function isTypingTarget(target: EventTarget | null): boolean {
   );
 }
 
-function SelectionBox({ bounds }: { bounds: Bounds }) {
+function SelectionBox({ bounds, handles }: { bounds: Bounds; handles: readonly Handle[] }) {
   return (
     <div className="selection-box" style={boxStyle(bounds)}>
-      {["nw", "ne", "sw", "se"].map((corner) => (
-        <span className={`selection-handle ${corner}`} key={corner} />
+      {handles.map((handle) => (
+        <span className={`selection-handle ${handle}`} data-handle={handle} key={handle} />
       ))}
     </div>
   );
