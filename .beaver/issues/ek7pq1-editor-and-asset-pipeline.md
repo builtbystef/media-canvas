@@ -11,7 +11,7 @@ depends_on:
     - 73rm0x
     - 8h50hu
 created: 2026-08-14T07:13:32Z
-updated: 2026-08-24T08:44:34Z
+updated: 2026-08-24T09:11:41Z
 ---
 
 ## Problem Statement
@@ -228,3 +228,13 @@ AMENDMENT to Dependencies (built on hq3p33, 2026-08-24): the stack this section 
 - STYLE AND THEME. `components.json` pins `style: "base-nova"` — the `base-*` prefix is what selects Base UI over Radix — with `baseColor: "neutral"`, which is what "stock shadcn tokens" resolves to today. Dark is the system's: Tailwind v4's `dark:` variant already means `prefers-color-scheme: dark`, so the variant is left alone, upstream's `@custom-variant dark (&:is(.dark *))` is deleted, and the dark token values sit under that media query. There is no `.dark` class and no `next-themes`.
 - ONE DEPARTURE FROM THE PRESET, ON PURPOSE. `nova` ships Geist through `next/font/google`. `--font-sans` stays the system stack instead, so rendering a page fetches nothing at build time. Change it by editing that one token in `app/globals.css`.
 - ADDING A COMPONENT. `npx shadcn@latest add <name>` from `apps/web`. It reads `components.json`, writes into `components/ui`, and installs into the workspace catalog. If it reaches for the `shadcn` package again, generate in a scratch project outside the workspace and copy the files across, as this session did.
+
+**claude** — 2026-08-24T09:11:41Z
+
+CORRECTION to the amendment above, same session, after the user reviewed it. Two of its bullets are now wrong — read this one instead.
+
+- THE `shadcn` PACKAGE IS A DEPENDENCY AFTER ALL. Do not vendor `tailwind.css`. The user's call: the trust-downgrade that blocked it is `semver@6.3.1`, a 2023 release under `@babel/core` that simply predates provenance — not a signal of anything. `pnpm-workspace.yaml` now carries `trustPolicyExclude: [semver]` next to `trustPolicy: no-downgrade`, with that reason in a comment, and `shadcn` installs as a devDependency of `apps/web` (build-time only — `app/globals.css` imports `shadcn/tailwind.css` and nothing ships it at runtime). `apps/web/app/shadcn.css` is deleted, and so is the formatter carve-out that existed for it in `vite.config.ts`. Note that `minimumReleaseAge` holds the version at 4.18.0 while the registry serves 4.19.0 components; the `tailwind.css` in both is byte-identical, so this is not a mismatch to worry about.
+- GEIST IS THE FACE, as the preset ships it. `next/font/google` self-hosts it — the woff2 files are emitted into the build and the browser fetches nothing from Google — so the "fetches nothing at build time" reasoning that argued for the system stack was the wrong trade to make.
+- ONE THING TO KNOW IF YOU TOUCH THE FONT WIRING. `next/font` is given `variable: "--font-geist"`, not upstream's `--font-sans`, and `@theme inline` maps `--font-sans: var(--font-geist), system-ui, sans-serif`. Upstream points both at `--font-sans`, which lands two declarations of one custom property on `<html>` — one of them `--font-sans: var(--font-sans)`. That is a cycle, and CSS answers a cycle by dropping the property, so whether the face survives comes down to which declaration the cascade happens to pick. Separate names remove the question. Verified in the built CSS: `--font-geist:"Geist", "Geist Fallback"` on the document element, `html{font-family:var(--font-geist), system-ui, sans-serif}`.
+
+Everything else in the amendment above stands: the dependency list, `style: "base-nova"` at `baseColor: neutral`, dark as `prefers-color-scheme` with no `.dark` class and no `next-themes`, and `npx shadcn@latest add <name>` from `apps/web` — which now needs no scratch-project workaround.

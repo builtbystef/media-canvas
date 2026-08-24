@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "./shadcn.css";
+@import "shadcn/tailwind.css";
 
 /* Stock shadcn tokens (the Base UI `nova` preset, neutral base colour), with
    one change: dark is the system's, not a class. Tailwind's `dark:` variant
@@ -13,9 +13,12 @@
    and the compiled SVG is the worker's markup, not this theme's. */
 
 @theme inline {
-  /* The app's face. Stock shadcn is Geist; this stays on the system's own
-     face, so nothing is fetched at build time to render a page. */
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Geist, the face the preset ships. `next/font` defines `--font-geist` on
+     the document element — self-hosted, with its own metric-matched fallback
+     baked in — and this is what points Tailwind's `font-sans` at it. The
+     trailing stack is what shows before the face has loaded, and if the
+     variable is ever missing. See `app/layout.tsx`. */
+  --font-sans: var(--font-geist), system-ui, sans-serif;
   --font-heading: var(--font-sans);
 
   --color-background: var(--background);

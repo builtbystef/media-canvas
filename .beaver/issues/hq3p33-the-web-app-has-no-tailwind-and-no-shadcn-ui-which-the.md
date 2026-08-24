@@ -7,7 +7,7 @@ labels:
     - needs-review
 parent: ek7pq1
 created: 2026-08-19T11:28:32Z
-updated: 2026-08-24T08:46:11Z
+updated: 2026-08-24T09:12:07Z
 ---
 
 ## What to build
@@ -51,3 +51,13 @@ CHECKS
 
 WHAT A REVIEWER MUST DO — this is why the issue is not closed
 The fourth criterion ("the pages still render for a signed-out caller, a Viewer, and an Editor") was NOT exercised. This session's sandbox gives each shell command its own network namespace and denies docker, so the dev stack could not be reached even with `next dev` running, and no page was ever loaded in a browser. Everything above is static verification: it compiles, it typechecks, the CSS contains the utilities and the theme, but nobody has looked at it. A whole-app restyle deserves an eye. Bring the stack up, sign in, and walk the four surfaces — list, creation dialog, delete confirm, editor with something selected — in light and dark. Then close to approve, or note what to change and remove `needs-review`.
+
+**claude** — 2026-08-24T09:12:07Z
+
+FOLLOW-UP, same session, after the user reviewed the note above. Two of its decisions are reversed on the user's instruction; the review ask at the bottom of that note still stands.
+
+- DECISION 1 IS REVERSED — `shadcn` IS INSTALLED. The blocking downgrade was `semver@6.3.1`, a 2023 release under `@babel/core` that predates provenance rather than one that lost it. `pnpm-workspace.yaml` gains `trustPolicyExclude: [semver]` beside `trustPolicy: no-downgrade`, carrying that reason. `shadcn` is a devDependency of `apps/web` — build-time only, which is where `@import "shadcn/tailwind.css"` is resolved, and consistent with `tailwindcss` and `@tailwindcss/postcss` already sitting there. `app/globals.css` imports from the package again, `app/shadcn.css` is deleted, and the `vite.config.ts` formatter carve-out that existed only for it is gone with it. `minimumReleaseAge` pins 4.18.0 rather than the 4.19.0 the registry served the components from; the two ship a byte-identical `tailwind.css`, checked before deleting the vendored copy.
+- DECISION 3 IS REVERSED — GEIST IS THE FACE. `next/font/google` self-hosts it: five woff2 files land in the build and the browser fetches nothing from Google, so the argument for the system stack ("nothing fetched at build time") was not worth the departure from the preset.
+- ONE HAZARD FOUND AND AVOIDED WHILE WIRING IT. Upstream's scaffold gives `next/font` the variable `--font-sans` and also declares `--font-sans` in `@theme inline`, so `<html>` ends up with two declarations of one custom property, one of which is `--font-sans: var(--font-sans)`. A custom property that resolves to itself is a cycle, and CSS drops a cyclic property outright — which leaves whether the face renders at all decided by which declaration the cascade picks. Here `next/font` gets `--font-geist` and the theme maps `--font-sans: var(--font-geist), system-ui, sans-serif`. Verified in the built CSS: `--font-geist:"Geist", "Geist Fallback"` on the document element, `html{font-family:var(--font-geist), system-ui, sans-serif}`, six `@font-face` rules pointing at `/_next/static/media`.
+
+Checks re-run after the change: `pnpm check` green (141 formatted, 91 checked), `pnpm build` green, 235 TypeScript tests green. `apps/api`'s pytest still errors on the missing api environment, unchanged and unrelated. STILL UNVERIFIED, and still the reason this issue is open: nothing has been rendered in a browser — see the last section of the previous note for what to walk through.

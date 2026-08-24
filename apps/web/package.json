@@ -24,6 +24,7 @@
     "@tailwindcss/postcss": "catalog:",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "shadcn": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

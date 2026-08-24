@@ -9,12 +9,9 @@ export default defineConfig({
     // Machine-written files keep their generators' formatting so the CI
     // contract job can diff regenerated output against what's committed.
     // .beaver issue files are managed by the beaver CLI, not formatted here.
-    // apps/web/app/shadcn.css is vendored verbatim from the shadcn package,
-    // so a refresh diffs against upstream rather than against the formatter.
     ignorePatterns: [
       "**/src/generated/**",
       "**/openapi.json",
-      "apps/web/app/shadcn.css",
       ".beaver/**",
       ".agents/**",
       ".claude/**",
