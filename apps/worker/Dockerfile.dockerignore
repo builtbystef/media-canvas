@@ -20,7 +20,6 @@
 .agents
 .vscode
 .vite-hooks
-sandbox
 apps/web/**
 !apps/web/package.json
 apps/api/**

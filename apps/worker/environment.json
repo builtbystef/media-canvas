@@ -1,7 +1,7 @@
 {
   "image": {
     "base": "node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d",
-    "recipe": "2183c0351afea6fe6afa3fa7c25df08677c03b8ef070e42cf66cee32de15d667"
+    "recipe": "32c7a44b1f4337e01ceae58bb96a92ee62bb549bb12387b39cb54bdafb9860ae"
   },
   "playwright": "1.62.1",
   "browsers": {
