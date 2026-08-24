@@ -1,13 +1,11 @@
 ---
 id: hq3p33
 title: The web app has no Tailwind and no shadcn/ui, which the editor spec names
-state: in-progress
+state: done
 priority: medium
-labels:
-    - needs-review
 parent: ek7pq1
 created: 2026-08-19T11:28:32Z
-updated: 2026-08-24T10:33:06Z
+updated: 2026-08-24T10:34:25Z
 ---
 
 ## What to build
