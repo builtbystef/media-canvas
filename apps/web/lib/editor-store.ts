@@ -26,6 +26,11 @@ export type EditorState = {
     options?: HandleDragOptions,
     gestureStart?: DesignDocument,
   ) => void;
+  commitPlacementEdit: (
+    change: (document: DesignDocument) => DesignDocument,
+    ids: readonly string[],
+    gestureStart?: DesignDocument,
+  ) => void;
 };
 
 /** One store owns editor document and selection state. The next undo slice can
@@ -67,6 +72,12 @@ export function createEditorStore(document: DesignDocument | null) {
           state.document === null
             ? null
             : applyHandleDrag(gestureStart ?? state.document, ids, handle, delta, options),
+        selected: [...ids],
+      })),
+    // Rotation, alignment, and distribution each cross this boundary once.
+    commitPlacementEdit: (change, ids, gestureStart) =>
+      set((state) => ({
+        document: state.document === null ? null : change(gestureStart ?? state.document),
         selected: [...ids],
       })),
   }));

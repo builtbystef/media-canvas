@@ -9,6 +9,8 @@ import type {
   GradientStop,
   Shadow,
 } from "@media-canvas/core";
+import type { AlignAction, DistributeAction } from "../../../lib/placement";
+import { normalizeRotation } from "../../../lib/placement";
 import {
   addGradientStop,
   commonValue,
@@ -28,11 +30,20 @@ type InspectorProps = {
   selected: readonly string[];
   onPreview: (change: Change) => void;
   onCommit: (change: Change, touched: readonly string[], start?: DesignDocument) => void;
+  onAlign: (action: AlignAction) => void;
+  onDistribute: (action: DistributeAction) => void;
 };
 
 /** The single property surface for the Design Document. Text controls are
  * explicitly Element properties: v1 has no rich spans. */
-export function Inspector({ document, selected, onPreview, onCommit }: InspectorProps) {
+export function Inspector({
+  document,
+  selected,
+  onPreview,
+  onCommit,
+  onAlign,
+  onDistribute,
+}: InspectorProps) {
   const elements = selectedElements(document, selected);
   const commitElements = (edit: EditElement) =>
     onCommit((current) => updateSelectedElements(current, selected, edit), selected);
@@ -106,6 +117,7 @@ export function Inspector({ document, selected, onPreview, onCommit }: Inspector
 
   return (
     <aside className="inspector" aria-label="Inspector">
+      <AlignmentToolbar count={elements.length} onAlign={onAlign} onDistribute={onDistribute} />
       <h2>Element properties</h2>
       <p className="inspector-note">
         {elements.length === 1 ? elements[0]!.type : `${String(elements.length)} Elements`}
@@ -147,11 +159,12 @@ export function Inspector({ document, selected, onPreview, onCommit }: Inspector
           {number("Height", heightOf, setHeight, { min: 1 })}
           {number(
             "Rotation",
-            (element) => element.rotation,
+            (element) => normalizeRotation(element.rotation),
             (element, rotation) => ({
               ...element,
-              rotation,
+              rotation: normalizeRotation(rotation),
             }),
+            { step: 0.1, digits: 1 },
           )}
           {number(
             "Opacity",
@@ -415,7 +428,47 @@ export function Inspector({ document, selected, onPreview, onCommit }: Inspector
   );
 }
 
-type NumberOptions = { min?: number; max?: number; step?: number };
+function AlignmentToolbar({
+  count,
+  onAlign,
+  onDistribute,
+}: {
+  count: number;
+  onAlign: (action: AlignAction) => void;
+  onDistribute: (action: DistributeAction) => void;
+}) {
+  const actions: readonly (readonly [AlignAction, string])[] = [
+    ["left", "Align left"],
+    ["center-horizontal", "Align horizontal centres"],
+    ["right", "Align right"],
+    ["top", "Align top"],
+    ["middle-vertical", "Align vertical middles"],
+    ["bottom", "Align bottom"],
+  ];
+  return (
+    <div className="alignment-toolbar" aria-label="Align and distribute" role="toolbar">
+      {actions.map(([action, label]) => (
+        <button
+          type="button"
+          title={label}
+          aria-label={label}
+          onClick={() => onAlign(action)}
+          key={action}
+        >
+          {label.replace("Align ", "")}
+        </button>
+      ))}
+      <button type="button" disabled={count < 3} onClick={() => onDistribute("horizontal")}>
+        Distribute H
+      </button>
+      <button type="button" disabled={count < 3} onClick={() => onDistribute("vertical")}>
+        Distribute V
+      </button>
+    </div>
+  );
+}
+
+type NumberOptions = { min?: number; max?: number; step?: number; digits?: number };
 
 type NumberFieldProps = NumberOptions & {
   document: DesignDocument;
@@ -434,6 +487,7 @@ function NumberField({
   min,
   max,
   step = 1,
+  digits,
 }: NumberFieldProps) {
   if (value.kind === "none") return null;
   const shown = value.kind === "same" ? value.value : undefined;
@@ -468,7 +522,7 @@ function NumberField({
       <input
         key={`${label}:${value.kind}:${String(shown)}`}
         type="number"
-        defaultValue={shown}
+        defaultValue={shown === undefined || digits === undefined ? shown : shown.toFixed(digits)}
         placeholder={value.kind === "mixed" ? "Mixed" : undefined}
         min={min}
         max={max}

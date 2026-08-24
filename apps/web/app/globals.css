@@ -499,6 +499,17 @@ button.danger {
   font-size: 0.72rem;
 }
 
+.alignment-toolbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+}
+
+.alignment-toolbar button:disabled {
+  opacity: 0.45;
+}
+
 .inspector-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -591,6 +602,7 @@ button.danger {
 
 .selection-handle {
   position: absolute;
+  z-index: 2;
   width: 0.55rem;
   height: 0.55rem;
   border: 1px solid var(--accent);
@@ -637,6 +649,50 @@ button.danger {
   left: 0;
   top: 50%;
   transform: translate(-50%, -50%);
+}
+
+.rotation-zone {
+  position: absolute;
+  z-index: 1;
+  width: 1.35rem;
+  height: 1.35rem;
+  pointer-events: auto;
+  cursor: grab;
+}
+.rotation-zone.top-left {
+  left: 0;
+  top: 0;
+  transform: translate(-100%, -100%);
+}
+.rotation-zone.top-right {
+  right: 0;
+  top: 0;
+  transform: translate(100%, -100%);
+}
+.rotation-zone.bottom-right {
+  right: 0;
+  bottom: 0;
+  transform: translate(100%, 100%);
+}
+.rotation-zone.bottom-left {
+  left: 0;
+  bottom: 0;
+  transform: translate(-100%, 100%);
+}
+
+.snap-guide {
+  position: absolute;
+  background: var(--accent);
+}
+.snap-guide.x {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.snap-guide.y {
+  left: 0;
+  right: 0;
+  height: 1px;
 }
 
 .marquee {

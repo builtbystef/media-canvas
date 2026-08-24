@@ -29,6 +29,15 @@ import {
   toolForKey,
 } from "../../../lib/drawing-tools";
 import { createEditorStore } from "../../../lib/editor-store";
+import {
+  alignElements,
+  distributeElements,
+  rotateElements,
+  snapBounds,
+  snapResizeBounds,
+  type ElementBounds,
+  type Guide,
+} from "../../../lib/placement";
 import { applyHandleDrag, type Handle, handlesForSelection } from "../../../lib/resize-scale";
 import {
   type Bounds,
@@ -49,6 +58,9 @@ type Gesture =
       clientY: number;
       document: DesignDocument;
       ids: string[];
+      bounds: ElementBounds;
+      neighbours: ElementBounds[];
+      delta: Point;
     }
   | { kind: "marquee"; pointerId: number; start: Point; current: Point; shifted: boolean }
   | {
@@ -69,9 +81,21 @@ type Gesture =
       ids: string[];
       handle: Handle;
       bounds: Bounds;
+      neighbours: ElementBounds[];
       delta: Point;
       keepAspect: boolean;
       fromCenter: boolean;
+    }
+  | {
+      kind: "rotate";
+      pointerId: number;
+      document: DesignDocument;
+      ids: string[];
+      bounds: Map<string, ElementBounds>;
+      pivot: Point;
+      startAngle: number;
+      delta: number;
+      snapped: boolean;
     };
 
 /** The compiled Design Document, its mounted-markup interactions, overlay, and
@@ -101,10 +125,12 @@ export function EditorCanvas({
   const createElement = useStore(store, (state) => state.createElement);
   const commitInspectorEdit = useStore(store, (state) => state.commitInspectorEdit);
   const commitHandleDrag = useStore(store, (state) => state.commitHandleDrag);
+  const commitPlacementEdit = useStore(store, (state) => state.commitPlacementEdit);
   const currentDesign = useRef(design);
   currentDesign.current = design;
   const [selectionBox, setSelectionBox] = useState<Bounds | null>(null);
   const [marquee, setMarquee] = useState<Bounds | null>(null);
+  const [guides, setGuides] = useState<Guide[]>([]);
   const viewport = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const canvasSpace = useRef<HTMLDivElement>(null);
@@ -319,6 +345,27 @@ export function EditorCanvas({
             event.currentTarget.setPointerCapture(event.pointerId);
             return;
           }
+          const rotationNode = (event.target as globalThis.Element).closest?.(".rotation-zone");
+          if (rotationNode !== null && selectionBox !== null && selected.length > 0) {
+            const pivot = {
+              x: (selectionBox.left + selectionBox.right) / 2,
+              y: (selectionBox.top + selectionBox.bottom) / 2,
+            };
+            const point = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
+            gesture.current = {
+              kind: "rotate",
+              pointerId: event.pointerId,
+              document: design,
+              ids: selected,
+              bounds: mountedBoundsMap(design.elements, host.current, canvasSpace.current, zoom),
+              pivot,
+              startAngle: angleFrom(pivot, point),
+              delta: 0,
+              snapped: event.shiftKey,
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
+            return;
+          }
           const handleNode = (event.target as globalThis.Element).closest?.(".selection-handle");
           const handle = handleNode?.getAttribute("data-handle") as Handle | null;
           if (handle !== null && selectionBox !== null && selected.length > 0) {
@@ -331,6 +378,12 @@ export function EditorCanvas({
               ids: selected,
               handle,
               bounds: selectionBox,
+              neighbours: siblingsAt(design.elements, enteredPath)
+                .filter((element) => !selected.includes(element.id))
+                .flatMap((element) =>
+                  elementBounds(element.id, host.current, canvasSpace.current, zoom),
+                )
+                .map((bounds) => ({ id: "neighbour", ...bounds })),
               delta: { x: 0, y: 0 },
               keepAspect: event.shiftKey,
               fromCenter: event.altKey,
@@ -373,6 +426,17 @@ export function EditorCanvas({
                 clientY: event.clientY,
                 document: design,
                 ids: next,
+                bounds: {
+                  id: "selection",
+                  ...selectionBounds(next, host.current, canvasSpace.current, zoom)!,
+                },
+                neighbours: siblingsAt(design.elements, enteredPath)
+                  .filter((element) => !next.includes(element.id))
+                  .flatMap((element) =>
+                    elementBounds(element.id, host.current, canvasSpace.current, zoom),
+                  )
+                  .map((bounds) => ({ id: "neighbour", ...bounds })),
+                delta: { x: 0, y: 0 },
               };
           }
           event.currentTarget.setPointerCapture(event.pointerId);
@@ -389,19 +453,53 @@ export function EditorCanvas({
           const active = gesture.current;
           if (active?.pointerId !== event.pointerId || zoom === null) return;
           if (active.kind === "move") {
-            replaceDocument(() =>
-              moveElements(
-                active.document,
-                active.ids,
-                (event.clientX - active.clientX) / zoom,
-                (event.clientY - active.clientY) / zoom,
-              ),
-            );
-          } else if (active.kind === "handle") {
-            active.delta = {
+            const raw = {
               x: (event.clientX - active.clientX) / zoom,
               y: (event.clientY - active.clientY) / zoom,
             };
+            const snapping = snapBounds(
+              shiftedBounds(active.bounds, raw),
+              canvas,
+              active.neighbours,
+              zoom,
+              event.metaKey || event.ctrlKey,
+            );
+            active.delta = { x: raw.x + snapping.dx, y: raw.y + snapping.dy };
+            setGuides(snapping.guides);
+            replaceDocument(() =>
+              moveElements(active.document, active.ids, active.delta.x, active.delta.y),
+            );
+          } else if (active.kind === "rotate") {
+            const point = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
+            active.delta = angleDelta(active.startAngle, angleFrom(active.pivot, point));
+            active.snapped = event.shiftKey;
+            replaceDocument(() =>
+              rotateElements(
+                active.document,
+                active.ids,
+                active.delta,
+                active.bounds,
+                active.snapped,
+              ),
+            );
+          } else if (active.kind === "handle") {
+            const raw = {
+              x: (event.clientX - active.clientX) / zoom,
+              y: (event.clientY - active.clientY) / zoom,
+            };
+            const snapping = snapResizeBounds(
+              { id: "selection", ...resizedBounds(active.bounds, active.handle, raw) },
+              active.handle,
+              canvas,
+              active.neighbours,
+              zoom,
+              event.metaKey || event.ctrlKey,
+            );
+            active.delta = {
+              x: raw.x + snapping.dx,
+              y: raw.y + snapping.dy,
+            };
+            setGuides(snapping.guides);
             active.keepAspect = event.shiftKey;
             active.fromCenter = event.altKey;
             replaceDocument(() =>
@@ -432,7 +530,20 @@ export function EditorCanvas({
         onPointerUp={(event) => {
           panning.current = null;
           const active = gesture.current;
-          if (active?.pointerId === event.pointerId && active.kind === "handle") {
+          if (active?.pointerId === event.pointerId && active.kind === "move") {
+            commitPlacementEdit(
+              (document) => moveElements(document, active.ids, active.delta.x, active.delta.y),
+              active.ids,
+              active.document,
+            );
+          } else if (active?.pointerId === event.pointerId && active.kind === "rotate") {
+            commitPlacementEdit(
+              (document) =>
+                rotateElements(document, active.ids, active.delta, active.bounds, active.snapped),
+              active.ids,
+              active.document,
+            );
+          } else if (active?.pointerId === event.pointerId && active.kind === "handle") {
             commitHandleDrag(
               active.ids,
               active.handle,
@@ -472,6 +583,7 @@ export function EditorCanvas({
           }
           gesture.current = null;
           setMarquee(null);
+          setGuides([]);
           if (event.currentTarget.hasPointerCapture(event.pointerId))
             event.currentTarget.releasePointerCapture(event.pointerId);
         }}
@@ -504,6 +616,13 @@ export function EditorCanvas({
                   )}
                 />
               )}
+              {guides.map((guide) => (
+                <span
+                  className={`snap-guide ${guide.axis}`}
+                  key={`${guide.axis}:${String(guide.position)}`}
+                  style={guide.axis === "x" ? { left: guide.position } : { top: guide.position }}
+                />
+              ))}
               {marquee && <div className="marquee" style={boxStyle(marquee)} />}
             </div>
           </div>
@@ -514,6 +633,30 @@ export function EditorCanvas({
         selected={selected}
         onPreview={replaceDocument}
         onCommit={commitInspectorEdit}
+        onAlign={(action) => {
+          const bounds = mountedBoundsMap(
+            design.elements,
+            host.current,
+            canvasSpace.current,
+            scale,
+          );
+          commitPlacementEdit(
+            (current) => alignElements(current, selected, action, bounds),
+            selected,
+          );
+        }}
+        onDistribute={(action) => {
+          const bounds = mountedBoundsMap(
+            design.elements,
+            host.current,
+            canvasSpace.current,
+            scale,
+          );
+          commitPlacementEdit(
+            (current) => distributeElements(current, selected, action, bounds),
+            selected,
+          );
+        }}
       />
       {editingTextId !== null && (
         <textarea
@@ -568,6 +711,9 @@ function SelectionBox({ bounds, handles }: { bounds: Bounds; handles: readonly H
       {handles.map((handle) => (
         <span className={`selection-handle ${handle}`} data-handle={handle} key={handle} />
       ))}
+      {(["top-left", "top-right", "bottom-right", "bottom-left"] as const).map((corner) => (
+        <span className={`rotation-zone ${corner}`} key={`rotate-${corner}`} />
+      ))}
     </div>
   );
 }
@@ -618,6 +764,64 @@ function elementBounds(
       bottom: (bounds.bottom - origin.top) / zoom,
     },
   ];
+}
+
+function selectionBounds(
+  ids: readonly string[],
+  host: globalThis.Element | null,
+  space: globalThis.Element | null,
+  zoom: number,
+): Bounds | null {
+  return unionBounds(ids.flatMap((id) => elementBounds(id, host, space, zoom)));
+}
+
+function mountedBoundsMap(
+  elements: readonly DocumentElement[],
+  host: globalThis.Element | null,
+  space: globalThis.Element | null,
+  zoom: number,
+): Map<string, ElementBounds> {
+  return new Map(
+    allElements(elements).flatMap((element) => {
+      const bounds = elementBounds(element.id, host, space, zoom)[0];
+      return bounds ? [[element.id, { id: element.id, ...bounds }] as const] : [];
+    }),
+  );
+}
+
+function allElements(elements: readonly DocumentElement[]): DocumentElement[] {
+  return elements.flatMap((element) => [
+    element,
+    ...(element.type === "group" ? allElements(element.children) : []),
+  ]);
+}
+
+function resizedBounds(bounds: Bounds, handle: Handle, delta: Point): Bounds {
+  return {
+    left: handle.includes("left") ? bounds.left + delta.x : bounds.left,
+    right: handle.includes("right") ? bounds.right + delta.x : bounds.right,
+    top: handle.includes("top") ? bounds.top + delta.y : bounds.top,
+    bottom: handle.includes("bottom") ? bounds.bottom + delta.y : bounds.bottom,
+  };
+}
+
+function shiftedBounds(bounds: ElementBounds, delta: Point): ElementBounds {
+  return {
+    ...bounds,
+    left: bounds.left + delta.x,
+    right: bounds.right + delta.x,
+    top: bounds.top + delta.y,
+    bottom: bounds.bottom + delta.y,
+  };
+}
+
+function angleFrom(pivot: Point, point: Point): number {
+  return (Math.atan2(point.y - pivot.y, point.x - pivot.x) * 180) / Math.PI;
+}
+
+function angleDelta(start: number, current: number): number {
+  const delta = current - start;
+  return ((delta + 540) % 360) - 180;
 }
 
 function canvasPoint(
