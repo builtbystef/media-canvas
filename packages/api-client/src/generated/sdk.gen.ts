@@ -71,7 +71,7 @@ export const getCurrentUser = <ThrowOnError extends boolean = false>(options?: O
 /**
  * Create Workspace
  *
- * Create a Workspace. The caller is its Owner, with nobody's permission.
+ * Create a Workspace with its Owner and bundled fonts ready to use.
  */
 export const createWorkspace = <ThrowOnError extends boolean = false>(options: Options<CreateWorkspaceData, ThrowOnError>): RequestResult<CreateWorkspaceResponses, CreateWorkspaceErrors, ThrowOnError> => (options.client ?? client).post<CreateWorkspaceResponses, CreateWorkspaceErrors, ThrowOnError>({
     url: '/api/v1/workspaces',

@@ -118,7 +118,7 @@
           "workspaces"
         ],
         "summary": "Create Workspace",
-        "description": "Create a Workspace. The caller is its Owner, with nobody's permission.",
+        "description": "Create a Workspace with its Owner and bundled fonts ready to use.",
         "operationId": "createWorkspace",
         "requestBody": {
           "content": {

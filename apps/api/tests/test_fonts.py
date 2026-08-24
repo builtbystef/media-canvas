@@ -6,14 +6,17 @@ contract, because the parser's own judgment is the worker's test to make and
 the api never opens a font file itself.
 """
 
+import asyncio
 from datetime import timedelta
 from typing import Any
+from uuid import UUID
 
 import pytest
 from botocore.client import BaseClient
 from botocore.exceptions import ClientError
 from conftest import Accounts, FakeClock, Join
 from fastapi.testclient import TestClient
+from media_canvas_api.bundled_fonts import seed_bundled_fonts
 from media_canvas_api.storage import Bucket, ObjectStore
 from media_canvas_api.worker import RecordingWorker
 from sqlalchemy import Engine, text
@@ -38,6 +41,89 @@ def upload(
         f"/api/v1/workspaces/{workspace}/fonts",
         files={"file": (filename, font, "font/ttf")},
     )
+
+
+BUNDLED_FAMILIES = {
+    "Bebas Neue",
+    "Dancing Script",
+    "Inter",
+    "JetBrains Mono",
+    "Lora",
+    "Montserrat",
+    "Oswald",
+    "Pacifico",
+    "Playfair Display",
+}
+
+
+def test_a_new_workspace_already_holds_every_bundled_font_family(
+    client: TestClient, accounts: Accounts
+) -> None:
+    accounts.sign_in("alice@example.com")
+
+    workspace = a_workspace(client)
+    listed = client.get(f"/api/v1/workspaces/{workspace}/fonts")
+
+    assert listed.status_code == 200, listed.text
+    fonts = listed.json()
+    assert len(fonts) == 21
+    assert {font["family"] for font in fonts} == BUNDLED_FAMILIES
+    assert all(font["bundled"] for font in fonts)
+
+
+def test_a_new_workspace_sets_text_in_a_bundled_font_without_an_upload(
+    client: TestClient, accounts: Accounts, worker: RecordingWorker
+) -> None:
+    accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client)
+    font = client.get(f"/api/v1/workspaces/{workspace}/fonts").json()[0]
+
+    design = client.post(
+        f"/api/v1/workspaces/{workspace}/documents",
+        json={
+            "kind": "design",
+            "name": "Poster",
+            "document": {
+                "schemaVersion": 1,
+                "canvas": {"width": 100, "height": 100, "background": "#ffffff"},
+                "elements": [
+                    {
+                        "id": "headline",
+                        "type": "text",
+                        "text": "Ready",
+                        "fontAssetId": font["id"],
+                    }
+                ],
+            },
+        },
+    )
+
+    assert design.status_code == 201, design.text
+    assert design.json()["document"]["elements"][0]["fontAssetId"] == font["id"]
+    assert client.get(font["url"]).status_code == 200
+    assert worker.inspections == []
+
+
+def test_seeding_a_workspace_again_changes_nothing(
+    client: TestClient, accounts: Accounts, clock: FakeClock, s3: BaseClient
+) -> None:
+    accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client)
+    before = client.get(f"/api/v1/workspaces/{workspace}/fonts").json()
+    bucket = client.app.state.settings.assets_bucket
+    before_objects = s3.list_objects_v2(Bucket=bucket).get("Contents", ())
+
+    async def seed_again() -> None:
+        async with client.app.state.sessions() as database:
+            await seed_bundled_fonts(
+                database, client.app.state.storage.assets, UUID(workspace), clock()
+            )
+            await database.commit()
+
+    asyncio.run(seed_again())
+
+    assert client.get(f"/api/v1/workspaces/{workspace}/fonts").json() == before
+    assert s3.list_objects_v2(Bucket=bucket).get("Contents", ()) == before_objects
 
 
 def test_an_uploaded_font_is_recorded_as_what_the_parser_read_in_it(
@@ -94,6 +180,16 @@ def test_a_font_is_identified_by_its_bytes_so_two_workspaces_hold_it_twice(
     one = a_workspace(client, "Studio")
     other = a_workspace(client, "Agency")
 
+    bundled_here = client.get(f"/api/v1/workspaces/{one}/fonts").json()
+    bundled_there = client.get(f"/api/v1/workspaces/{other}/fonts").json()
+    assert {font["id"] for font in bundled_here} == {
+        font["id"] for font in bundled_there
+    }
+    for font in bundled_here:
+        for workspace in (one, other):
+            key = f"{workspace}/fonts/{font['id']}.{font['format']}"
+            assert objects.assets.open(key) is not None
+
     here = upload(client, one)
     there = upload(client, other)
 
@@ -104,6 +200,9 @@ def test_a_font_is_identified_by_its_bytes_so_two_workspaces_hold_it_twice(
             objects.assets.open(f"{workspace}/fonts/{here.json()['id']}.ttf")
             is not None
         )
+
+    assert client.delete(here.json()["url"]).status_code == 204
+    assert client.get(there.json()["url"]).content == A_FONT
 
 
 def test_uploading_bytes_the_workspace_already_holds_returns_what_it_holds(
@@ -178,14 +277,10 @@ def test_a_font_past_the_size_limit_is_refused_without_being_inspected(
 
 
 def nothing_stored(client: TestClient, s3: BaseClient) -> bool:
-    """Whether the assets bucket is as empty as it was before the upload.
-
-    A refused font reaches storage at no point — there is no quarantine area
-    and nothing to sweep later — so the claim is about the whole bucket rather
-    than about one key.
-    """
+    """Whether a refused upload added nothing to the bundled baseline."""
     bucket = client.app.state.settings.assets_bucket
-    return "Contents" not in s3.list_objects_v2(Bucket=bucket)
+    stored = s3.list_objects_v2(Bucket=bucket).get("Contents", ())
+    return len(stored) == 21
 
 
 def test_uploading_a_font_takes_an_editor_and_a_viewer_is_refused(
@@ -239,7 +334,7 @@ def test_a_font_whose_bytes_could_not_be_stored_leaves_no_record_behind(
 
     with stored.begin() as connection:
         assert (
-            connection.execute(text("SELECT count(*) FROM font_assets")).scalar() == 0
+            connection.execute(text("SELECT count(*) FROM font_assets")).scalar() == 21
         )
 
 
@@ -334,7 +429,8 @@ def test_the_font_list_is_this_workspace_s_own_records_newest_first(
     listed = client.get(f"/api/v1/workspaces/{workspace}/fonts")
 
     assert listed.status_code == 200, listed.text
-    assert listed.json() == [second, first]
+    uploaded = [font for font in listed.json() if not font["bundled"]]
+    assert uploaded == [second, first]
 
 
 def test_a_listed_font_says_whether_it_came_with_the_product(
@@ -348,10 +444,14 @@ def test_a_listed_font_says_whether_it_came_with_the_product(
 
     listed = client.get(f"/api/v1/workspaces/{workspace}/fonts").json()
 
-    assert {record["id"]: record["bundled"] for record in listed} == {
-        mine["id"]: False,
-        theirs["id"]: True,
-    }
+    by_id = {record["id"]: record["bundled"] for record in listed}
+    assert by_id[mine["id"]] is False
+    assert by_id[theirs["id"]] is True
+    assert all(
+        record["bundled"]
+        for record in listed
+        if record["id"] not in {mine["id"], theirs["id"]}
+    )
 
 
 def mark_bundled(stored: Engine, workspace: str, font_id: str) -> None:
@@ -382,7 +482,8 @@ def test_deleting_a_font_takes_its_record_and_its_bytes_away(
     deleted = client.delete(font["url"])
 
     assert deleted.status_code == 204, deleted.text
-    assert client.get(f"/api/v1/workspaces/{workspace}/fonts").json() == []
+    listed = client.get(f"/api/v1/workspaces/{workspace}/fonts").json()
+    assert all(record["id"] != font["id"] for record in listed)
     assert client.get(font["url"]).status_code == 404
     assert objects.assets.open(f"{workspace}/fonts/{font['id']}.ttf") is None
 
@@ -405,18 +506,19 @@ def test_uploading_deleted_bytes_again_brings_the_font_back_at_the_same_id(
 
 
 def test_a_font_that_came_with_the_product_refuses_to_be_deleted(
-    client: TestClient, accounts: Accounts, stored: Engine, objects: ObjectStore
+    client: TestClient, accounts: Accounts, objects: ObjectStore
 ) -> None:
     accounts.sign_in("alice@example.com")
     workspace = a_workspace(client)
-    font = upload(client, workspace).json()
-    mark_bundled(stored, workspace, font["id"])
+    font = client.get(f"/api/v1/workspaces/{workspace}/fonts").json()[0]
 
     refused = client.delete(font["url"])
 
     assert refused.status_code == 409
     assert refused.json()["error"]["code"] == "asset_is_bundled"
-    assert objects.assets.open(f"{workspace}/fonts/{font['id']}.ttf") is not None
+    assert "came with the product" in refused.json()["error"]["message"]
+    key = f"{workspace}/fonts/{font['id']}.{font['format']}"
+    assert objects.assets.open(key) is not None
 
 
 def test_deleting_a_font_takes_an_editor_and_a_viewer_is_refused(
@@ -469,7 +571,8 @@ def test_a_font_whose_bytes_outlive_the_delete_leaves_no_record_behind(
         client.delete(font["url"])
 
     monkeypatch.undo()
-    assert client.get(f"/api/v1/workspaces/{workspace}/fonts").json() == []
+    listed = client.get(f"/api/v1/workspaces/{workspace}/fonts").json()
+    assert all(record["id"] != font["id"] for record in listed)
 
 
 def test_a_font_a_document_references_deletes_like_any_other(

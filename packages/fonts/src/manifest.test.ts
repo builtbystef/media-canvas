@@ -93,6 +93,17 @@ test("the manifest and the vendored files name each other exactly", () => {
   expect(new Set(bundledFonts.map((font) => font.id)).size).toBe(bundledFonts.length);
 });
 
+test("the manifest's parser metadata is what every vendored file says", () => {
+  for (const font of bundledFonts) {
+    const bytes = bytesOf(font);
+    const parsed = parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length));
+    expect(font.subfamily, `${font.file} subfamily`).toBe(parsed.getEnglishName("fontSubfamily"));
+    expect(font.postScriptName, `${font.file} PostScript name`).toBe(
+      parsed.getEnglishName("postScriptName"),
+    );
+  }
+});
+
 test("every vendored file parses and exposes a .notdef glyph", () => {
   for (const font of bundledFonts) {
     const bytes = bytesOf(font);

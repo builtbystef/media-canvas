@@ -30,8 +30,9 @@ async def start_workspace(
     """Create a Workspace with its first member — the User asking — as Owner.
 
     Nobody grants this: creating is how a Workspace comes to exist, and the
-    creator is its Owner in the same statement, so there is never a moment
-    where a Workspace has no Owner.
+    creator is its Owner in the same transaction, so there is never a moment
+    where a Workspace has no Owner. The caller commits after adding everything
+    a new Workspace must begin with.
     """
     workspace = Workspace(name=name, created_at=now)
     database.add(workspace)
@@ -44,7 +45,6 @@ async def start_workspace(
             created_at=now,
         )
     )
-    await database.commit()
     return workspace
 
 

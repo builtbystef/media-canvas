@@ -7,7 +7,15 @@ from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from media_canvas_api.access import CurrentSession, Database, Now, Owning, Viewing
+from media_canvas_api.access import (
+    CurrentSession,
+    Database,
+    Now,
+    Owning,
+    Storage,
+    Viewing,
+)
+from media_canvas_api.bundled_fonts import seed_bundled_fonts
 from media_canvas_api.memberships import (
     LastOwner,
     close_workspace,
@@ -49,10 +57,14 @@ async def create_workspace(
     body: WorkspaceDetails,
     database: Database,
     signed_in: CurrentSession,
+    storage: Storage,
     clock: Now,
 ) -> WorkspaceView:
-    """Create a Workspace. The caller is its Owner, with nobody's permission."""
-    workspace = await start_workspace(database, signed_in.user, body.name, clock())
+    """Create a Workspace with its Owner and bundled fonts ready to use."""
+    now = clock()
+    workspace = await start_workspace(database, signed_in.user, body.name, now)
+    await seed_bundled_fonts(database, storage.assets, workspace.id, now)
+    await database.commit()
     return WorkspaceView(id=workspace.id, name=workspace.name)
 
 

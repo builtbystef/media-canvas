@@ -27,6 +27,9 @@ export type BundledFont = {
   /** CSS weight of this file: 400 regular, 700 bold, 900 black. */
   weight: number;
   style: FontStyle;
+  /** Names read from the file by the render path's font parser. */
+  subfamily: string;
+  postScriptName: string;
 };
 
 const packageRoot = join(import.meta.dirname, "..");

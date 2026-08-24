@@ -184,7 +184,8 @@ def test_two_files_that_normalize_to_the_same_picture_are_one_asset(
 
     assert (first.status_code, again.status_code) == (201, 200)
     assert again.json() == first.json()
-    assert len(s3.list_objects_v2(Bucket=stored_bucket(client))["Contents"]) == 1
+    # One normalized image beside the 21 fonts every Workspace starts with.
+    assert len(s3.list_objects_v2(Bucket=stored_bucket(client))["Contents"]) == 22
     with stored.begin() as connection:
         assert (
             connection.execute(text("SELECT count(*) FROM image_assets")).scalar() == 1
@@ -361,13 +362,9 @@ def a_png_header_claiming(width: int, height: int) -> bytes:
 
 
 def nothing_stored(client: TestClient, s3: BaseClient) -> bool:
-    """Whether the assets bucket is as empty as it was before the upload.
-
-    A refused image reaches storage at no point — there is no quarantine area
-    and nothing to sweep later — so the claim is about the whole bucket rather
-    than about one key.
-    """
-    return "Contents" not in s3.list_objects_v2(Bucket=stored_bucket(client))
+    """Whether a refused upload added nothing to the bundled-font baseline."""
+    stored = s3.list_objects_v2(Bucket=stored_bucket(client)).get("Contents", ())
+    return len(stored) == 21
 
 
 def test_uploading_an_image_takes_an_editor_and_a_viewer_is_refused(
