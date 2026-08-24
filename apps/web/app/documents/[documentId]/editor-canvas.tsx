@@ -352,7 +352,7 @@ export function EditorCanvas({
             event.currentTarget.setPointerCapture(event.pointerId);
             return;
           }
-          const rotationNode = (event.target as globalThis.Element).closest?.(".rotation-zone");
+          const rotationNode = (event.target as globalThis.Element).closest?.("[data-rotate]");
           if (rotationNode !== null && selectionBox !== null && selected.length > 0) {
             const pivot = {
               x: (selectionBox.left + selectionBox.right) / 2,
@@ -373,7 +373,7 @@ export function EditorCanvas({
             event.currentTarget.setPointerCapture(event.pointerId);
             return;
           }
-          const handleNode = (event.target as globalThis.Element).closest?.(".selection-handle");
+          const handleNode = (event.target as globalThis.Element).closest?.("[data-handle]");
           const handle = handleNode?.getAttribute("data-handle") as Handle | null;
           if (handle !== null && selectionBox !== null && selected.length > 0) {
             gesture.current = {
@@ -741,7 +741,11 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 /** Where each handle sits on the selection's edge, and the rotation zone just
- * outside the corner it belongs to. Both are placed by their own centre. */
+ * outside the corner it belongs to. Both are placed by their own centre.
+ *
+ * `data-handle` and `data-rotate` are the hit-test contract: pointer-down
+ * reads them with `closest`, so a restyle may move these classes freely but
+ * must keep the attributes. */
 const HANDLE_AT: Record<Handle, string> = {
   "top-left": "left-0 top-0 -translate-x-1/2 -translate-y-1/2",
   top: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2",
@@ -776,6 +780,7 @@ function SelectionBox({ bounds, handles }: { bounds: Bounds; handles: readonly H
       {(["top-left", "top-right", "bottom-right", "bottom-left"] as const).map((corner) => (
         <span
           className={cn("pointer-events-auto absolute z-1 size-5 cursor-grab", ROTATION_AT[corner])}
+          data-rotate={corner}
           key={`rotate-${corner}`}
         />
       ))}

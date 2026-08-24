@@ -473,50 +473,52 @@ function AlignmentToolbar({
     ["middle-vertical", "Align vertical middles"],
     ["bottom", "Align bottom"],
   ];
-  // The six align actions are two rows of three; the two distribute actions
-  // are a row of their own. The panel is narrow, so a label that does not fit
-  // its cell is clipped rather than allowed to push the grid wider — the full
-  // wording is on the button's title and accessible name.
+  // One three-column grid for all eight actions, so the two distribute buttons
+  // take the last row. The panel is narrow and these labels are wider than a
+  // cell, so a cell wraps to a second line rather than clipping its label —
+  // shadcn's Button is nowrap and fixed-height by default, which would cut the
+  // wording in half.
+  const CELL = "h-auto min-w-0 whitespace-normal py-1 leading-tight";
   return (
-    <div className="mb-3 grid gap-1" aria-label="Align and distribute" role="toolbar">
-      <div className="grid grid-cols-3 gap-1">
-        {actions.map(([action, label]) => (
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            className="min-w-0 truncate"
-            title={label}
-            aria-label={label}
-            onClick={() => onAlign(action)}
-            key={action}
-          >
-            {label.replace("Align ", "")}
-          </Button>
-        ))}
-      </div>
-      <div className="grid grid-cols-2 gap-1">
+    <div
+      className="mb-3 grid grid-cols-3 items-stretch gap-1"
+      aria-label="Align and distribute"
+      role="toolbar"
+    >
+      {actions.map(([action, label]) => (
         <Button
           type="button"
           variant="outline"
           size="xs"
-          className="min-w-0 truncate"
-          disabled={count < 3}
-          onClick={() => onDistribute("horizontal")}
+          className={CELL}
+          title={label}
+          aria-label={label}
+          onClick={() => onAlign(action)}
+          key={action}
         >
-          Distribute H
+          {label.replace("Align ", "")}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="xs"
-          className="min-w-0 truncate"
-          disabled={count < 3}
-          onClick={() => onDistribute("vertical")}
-        >
-          Distribute V
-        </Button>
-      </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="xs"
+        className={CELL}
+        disabled={count < 3}
+        onClick={() => onDistribute("horizontal")}
+      >
+        Distribute H
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="xs"
+        className={CELL}
+        disabled={count < 3}
+        onClick={() => onDistribute("vertical")}
+      >
+        Distribute V
+      </Button>
     </div>
   );
 }
