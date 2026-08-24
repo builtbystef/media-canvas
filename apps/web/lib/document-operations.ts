@@ -25,6 +25,10 @@ function changeElements(document: DesignDocument, ids: ReadonlySet<string>, chan
   return documentChanged ? { ...document, elements } : document;
 }
 
+export function addElement(document: DesignDocument, element: Element): DesignDocument {
+  return { ...document, elements: [...document.elements, element] };
+}
+
 export function moveElements(
   document: DesignDocument,
   ids: readonly string[],

@@ -348,9 +348,44 @@ button.danger {
   gap: 1rem;
 }
 
-.layers {
+.editor-left {
   min-width: 0;
   margin-top: 1.5rem;
+}
+
+.tools {
+  display: grid;
+  gap: 0.3rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tools button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.35rem;
+  background: var(--card);
+  color: inherit;
+  font-size: 0.75rem;
+}
+
+.tools button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.tools kbd {
+  color: var(--quiet);
+  font: inherit;
+}
+
+.layers {
+  min-width: 0;
+  margin-top: 0.75rem;
   padding: 0.75rem;
   border: 1px solid var(--edge);
   border-radius: 0.5rem;

@@ -19,6 +19,15 @@ import {
   reorderElement,
   setElementVisibility,
 } from "../../../lib/document-operations";
+import {
+  DEFAULT_FONT_ASSET_ID,
+  type DrawTool,
+  type Point,
+  type Tool,
+  createDrawnElement,
+  drawingBounds,
+  toolForKey,
+} from "../../../lib/drawing-tools";
 import { createEditorStore } from "../../../lib/editor-store";
 import {
   type Bounds,
@@ -39,8 +48,16 @@ type Gesture =
       document: DesignDocument;
       ids: string[];
     }
-  | { kind: "marquee"; pointerId: number; start: Point; current: Point; shifted: boolean };
-type Point = { x: number; y: number };
+  | { kind: "marquee"; pointerId: number; start: Point; current: Point; shifted: boolean }
+  | {
+      kind: "draw";
+      pointerId: number;
+      tool: DrawTool;
+      start: Point;
+      current: Point;
+      constrained: boolean;
+      fromCenter: boolean;
+    };
 
 /** The compiled Design Document, its mounted-markup interactions, overlay, and
  * layer tree. Document edits enter through pure operations so ADR-0006's
@@ -61,8 +78,12 @@ export function EditorCanvas({
   const design = useStore(store, (state) => state.document);
   const selected = useStore(store, (state) => state.selected);
   const enteredPath = useStore(store, (state) => state.enteredPath);
+  const activeTool = useStore(store, (state) => state.activeTool);
+  const editingTextId = useStore(store, (state) => state.editingTextId);
   const replaceDocument = useStore(store, (state) => state.replaceDocument);
   const select = useStore(store, (state) => state.select);
+  const armTool = useStore(store, (state) => state.armTool);
+  const createElement = useStore(store, (state) => state.createElement);
   const currentDesign = useRef(design);
   currentDesign.current = design;
   const [selectionBox, setSelectionBox] = useState<Bounds | null>(null);
@@ -70,6 +91,7 @@ export function EditorCanvas({
   const viewport = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const canvasSpace = useRef<HTMLDivElement>(null);
+  const textInput = useRef<HTMLTextAreaElement>(null);
   const preview = useRef<Preview | null>(null);
   const pending = useRef<{ left: number; top: number } | null>(null);
   const panning = useRef<{ x: number; y: number } | null>(null);
@@ -91,9 +113,12 @@ export function EditorCanvas({
     }
     let left = false;
     async function open() {
-      const library = await loadAssets(workspace!, document!);
+      const library = await loadAssets(workspace!, document!, [DEFAULT_FONT_ASSET_ID]);
       if (left) return;
-      const missing = missingAssets(document!, library);
+      const missing = [
+        ...missingAssets(document!, library),
+        ...(library.fonts.has(DEFAULT_FONT_ASSET_ID) ? [] : [DEFAULT_FONT_ASSET_ID]),
+      ];
       if (missing.length > 0) {
         setProblem(`This document cannot be drawn: ${missing.join(", ")} could not be fetched.`);
         return;
@@ -164,15 +189,32 @@ export function EditorCanvas({
     return () => view.removeEventListener("wheel", wheeled);
   }, [zoom, documentId]);
 
+  useLayoutEffect(() => {
+    if (editingTextId !== null) textInput.current?.focus();
+  }, [editingTextId]);
+
   useEffect(() => {
     function pressed(event: KeyboardEvent) {
-      if (event.code === "Space") spaceHeld.current = true;
-      if (event.code !== "Escape") return;
-      if (enteredPath.length === 0) select([]);
-      else {
-        const exited = enteredPath.at(-1)!;
-        select([exited], enteredPath.slice(0, -1));
+      if (event.code === "Space") {
+        event.preventDefault();
+        spaceHeld.current = true;
+        return;
       }
+      if (event.key === "Escape") {
+        if (activeTool !== "select" || editingTextId !== null) {
+          gesture.current = null;
+          setMarquee(null);
+          armTool("select");
+        } else if (enteredPath.length === 0) select([]);
+        else {
+          const exited = enteredPath.at(-1)!;
+          select([exited], enteredPath.slice(0, -1));
+        }
+        return;
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return;
+      const tool = toolForKey(event.key);
+      if (tool !== null) armTool(tool);
     }
     function released(event: KeyboardEvent) {
       if (event.code === "Space") spaceHeld.current = false;
@@ -183,7 +225,7 @@ export function EditorCanvas({
       window.removeEventListener("keydown", pressed);
       window.removeEventListener("keyup", released);
     };
-  }, [enteredPath, select]);
+  }, [activeTool, armTool, editingTextId, enteredPath, select]);
 
   if (problem !== null)
     return (
@@ -205,18 +247,21 @@ export function EditorCanvas({
   const scale = zoom ?? 1;
   return (
     <div className="editor-workspace">
-      <LayerList
-        document={design}
-        selected={selected}
-        onSelect={(id, parentPath) => select([id], parentPath)}
-        onRename={(id, name) => replaceDocument((current) => renameElement(current, id, name))}
-        onVisibility={(id, visible) =>
-          replaceDocument((current) => setElementVisibility(current, id, visible))
-        }
-        onReorder={(path, id, index) =>
-          replaceDocument((current) => reorderElement(current, path, id, index))
-        }
-      />
+      <div className="editor-left">
+        <ToolPalette active={activeTool} onArm={armTool} />
+        <LayerList
+          document={design}
+          selected={selected}
+          onSelect={(id, parentPath) => select([id], parentPath)}
+          onRename={(id, name) => replaceDocument((current) => renameElement(current, id, name))}
+          onVisibility={(id, visible) =>
+            replaceDocument((current) => setElementVisibility(current, id, visible))
+          }
+          onReorder={(path, id, index) =>
+            replaceDocument((current) => reorderElement(current, path, id, index))
+          }
+        />
+      </div>
       <main
         className="stage"
         ref={viewport}
@@ -230,13 +275,33 @@ export function EditorCanvas({
           select(child === null ? [] : [child], path);
         }}
         onPointerDown={(event) => {
-          if (event.button === 1 || (event.button === 0 && spaceHeld.current)) {
+          if (
+            event.button === 1 ||
+            (event.button === 0 && (spaceHeld.current || activeTool === "hand"))
+          ) {
             event.preventDefault();
             panning.current = { x: event.clientX, y: event.clientY };
             event.currentTarget.setPointerCapture(event.pointerId);
             return;
           }
           if (event.button !== 0 || zoom === null) return;
+          if (activeTool === "text" || activeTool === "rect" || activeTool === "ellipse") {
+            const point = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
+            if (point.x < 0 || point.y < 0 || point.x > canvas.width || point.y > canvas.height)
+              return;
+            gesture.current = {
+              kind: "draw",
+              pointerId: event.pointerId,
+              tool: activeTool,
+              start: point,
+              current: point,
+              constrained: event.shiftKey,
+              fromCenter: event.altKey,
+            };
+            setMarquee(boundsBetween(point, point));
+            event.currentTarget.setPointerCapture(event.pointerId);
+            return;
+          }
           const handle = (event.target as globalThis.Element).closest?.(".selection-handle");
           const chain = handle ? [] : mountedChainAt(event.clientX, event.clientY, host.current);
           const target = handle
@@ -301,13 +366,41 @@ export function EditorCanvas({
             );
           } else {
             active.current = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
-            setMarquee(boundsBetween(active.start, active.current));
+            if (active.kind === "draw") {
+              active.constrained = event.shiftKey;
+              active.fromCenter = event.altKey;
+            }
+            setMarquee(
+              active.kind === "draw"
+                ? drawingBounds(
+                    active.start,
+                    active.current,
+                    active.constrained && active.tool !== "text",
+                    active.fromCenter,
+                  )
+                : boundsBetween(active.start, active.current),
+            );
           }
         }}
         onPointerUp={(event) => {
           panning.current = null;
           const active = gesture.current;
-          if (active?.pointerId === event.pointerId && active.kind === "marquee" && zoom !== null) {
+          if (active?.pointerId === event.pointerId && active.kind === "draw") {
+            createElement(
+              createDrawnElement(
+                active.tool,
+                crypto.randomUUID(),
+                active.start,
+                active.current,
+                active.constrained,
+                active.fromCenter,
+              ),
+            );
+          } else if (
+            active?.pointerId === event.pointerId &&
+            active.kind === "marquee" &&
+            zoom !== null
+          ) {
             const bounds = boundsBetween(active.start, active.current);
             const ids = siblingsAt(design.elements, enteredPath)
               .map((element) => ({
@@ -347,7 +440,50 @@ export function EditorCanvas({
           </div>
         </div>
       </main>
+      {editingTextId !== null && (
+        <textarea
+          aria-label="Text content"
+          className="visually-hidden"
+          defaultValue=""
+          readOnly
+          ref={textInput}
+        />
+      )}
     </div>
+  );
+}
+
+function ToolPalette({ active, onArm }: { active: Tool; onArm: (tool: Tool) => void }) {
+  const tools: readonly { tool: Tool; label: string; key: string }[] = [
+    { tool: "select", label: "Select", key: "V" },
+    { tool: "text", label: "Text", key: "T" },
+    { tool: "rect", label: "Rectangle", key: "R" },
+    { tool: "ellipse", label: "Ellipse", key: "O" },
+    { tool: "hand", label: "Hand", key: "H" },
+  ];
+  return (
+    <div aria-label="Drawing tools" className="tools" role="toolbar">
+      {tools.map(({ tool, label, key }) => (
+        <button
+          aria-pressed={active === tool}
+          key={tool}
+          onClick={() => onArm(tool)}
+          title={`${label} (${key})`}
+          type="button"
+        >
+          {label}
+          <kbd>{key}</kbd>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
   );
 }
 

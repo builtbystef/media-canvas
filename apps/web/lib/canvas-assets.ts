@@ -49,21 +49,24 @@ export function missingAssets(document: DesignDocument, library: AssetLibrary): 
 }
 
 /**
- * Fetch what the document draws with, from the Workspace that holds it.
+ * Fetch what the document draws with, plus any fonts an editor operation is
+ * about to introduce, from the Workspace that holds it.
  *
  * The two list endpoints say what the Workspace has and where each asset is
- * served from; only the fonts this document names are then pulled down, since
- * a face is hundreds of kilobytes and a Workspace may hold many. Anything that
- * cannot be fetched is simply absent from the library, and `missingAssets`
- * names it rather than a half-drawn canvas showing it.
+ * served from; only the fonts requested here are then pulled down, since a face
+ * is hundreds of kilobytes and a Workspace may hold many. Anything that cannot
+ * be fetched is simply absent from the library, and the caller can refuse a
+ * half-drawn canvas while naming what is missing.
  */
 export async function loadAssets(
   workspaceId: string,
   document: DesignDocument,
+  additionalFonts: readonly string[] = [],
 ): Promise<AssetLibrary> {
   const wanted = referencedAssets(document);
+  const wantedFonts = [...new Set([...wanted.fonts, ...additionalFonts])];
   const [fonts, images] = await Promise.all([
-    wanted.fonts.length === 0 ? undefined : listFonts({ path: { workspaceId } }),
+    wantedFonts.length === 0 ? undefined : listFonts({ path: { workspaceId } }),
     wanted.images.length === 0 ? undefined : listImages({ path: { workspaceId } }),
   ]);
   const held: AssetLibrary = { fonts: new Map(), images: new Map() };
@@ -74,7 +77,7 @@ export async function loadAssets(
   }
   await Promise.all(
     (fonts?.data ?? [])
-      .filter((font) => wanted.fonts.includes(font.id))
+      .filter((font) => wantedFonts.includes(font.id))
       .map(async (font) => {
         const response = await fetch(font.url);
         if (!response.ok) return;
