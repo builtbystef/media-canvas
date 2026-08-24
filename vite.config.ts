@@ -15,6 +15,7 @@ export default defineConfig({
       ".beaver/**",
       ".agents/**",
       ".claude/**",
+      ".pi/**",
     ],
   },
   lint: {
