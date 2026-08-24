@@ -14,6 +14,11 @@ export type EditorState = {
   select: (selected: string[], enteredPath?: string[]) => void;
   armTool: (tool: Tool) => void;
   createElement: (element: Element) => void;
+  commitInspectorEdit: (
+    change: (document: DesignDocument) => DesignDocument,
+    ids: readonly string[],
+    gestureStart?: DesignDocument,
+  ) => void;
   commitHandleDrag: (
     ids: readonly string[],
     handle: Handle,
@@ -47,6 +52,14 @@ export function createEditorStore(document: DesignDocument | null) {
         enteredPath: [],
         activeTool: "select",
         editingTextId: element.type === "text" ? element.id : null,
+      })),
+    // A typed commit calls this once; a scrub may preview through
+    // `replaceDocument`, then calls this once on release with its starting
+    // snapshot. The undo slice can therefore add one entry at this boundary.
+    commitInspectorEdit: (change, ids, gestureStart) =>
+      set((state) => ({
+        document: state.document === null ? null : change(gestureStart ?? state.document),
+        selected: [...ids],
       })),
     commitHandleDrag: (ids, handle, delta, options, gestureStart) =>
       set((state) => ({

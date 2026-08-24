@@ -37,6 +37,7 @@ import {
   toggleSelection,
   unionBounds,
 } from "../../../lib/selection";
+import { Inspector } from "./inspector";
 import { LayerList } from "./layer-list";
 import { applyUpdate } from "./mounted-preview";
 
@@ -98,6 +99,7 @@ export function EditorCanvas({
   const select = useStore(store, (state) => state.select);
   const armTool = useStore(store, (state) => state.armTool);
   const createElement = useStore(store, (state) => state.createElement);
+  const commitInspectorEdit = useStore(store, (state) => state.commitInspectorEdit);
   const commitHandleDrag = useStore(store, (state) => state.commitHandleDrag);
   const currentDesign = useRef(design);
   currentDesign.current = design;
@@ -507,6 +509,12 @@ export function EditorCanvas({
           </div>
         </div>
       </main>
+      <Inspector
+        document={design}
+        selected={selected}
+        onPreview={replaceDocument}
+        onCommit={commitInspectorEdit}
+      />
       {editingTextId !== null && (
         <textarea
           aria-label="Text content"
