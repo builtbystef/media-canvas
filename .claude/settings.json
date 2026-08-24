@@ -32,7 +32,7 @@
         "/run/user/1000/keyring",
         "/run/user/1000/gnupg"
       ],
-      "allowWrite": ["~/.cache", "~/.npm", "~/.local/share/pnpm", "~/go/pkg/mod"],
+      "allowWrite": ["/tmp", "~/.cache", "~/.npm", "~/.local/share/pnpm", "~/go/pkg/mod"],
       "denyWrite": ["~/.cache/ccache", "~/.cache/go-build"]
     }
   },
