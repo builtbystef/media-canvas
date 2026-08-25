@@ -5,6 +5,7 @@
 
 import { chromium, type Page } from "playwright-core";
 
+import type { BrowserBuild } from "./environment.ts";
 import { contextOptions, launchOptions, renderEnvironment } from "./environment.ts";
 
 export type RenderOptions =
@@ -22,12 +23,23 @@ const CSS_PX_PER_INCH = 96;
 
 /** Turn compiled markup into the bytes of exactly one file. */
 export async function render(svg: string, options: RenderOptions): Promise<Uint8Array> {
+  return renderWith(renderEnvironment.browsers.render, svg, options);
+}
+
+/** Same as `render`, against one of the image's two browser builds. The
+ *  production path never calls this with the headless shell; the named
+ *  cross-flavor parity fixture (issue 6bqdxe) is the only caller. */
+export async function renderWith(
+  build: BrowserBuild,
+  svg: string,
+  options: RenderOptions,
+): Promise<Uint8Array> {
   const size = canvasSize(svg);
   if (size === undefined) {
     throw new Error("markup will not load: the SVG has no canvas size");
   }
 
-  const browser = await chromium.launch(launchOptions(renderEnvironment.browsers.render));
+  const browser = await chromium.launch(launchOptions(build));
   try {
     const scale = options.format === "png" ? options.scale : 1;
     const context = await browser.newContext({

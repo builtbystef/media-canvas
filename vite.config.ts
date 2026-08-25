@@ -16,6 +16,8 @@ export default defineConfig({
       ".agents/**",
       ".claude/**",
       ".pi/**",
+      // Vendored pixelmatch 7.2.0 — keep the upstream text, not ours.
+      "apps/worker/src/goldens/pixelmatch.js",
     ],
   },
   lint: {
@@ -24,7 +26,13 @@ export default defineConfig({
       typeAware: true,
       typeCheck: true,
     },
-    ignorePatterns: ["**/dist/**", "**/coverage/**", "**/.next/**", "**/src/generated/**"],
+    ignorePatterns: [
+      "**/dist/**",
+      "**/coverage/**",
+      "**/.next/**",
+      "**/src/generated/**",
+      "apps/worker/src/goldens/pixelmatch.js",
+    ],
     overrides: [
       {
         // `plugins` in an override replaces the base list, so repeat it.

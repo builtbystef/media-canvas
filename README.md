@@ -56,7 +56,8 @@ Renders happen in one pinned image and nowhere else (ADR-0002):
 
 ```sh
 pnpm --filter worker run image:build        # build the pinned render worker image
-pnpm --filter worker run image:check        # smoke + environment checks, inside it
+pnpm --filter worker run image:check        # smoke, environment, render, and golden checks, inside it
+pnpm --filter worker run goldens:bake       # write golden baselines, inside the image only
 pnpm --filter worker run environment:write  # rewrite the environment tuple
 ```
 
@@ -66,7 +67,10 @@ set and its configuration, the page's viewport, scale, locale, timezone and
 color scheme, and the compiler and schema versions. Golden baselines are bound
 to it, so a change to the Dockerfile, to Playwright, to the bundled fonts or to
 the compiler is a change of environment: rewrite the tuple with the command
-above and re-bake the baselines it invalidates.
+above and re-bake the baselines it invalidates. The re-bake policy — whole
+suite only after a deliberate tuple change, reviewed with the old and new
+tuples; an intended rendering change updates only the fixtures it affects — is
+in [`apps/worker/goldens/README.md`](apps/worker/goldens/README.md).
 
 ## Browser smoke suite
 
