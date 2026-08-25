@@ -8,7 +8,9 @@
     ]
   },
   "filesystem": {
-    "allowRead": [],
+    "allowRead": [
+      "/"
+    ],
     "denyRead": [
       "~/Main",
       "~/dotfiles",
@@ -31,7 +33,8 @@
       "/run/docker.sock",
       "/run/user/1000/podman/podman.sock",
       "/run/user/1000/keyring",
-      "/run/user/1000/gnupg"
+      "/run/user/1000/gnupg",
+      "/run/podman/podman.sock"
     ],
     "allowWrite": [
       ".",
