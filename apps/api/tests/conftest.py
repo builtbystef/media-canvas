@@ -6,14 +6,17 @@ and the bucket names are overridden here, before anything reads the settings.
 """
 
 import os
+import socket
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 os.environ["POSTGRES_DB"] = "media_canvas_test"
 os.environ["ASSETS_BUCKET"] = "media-canvas-test-assets"
 os.environ["OUTPUTS_BUCKET"] = "media-canvas-test-outputs"
+# A database of its own, so a test never drains the development queue.
+os.environ["REDIS_DB"] = "1"
 
 import boto3
 import pytest
@@ -257,6 +260,53 @@ def objects(client: TestClient) -> ObjectStore:
 def s3(settings: Settings) -> BaseClient:
     """The object store itself, for the claims the seam cannot make about it."""
     return storage_client(settings)
+
+
+@pytest.fixture(autouse=True)
+def clean_queue(settings: Settings) -> Iterator[None]:
+    """Leave Redis empty, on the test database only.
+
+    A Redis that cannot be reached is not this fixture's problem: job
+    submission will say so when it tries to enqueue. Everything else the
+    api does still runs without a queue.
+    """
+    yield
+    with suppress(OSError):
+        flush_redis(settings)
+
+
+def flush_redis(settings: Settings) -> None:
+    if settings.redis_host.startswith("/"):
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(settings.redis_host)
+    else:
+        sock = socket.create_connection((settings.redis_host, settings.redis_port))
+    try:
+        if settings.redis_db:
+            sock.sendall(_resp("SELECT", str(settings.redis_db)))
+            _discard_reply(sock)
+        sock.sendall(_resp("FLUSHDB"))
+        _discard_reply(sock)
+    finally:
+        sock.close()
+
+
+def _resp(*parts: str) -> bytes:
+    payload = f"*{len(parts)}\r\n".encode()
+    for part in parts:
+        encoded = part.encode()
+        payload += f"${len(encoded)}\r\n".encode() + encoded + b"\r\n"
+    return payload
+
+
+def _discard_reply(sock: socket.socket) -> None:
+    # FLUSHDB / SELECT answer one simple line; read until CRLF.
+    buf = b""
+    while not buf.endswith(b"\r\n"):
+        chunk = sock.recv(64)
+        if not chunk:
+            break
+        buf += chunk
 
 
 @pytest.fixture(autouse=True)

@@ -2,9 +2,8 @@
 
 A batch of Rows meets a Template and becomes a Generation Job — or the whole
 batch is refused and nothing exists. Validation is the worker's (ADR-0003);
-this module copies the Template, records the Rows, and answers with the Job.
-The queue is not this slice: a submitted Job sits queued until 4dpprd
-enqueues it.
+this module copies the Template, records the Rows, answers with the Job, and
+enqueues one identifiers-only task per Row (ADR-0004).
 """
 
 from collections.abc import Sequence
@@ -27,6 +26,7 @@ from media_canvas_api.access import (
     Now,
     Viewing,
     WorkerService,
+    WorkQueue,
     refuse_unless,
 )
 from media_canvas_api.memberships import membership_in
@@ -207,6 +207,7 @@ async def create_job(
     template: EditableTemplate,
     database: Database,
     worker: WorkerService,
+    work: WorkQueue,
     clock: Now,
 ) -> JobView | JSONResponse:
     """Submit a batch against this Template, or return the Job a repeated
@@ -267,6 +268,7 @@ async def create_job(
             status_code=200,
             content=_dumped(await view_of(database, existing)),
         )
+    await work.enqueue([(job.id, row.id) for row in stored_rows])
     return view_of_rows(job, stored_rows)
 
 

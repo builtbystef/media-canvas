@@ -27,6 +27,7 @@ from media_canvas_api.clock import Clock
 from media_canvas_api.mailer import Mailer
 from media_canvas_api.memberships import membership_in
 from media_canvas_api.models import Membership, Role
+from media_canvas_api.queue import RowQueue
 from media_canvas_api.sessions import (
     COOKIE_NAME,
     SignedIn,
@@ -197,6 +198,10 @@ def request_worker(request: Request) -> Worker:
     return request.app.state.worker
 
 
+def request_queue(request: Request) -> RowQueue:
+    return request.app.state.queue
+
+
 Database = Annotated[AsyncSession, Depends(request_database)]
 CurrentSession = Annotated[SignedIn, Depends(request_signed_in)]
 SendMail = Annotated[Mailer, Depends(request_mailer)]
@@ -204,6 +209,7 @@ Now = Annotated[Clock, Depends(request_clock)]
 Configuration = Annotated[Settings, Depends(request_settings)]
 Storage = Annotated[ObjectStore, Depends(request_storage)]
 WorkerService = Annotated[Worker, Depends(request_worker)]
+WorkQueue = Annotated[RowQueue, Depends(request_queue)]
 
 
 # The same answer for a Workspace that does not exist and for one the caller

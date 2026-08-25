@@ -1,9 +1,9 @@
 """Job submission and polling.
 
 Every claim is made at the public HTTP seam. The worker's validation
-contract is stood in; the queue is absent. The Template snapshot, and
-rows a refused batch must not leave behind, are read from the tables
-because neither is on the public JobView.
+contract is stood in. The Template snapshot, and rows a refused batch
+must not leave behind, are read from the tables because neither is on
+the public JobView. Enqueue is observed in test_job_queue.py.
 """
 
 from datetime import timedelta

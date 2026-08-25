@@ -68,7 +68,7 @@ jobs:
             echo "GARAGE_DEFAULT_SECRET_KEY=$(openssl rand -hex 16)"
             echo "GARAGE_RPC_SECRET=$(openssl rand -hex 32)"
           } >> .env
-      - run: docker compose up -d --wait postgres garage
+      - run: docker compose up -d --wait postgres garage redis
 
       - run: uv run pytest
 

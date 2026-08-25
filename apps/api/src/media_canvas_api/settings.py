@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     assets_bucket: str = "media-canvas-assets"
     outputs_bucket: str = "media-canvas-outputs"
 
+    # Redis carries only the work signal (ADR-0004). The defaults are the
+    # compose stack. A path (unix socket) in REDIS_HOST is how sandboxed
+    # agents reach it; REDIS_DB isolates the test suite from a running dev
+    # queue.
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+
     # The credential the api and the render worker present to each other, and
     # where the api reaches the worker's internal service. The port is the one
     # the worker itself reads, under the same name, so the pair is set once.

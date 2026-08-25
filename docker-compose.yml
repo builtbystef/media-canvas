@@ -93,12 +93,15 @@ services:
       INTERNAL_API_TOKEN: "${INTERNAL_API_TOKEN:?set it in .env, copied from .env.example}"
       WORKER_INTERNAL_HOST: worker
       WORKER_INTERNAL_PORT: "${WORKER_INTERNAL_PORT:-4000}"
+      REDIS_HOST: redis
       DOMAIN: "${DOMAIN:-}"
       PUBLIC_URL: "${PUBLIC_URL:-}"
     depends_on:
       postgres:
         condition: service_healthy
       garage:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   web:

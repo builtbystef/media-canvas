@@ -8,7 +8,16 @@ from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from media_canvas_api import auth, documents, fonts, images, internal, jobs, workspaces
+from media_canvas_api import (
+    auth,
+    documents,
+    fonts,
+    images,
+    internal,
+    internal_jobs,
+    jobs,
+    workspaces,
+)
 from media_canvas_api.access import AccessMiddleware, DevelopmentCors
 from media_canvas_api.assets import AssetRefused, refusal_response
 from media_canvas_api.clock import utc_now
@@ -16,6 +25,7 @@ from media_canvas_api.db import create_database_engine, create_session_factory
 from media_canvas_api.health import DatabaseHealth, check_database
 from media_canvas_api.mailer import ConsoleMailer
 from media_canvas_api.migrator import upgrade_to_head
+from media_canvas_api.queue import RowQueue
 from media_canvas_api.settings import get_settings
 from media_canvas_api.storage import ObjectStore
 from media_canvas_api.worker import HttpWorker
@@ -83,11 +93,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # The one way in to everything only the render worker can answer: the api
     # never opens a document or a font file itself (ADR-0003).
     app.state.worker = HttpWorker(settings)
+    # Redis is the work signal only (ADR-0004). Connecting is lazy: a
+    # deployment that is not submitting batches yet still serves the rest.
+    app.state.queue = RowQueue(settings)
     try:
         await migrate(engine)
     except OperationalError:
         logger.exception("the database is unreachable — starting without migrating")
     yield
+    await app.state.queue.aclose()
     await engine.dispose()
 
 
@@ -112,6 +126,7 @@ app.include_router(jobs.router)
 # The other service's half: reached with the shared internal credential, and
 # never part of the api a client is generated from.
 app.include_router(internal.router)
+app.include_router(internal_jobs.router)
 # An uploaded file that is no asset answers in its own envelope, so that the
 # editor branches on a code instead of matching on prose.
 app.add_exception_handler(AssetRefused, refusal_response)

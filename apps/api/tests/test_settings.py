@@ -12,6 +12,9 @@ DEFAULTED = (
     "OUTPUTS_BUCKET",
     "WORKER_INTERNAL_HOST",
     "WORKER_INTERNAL_PORT",
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "REDIS_DB",
 )
 
 
@@ -65,6 +68,9 @@ def test_defaults_leave_only_the_secrets_required(
         internal_api_token="shared-with-the-worker",
         worker_internal_host="localhost",
         worker_internal_port=4000,
+        redis_host="localhost",
+        redis_port=6379,
+        redis_db=0,
     )
 
 
