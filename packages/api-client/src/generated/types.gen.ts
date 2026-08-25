@@ -14,6 +14,22 @@ export type AssetRefusalView = {
 };
 
 /**
+ * BatchRefusal
+ *
+ * What a refused batch answers with: one error per problem.
+ */
+export type BatchRefusal = {
+    /**
+     * Errors
+     */
+    errors: Array<RowError>;
+    /**
+     * Templateerrors
+     */
+    templateErrors: Array<NamedProblem>;
+};
+
+/**
  * Body_uploadFont
  */
 export type BodyUploadFont = {
@@ -305,6 +321,84 @@ export type ImageAssetView = {
 };
 
 /**
+ * JobState
+ *
+ * Where a Generation Job is, as a whole.
+ *
+ * `completed` covers runs that had per-Row failures; the Rows carry the
+ * detail. `queued` is where a Job starts, and where it stays until a Row
+ * begins rendering — that flip belongs to the internal fetch (4dpprd).
+ */
+export type JobState = 'queued' | 'rendering' | 'completed' | 'failed' | 'canceled';
+
+/**
+ * JobSummary
+ *
+ * A Job as the Workspace list shows it: no per-Row detail, and the
+ * Template's name joined in.
+ */
+export type JobSummary = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Templateid
+     */
+    templateId: string;
+    /**
+     * Templatename
+     */
+    templateName: string | null;
+    state: JobState;
+    output: OutputFormat;
+    /**
+     * Createdat
+     */
+    createdAt: string;
+    progress: Progress;
+};
+
+/**
+ * JobView
+ */
+export type JobView = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Templateid
+     */
+    templateId: string;
+    state: JobState;
+    output: OutputFormat;
+    /**
+     * Createdat
+     */
+    createdAt: string;
+    progress: Progress;
+    /**
+     * Rows
+     */
+    rows: Array<RowView>;
+};
+
+/**
+ * JpegOutput
+ */
+export type JpegOutput = {
+    /**
+     * Format
+     */
+    format: 'jpeg';
+    /**
+     * Quality
+     */
+    quality?: number;
+};
+
+/**
  * MemberView
  *
  * A User in one Workspace, from the Workspace's side.
@@ -322,6 +416,30 @@ export type MemberView = {
 export type MembershipView = {
     workspace: WorkspaceView;
     role: Role;
+};
+
+/**
+ * NamedProblem
+ *
+ * One problem the worker found: a message, and the thing at fault.
+ */
+export type NamedProblem = {
+    /**
+     * Message
+     */
+    message: string;
+    /**
+     * Variable
+     */
+    variable?: string | null;
+    /**
+     * Elementid
+     */
+    elementId?: string | null;
+    /**
+     * Assetid
+     */
+    assetId?: string | null;
 };
 
 /**
@@ -344,6 +462,64 @@ export type NewDocument = {
     document: {
         [key: string]: unknown;
     };
+};
+
+export type OutputFormat = ({
+    format: 'png';
+} & PngOutput) | ({
+    format: 'jpeg';
+} & JpegOutput) | ({
+    format: 'pdf';
+} & PdfOutput);
+
+/**
+ * PdfOutput
+ */
+export type PdfOutput = {
+    /**
+     * Format
+     */
+    format: 'pdf';
+};
+
+/**
+ * PngOutput
+ */
+export type PngOutput = {
+    /**
+     * Format
+     */
+    format: 'png';
+    /**
+     * Scale
+     */
+    scale: 1 | 2 | 3;
+};
+
+/**
+ * Progress
+ */
+export type Progress = {
+    /**
+     * Queued
+     */
+    queued: number;
+    /**
+     * Rendering
+     */
+    rendering: number;
+    /**
+     * Succeeded
+     */
+    succeeded: number;
+    /**
+     * Failed
+     */
+    failed: number;
+    /**
+     * Skipped
+     */
+    skipped: number;
 };
 
 /**
@@ -382,6 +558,64 @@ export type RoleChange = {
 };
 
 /**
+ * RowError
+ *
+ * A NamedProblem that also says which Row it is in.
+ */
+export type RowError = {
+    /**
+     * Message
+     */
+    message: string;
+    /**
+     * Variable
+     */
+    variable?: string | null;
+    /**
+     * Elementid
+     */
+    elementId?: string | null;
+    /**
+     * Assetid
+     */
+    assetId?: string | null;
+    /**
+     * Rowindex
+     */
+    rowIndex: number;
+};
+
+/**
+ * RowStatus
+ *
+ * Where one Row of a Generation Job is.
+ */
+export type RowStatus = 'queued' | 'rendering' | 'succeeded' | 'failed' | 'skipped';
+
+/**
+ * RowView
+ *
+ * One Row as polling shows it. `error` and `url` stay off the wire
+ * until the Row has one.
+ */
+export type RowView = {
+    /**
+     * Index
+     */
+    index: number;
+    /**
+     * Name
+     */
+    name: string;
+    status: RowStatus;
+    error?: NamedProblem | null;
+    /**
+     * Url
+     */
+    url?: string | null;
+};
+
+/**
  * Save
  *
  * What saving takes, including the Revision the caller loaded.
@@ -417,6 +651,23 @@ export type Saved = {
      * Updatedat
      */
     updatedAt: string;
+};
+
+/**
+ * SubmitJob
+ */
+export type SubmitJob = {
+    /**
+     * Rows
+     */
+    rows: Array<{
+        [key: string]: unknown;
+    }>;
+    output: OutputFormat;
+    /**
+     * Idempotencykey
+     */
+    idempotencyKey?: string | null;
 };
 
 /**
@@ -1228,6 +1479,98 @@ export type ServeImageResponses = {
      */
     200: unknown;
 };
+
+export type CreateJobData = {
+    body: SubmitJob;
+    path: {
+        /**
+         * Templateid
+         */
+        templateId: string;
+    };
+    query?: never;
+    url: '/api/v1/templates/{templateId}/jobs';
+};
+
+export type CreateJobErrors = {
+    /**
+     * Unprocessable Content
+     */
+    422: BatchRefusal;
+};
+
+export type CreateJobError = CreateJobErrors[keyof CreateJobErrors];
+
+export type CreateJobResponses = {
+    /**
+     * Successful Response
+     */
+    201: JobView;
+};
+
+export type CreateJobResponse = CreateJobResponses[keyof CreateJobResponses];
+
+export type GetJobData = {
+    body?: never;
+    path: {
+        /**
+         * Jobid
+         */
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{jobId}';
+};
+
+export type GetJobErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetJobError = GetJobErrors[keyof GetJobErrors];
+
+export type GetJobResponses = {
+    /**
+     * Successful Response
+     */
+    200: JobView;
+};
+
+export type GetJobResponse = GetJobResponses[keyof GetJobResponses];
+
+export type ListJobsData = {
+    body?: never;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/jobs';
+};
+
+export type ListJobsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListJobsError = ListJobsErrors[keyof ListJobsErrors];
+
+export type ListJobsResponses = {
+    /**
+     * Response Listjobs
+     *
+     * Successful Response
+     */
+    200: Array<JobSummary>;
+};
+
+export type ListJobsResponse = ListJobsResponses[keyof ListJobsResponses];
 
 export type GetHealthData = {
     body?: never;

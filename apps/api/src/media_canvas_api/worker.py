@@ -15,7 +15,7 @@ contract it implements, so that every driver of this seam is in one file.
 """
 
 from dataclasses import dataclass, field
-from typing import Annotated, Literal, Protocol
+from typing import Annotated, Any, Literal, Protocol
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
@@ -27,6 +27,10 @@ from media_canvas_api.settings import Settings
 # accepts, short enough that a worker which has stopped answering does not
 # hold an upload open indefinitely.
 INSPECTION_TIMEOUT = 30.0
+
+# A large batch can take a while to type and validate; a worker that has
+# stopped answering still must not hold the submit open indefinitely.
+VALIDATION_TIMEOUT = 30.0
 
 
 class WorkerUnreachable(RuntimeError):
@@ -71,12 +75,64 @@ type FontInspection = Annotated[
 _inspection = TypeAdapter[FontInspection](FontInspection)
 
 
+class NamedProblem(BaseModel):
+    """One problem the worker found: a message, and the thing at fault."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    message: str
+    variable: str | None = None
+    element_id: str | None = None
+    asset_id: str | None = None
+
+
+class RowError(NamedProblem):
+    """A NamedProblem that also says which Row it is in."""
+
+    row_index: int
+
+
+class BatchValidation(BaseModel):
+    """What POST /validate answers: Row problems, Template problems, and
+    optionally the typed Rows of a cells:true request."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    errors: list[RowError]
+    template_errors: list[NamedProblem]
+    rows: list[dict[str, Any]] | None = None
+
+
+_batch = TypeAdapter[BatchValidation](BatchValidation)
+
+
+@dataclass(frozen=True)
+class ValidateCall:
+    """One batch the api asked the worker to validate."""
+
+    workspace_id: str
+    template: dict[str, Any]
+    rows: list[dict[str, Any]]
+    cells: bool = False
+
+
 class Worker(Protocol):
-    """What the api asks the worker. One call today; render and batch
-    validation join it as their own slices land."""
+    """What the api asks the worker. Font inspection and batch validation
+    today; the synchronous render call joins them on its own slice."""
 
     async def inspect_font(self, font: bytes) -> FontInspection:
         """Read a font file with the compiler's own parser."""
+        ...
+
+    async def validate_batch(
+        self,
+        workspace_id: str,
+        template: dict[str, Any],
+        rows: list[dict[str, Any]],
+        *,
+        cells: bool = False,
+    ) -> BatchValidation:
+        """Ask whether this Template and these Rows may become a Job."""
         ...
 
 
@@ -115,6 +171,43 @@ class HttpWorker:
             )
         return _inspection.validate_json(answer.content)
 
+    async def validate_batch(
+        self,
+        workspace_id: str,
+        template: dict[str, Any],
+        rows: list[dict[str, Any]],
+        *,
+        cells: bool = False,
+    ) -> BatchValidation:
+        payload: dict[str, Any] = {
+            "workspaceId": workspace_id,
+            "template": template,
+            "rows": rows,
+        }
+        if cells:
+            payload["cells"] = True
+        try:
+            async with httpx.AsyncClient(timeout=VALIDATION_TIMEOUT) as calling:
+                answer = await calling.post(
+                    f"{self.base_url}/validate",
+                    json=payload,
+                    headers={"authorization": f"Bearer {self.token}"},
+                )
+        except httpx.HTTPError as silent:
+            raise WorkerUnreachable(
+                f"the render worker did not answer at {self.base_url}"
+            ) from silent
+        if answer.status_code == 401:
+            raise WorkerUnreachable(
+                "the render worker refused the api's credential — the api and "
+                "the worker must read the same INTERNAL_API_TOKEN"
+            )
+        if answer.is_error:
+            raise WorkerUnreachable(
+                f"the render worker answered {answer.status_code} at {self.base_url}"
+            )
+        return _batch.validate_json(answer.content)
+
 
 def a_regular_face() -> FontFacts:
     """What the fake reads in a font file unless a test says otherwise."""
@@ -139,6 +232,10 @@ class RecordingWorker:
         default_factory=lambda: ReadableFont(readable=True, font=a_regular_face())
     )
     inspections: list[bytes] = field(default_factory=list)
+    validations: list[ValidateCall] = field(default_factory=list)
+    batch: BatchValidation = field(
+        default_factory=lambda: BatchValidation(errors=[], template_errors=[])
+    )
 
     def reads(self, **facts: object) -> None:
         """Answer with a readable font carrying these facts, everything else
@@ -156,3 +253,26 @@ class RecordingWorker:
     async def inspect_font(self, font: bytes) -> FontInspection:
         self.inspections.append(font)
         return self.answer
+
+    def refuses_rows(self, *errors: RowError) -> None:
+        """Answer that this batch has these Row problems, and no Template ones."""
+        self.batch = BatchValidation(errors=list(errors), template_errors=[])
+
+    def refuses_template(self, *errors: NamedProblem) -> None:
+        """Answer that the Template itself is not a document."""
+        self.batch = BatchValidation(errors=[], template_errors=list(errors))
+
+    async def validate_batch(
+        self,
+        workspace_id: str,
+        template: dict[str, Any],
+        rows: list[dict[str, Any]],
+        *,
+        cells: bool = False,
+    ) -> BatchValidation:
+        self.validations.append(
+            ValidateCall(
+                workspace_id=workspace_id, template=template, rows=rows, cells=cells
+            )
+        )
+        return self.batch

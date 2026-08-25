@@ -1,7 +1,8 @@
 ---
 id: kjsmdy
 title: Job submission and polling
-state: todo
+state: done
+assignee: agent
 priority: high
 depends_on:
     - ilgj60
@@ -10,7 +11,7 @@ depends_on:
     - qqzqhz
 parent: 0egsmf
 created: 2026-08-15T06:54:29Z
-updated: 2026-08-17T04:00:24Z
+updated: 2026-08-25T17:49:49Z
 ---
 
 ## What to build
@@ -38,3 +39,22 @@ Retargeted 2026-08-15 (ek7pq1 issue-slicing session): the placeholder edge on th
 **claude** — 2026-08-17T04:00:24Z
 
 Cross-reference 2026-08-16: the queued-to-rendering transition that polling reflects is carried by the internal Row fetch, decided on 4dpprd.
+
+**agent** — 2026-08-25T17:35:34Z
+
+Seam: the spec's public API (FastAPI test client). The worker's /validate is stood in behind its contract (RecordingWorker); the queue is absent (4dpprd enqueues). Leftover rows after a refused batch, and the Template snapshot after an edit or delete, are read from the tables — neither is on the public JobView.
+
+**agent** — 2026-08-25T17:49:49Z
+
+Built job submission and polling. POST /api/v1/templates/{templateId}/jobs validates every Row through the worker, snapshots the Template, and stores a queued Job plus one Row per input — or refuses the whole batch and writes nothing. GET /api/v1/jobs/{jobId} polls state, output, per-Row entries, and progress counted from the Rows. GET /api/v1/workspaces/{workspaceId}/jobs lists that Workspace's Jobs newest first, without per-Row detail, with templateName from a left join. The queue is absent (4dpprd enqueues). OpenAPI and the generated client are regenerated.
+
+Decisions a reviewer should know:
+- template_id is lineage only, not a foreign key. The spec's schema called it a FK, but the first criterion's worked example requires deleting the Template to leave the Job, its snapshot, its Rows, and the templateId it was submitted against unchanged. ON DELETE SET NULL would change templateId; CASCADE would delete the Job; RESTRICT would refuse the delete.
+- A refused batch answers 422 { errors, templateErrors }. The public contract named only errors; gxwr7t added templateErrors so a broken Template is never read as bad Rows, and folding those into RowError would undo that. Both lists are always present on this envelope (a clean refusal of names-only problems has templateErrors: []). FastAPI's own 422 (bad output format, empty rows) stays the framework shape.
+- Unnamed Rows take str(index).zfill(width of the last index), so 11 Rows become 00–10. Names are unique after defaults are assigned, so a caller-supplied "0" colliding with the first unnamed Row is a 422.
+- JPEG quality defaults to 90 and is held to 1–100. One output object per Job; a second format is a second submission.
+- Idempotency is UNIQUE (template_id, idempotency_key). 201 for a new Job, 200 for a repeated key on that Template (payload is not compared). A concurrent insert that loses the unique race rolls back and returns the winner as 200.
+- Submission is Editor-or-above via holding_template; GET job and the list are Viewer. An outsider gets the same 404 as a missing id ("No such template." / "No such job." / "No such workspace.").
+- Tests: apps/api/tests/test_jobs.py, public HTTP seam, RecordingWorker, no queue. Leftover rows after a refusal, and the snapshot after an edit or delete, are read from the tables.
+
+Checks: pnpm check green. 131 api tests (pnpm --filter api test against the sandbox unix socket / Garage) and 265 TS tests (vp test) green. pnpm build regenerated openapi.json and the client; the web Next build failed fetching Geist from Google Fonts in this sandbox, which is unrelated.

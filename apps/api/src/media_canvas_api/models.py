@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -231,3 +231,90 @@ class ImageAsset(Base):
     byte_size: Mapped[int] = mapped_column(BigInteger)
     original_filename: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class JobState(StrEnum):
+    """Where a Generation Job is, as a whole.
+
+    `completed` covers runs that had per-Row failures; the Rows carry the
+    detail. `queued` is where a Job starts, and where it stays until a Row
+    begins rendering — that flip belongs to the internal fetch (4dpprd).
+    """
+
+    queued = "queued"
+    rendering = "rendering"
+    completed = "completed"
+    failed = "failed"
+    canceled = "canceled"
+
+
+class RowStatus(StrEnum):
+    """Where one Row of a Generation Job is."""
+
+    queued = "queued"
+    rendering = "rendering"
+    succeeded = "succeeded"
+    failed = "failed"
+    skipped = "skipped"
+
+
+class GenerationJob(Base):
+    """One submitted batch: Rows rendered against one Template snapshot.
+
+    The Template's document is copied here at submission, so later edits and
+    deletions cannot change what the batch renders. `template_id` is lineage
+    only — it is not a foreign key, because deleting the Template must leave
+    the Job standing with the id it was submitted against.
+    """
+
+    __tablename__ = "generation_jobs"
+    __table_args__ = (
+        UniqueConstraint(
+            "template_id",
+            "idempotency_key",
+            name="uq_generation_jobs_template_idempotency",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    template_id: Mapped[UUID] = mapped_column(index=True)
+    template_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    output_format: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    state: Mapped[JobState] = mapped_column(Enum(JobState, name="job_state"))
+    idempotency_key: Mapped[str | None] = mapped_column(String(200), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    canceled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+
+
+class GenerationRow(Base):
+    """One mapping of Variable names to values within a Generation Job."""
+
+    __tablename__ = "generation_rows"
+    __table_args__ = (
+        UniqueConstraint("job_id", "name", name="uq_generation_rows_job_name"),
+        UniqueConstraint("job_id", "row_index", name="uq_generation_rows_job_index"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("generation_jobs.id", ondelete="CASCADE"), index=True
+    )
+    row_index: Mapped[int]
+    name: Mapped[str] = mapped_column(String(128))
+    values: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    status: Mapped[RowStatus] = mapped_column(Enum(RowStatus, name="row_status"))
+    error: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)
+    output_key: Mapped[str | None] = mapped_column(String(500), default=None)
+    attempts: Mapped[int] = mapped_column(default=0)
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )

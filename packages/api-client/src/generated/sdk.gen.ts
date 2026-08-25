@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteFontData, DeleteFontErrors, DeleteFontResponses, DeleteImageData, DeleteImageErrors, DeleteImageResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListFontsData, ListFontsErrors, ListFontsResponses, ListImagesData, ListImagesErrors, ListImagesResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, ServeFontData, ServeFontErrors, ServeFontResponses, ServeImageData, ServeImageErrors, ServeImageResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
+import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateJobData, CreateJobErrors, CreateJobResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteFontData, DeleteFontErrors, DeleteFontResponses, DeleteImageData, DeleteImageErrors, DeleteImageResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetJobData, GetJobErrors, GetJobResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListFontsData, ListFontsErrors, ListFontsResponses, ListImagesData, ListImagesErrors, ListImagesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, ServeFontData, ServeFontErrors, ServeFontResponses, ServeImageData, ServeImageErrors, ServeImageResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -311,6 +311,38 @@ export const deleteImage = <ThrowOnError extends boolean = false>(options: Optio
  * The image's own bytes. Any member of its Workspace may fetch them.
  */
 export const serveImage = <ThrowOnError extends boolean = false>(options: Options<ServeImageData, ThrowOnError>): RequestResult<ServeImageResponses, ServeImageErrors, ThrowOnError> => (options.client ?? client).get<ServeImageResponses, ServeImageErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/images/{imageId}', ...options });
+
+/**
+ * Create Job
+ *
+ * Submit a batch against this Template, or return the Job a repeated
+ * idempotency key already created.
+ */
+export const createJob = <ThrowOnError extends boolean = false>(options: Options<CreateJobData, ThrowOnError>): RequestResult<CreateJobResponses, CreateJobErrors, ThrowOnError> => (options.client ?? client).post<CreateJobResponses, CreateJobErrors, ThrowOnError>({
+    url: '/api/v1/templates/{templateId}/jobs',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Job
+ *
+ * One Job, with every Row and the counts taken from those Rows.
+ */
+export const getJob = <ThrowOnError extends boolean = false>(options: Options<GetJobData, ThrowOnError>): RequestResult<GetJobResponses, GetJobErrors, ThrowOnError> => (options.client ?? client).get<GetJobResponses, GetJobErrors, ThrowOnError>({ url: '/api/v1/jobs/{jobId}', ...options });
+
+/**
+ * List Jobs
+ *
+ * This Workspace's Jobs, newest first, without per-Row detail.
+ *
+ * The whole list, every time: a Workspace holds the batches one team
+ * submits, which is a number a person scrolls.
+ */
+export const listJobs = <ThrowOnError extends boolean = false>(options: Options<ListJobsData, ThrowOnError>): RequestResult<ListJobsResponses, ListJobsErrors, ThrowOnError> => (options.client ?? client).get<ListJobsResponses, ListJobsErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/jobs', ...options });
 
 /**
  * Get Health

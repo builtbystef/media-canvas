@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from media_canvas_api import auth, documents, fonts, images, internal, workspaces
+from media_canvas_api import auth, documents, fonts, images, internal, jobs, workspaces
 from media_canvas_api.access import AccessMiddleware, DevelopmentCors
 from media_canvas_api.assets import AssetRefused, refusal_response
 from media_canvas_api.clock import utc_now
@@ -108,6 +108,7 @@ app.include_router(workspaces.router)
 app.include_router(documents.router)
 app.include_router(fonts.router)
 app.include_router(images.router)
+app.include_router(jobs.router)
 # The other service's half: reached with the shared internal credential, and
 # never part of the api a client is generated from.
 app.include_router(internal.router)
