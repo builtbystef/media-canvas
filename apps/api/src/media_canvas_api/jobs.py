@@ -1,9 +1,10 @@
-"""Job submission and polling.
+"""Job submission, polling, and output delivery.
 
 A batch of Rows meets a Template and becomes a Generation Job — or the whole
 batch is refused and nothing exists. Validation is the worker's (ADR-0003);
 this module copies the Template, records the Rows, answers with the Job, and
-enqueues one identifiers-only task per Row (ADR-0004).
+enqueues one identifiers-only task per Row (ADR-0004). Finished files leave
+through here too: the api streams them from its own storage, never a URL.
 """
 
 from collections.abc import Sequence
@@ -14,7 +15,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Path, params
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from sqlalchemy import func, select
@@ -24,6 +25,7 @@ from media_canvas_api.access import (
     CurrentSession,
     Database,
     Now,
+    Storage,
     Viewing,
     WorkerService,
     WorkQueue,
@@ -39,6 +41,7 @@ from media_canvas_api.models import (
     Role,
     RowStatus,
 )
+from media_canvas_api.storage import serve, serve_archive
 from media_canvas_api.worker import BatchValidation, NamedProblem, RowError, Worker
 
 router = APIRouter(prefix="/api/v1", tags=["jobs"])
@@ -47,7 +50,16 @@ router = APIRouter(prefix="/api/v1", tags=["jobs"])
 # Workspace the caller is not in: a stranger learns nothing from asking.
 UNREACHABLE_TEMPLATE = "No such template."
 UNREACHABLE_JOB = "No such job."
+UNREACHABLE_FILE = "No such file."
 NOT_A_TEMPLATE = "Only a template accepts a batch."
+
+# What a client is told a Job's output bytes are. The format is the Job's,
+# not whatever the store happened to record when the worker wrote them.
+CONTENT_TYPES = {
+    "png": "image/png",
+    "jpeg": "image/jpeg",
+    "pdf": "application/pdf",
+}
 
 # `_name`: letters, digits, dot, dash, underscore; at most 128 characters.
 ROW_NAME = regexp(r"^[A-Za-z0-9._-]{1,128}$")
@@ -278,6 +290,73 @@ async def get_job(job: ReadableJob, database: Database) -> JobView:
     return await view_of(database, job)
 
 
+@router.get(
+    "/jobs/{jobId}/outputs/{name}.{ext}",
+    operation_id="getJobOutput",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "content": {
+                "image/png": {"schema": {"type": "string", "format": "binary"}},
+                "image/jpeg": {"schema": {"type": "string", "format": "binary"}},
+                "application/pdf": {"schema": {"type": "string", "format": "binary"}},
+            }
+        }
+    },
+)
+async def get_output(
+    job: ReadableJob,
+    name: str,
+    ext: str,
+    database: Database,
+    storage: Storage,
+) -> StreamingResponse:
+    """One succeeded Row's file, streamed from the api's own storage."""
+    row = await output_row(database, job, name, ext)
+    if row is None or row.output_key is None:
+        raise HTTPException(404, UNREACHABLE_FILE)
+    return serve(
+        storage.outputs, row.output_key, media_type=content_type_of(job.output_format)
+    )
+
+
+@router.get(
+    "/jobs/{jobId}/outputs.zip",
+    operation_id="getJobArchive",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "content": {
+                "application/zip": {"schema": {"type": "string", "format": "binary"}}
+            }
+        }
+    },
+)
+async def get_archive(
+    job: ReadableJob, database: Database, storage: Storage
+) -> StreamingResponse:
+    """Every succeeded Row, as one zip, streamed rather than assembled."""
+    rows = (
+        await database.scalars(
+            select(GenerationRow)
+            .where(
+                GenerationRow.job_id == job.id,
+                GenerationRow.status == RowStatus.succeeded,
+            )
+            .order_by(GenerationRow.row_index)
+        )
+    ).all()
+    extension = extension_of(job.output_format)
+    return serve_archive(
+        storage.outputs,
+        [
+            (f"{row.name}.{extension}", row.output_key)
+            for row in rows
+            if row.output_key is not None
+        ],
+    )
+
+
 @router.get("/workspaces/{workspaceId}/jobs", operation_id="listJobs")
 async def list_jobs(membership: Viewing, database: Database) -> list[JobSummary]:
     """This Workspace's Jobs, newest first, without per-Row detail.
@@ -399,18 +478,54 @@ def view_of_rows(job: GenerationJob, rows: Sequence[GenerationRow]) -> JobView:
         output=job.output_format,
         created_at=job.created_at,
         progress=progress_of(rows),
-        rows=[row_view(row) for row in rows],
+        rows=[row_view(job, row) for row in rows],
     )
 
 
-def row_view(row: GenerationRow) -> RowView:
+def row_view(job: GenerationJob, row: GenerationRow) -> RowView:
     return RowView(
         index=row.row_index,
         name=row.name,
         status=row.status,
         error=NamedProblem.model_validate(row.error) if row.error else None,
-        url=None,
+        url=output_address(job, row),
     )
+
+
+def output_address(job: GenerationJob, row: GenerationRow) -> str | None:
+    """The one address a succeeded Row's file is at, derived from the Job
+    and the Row's name. It does not change afterwards."""
+    if row.status is not RowStatus.succeeded:
+        return None
+    return f"/api/v1/jobs/{job.id}/outputs/{row.name}.{extension_of(job.output_format)}"
+
+
+def extension_of(output: dict[str, Any]) -> str:
+    return str(output["format"])
+
+
+def content_type_of(output: dict[str, Any]) -> str:
+    return CONTENT_TYPES[extension_of(output)]
+
+
+async def output_row(
+    database: Database, job: GenerationJob, name: str, ext: str
+) -> GenerationRow | None:
+    """The succeeded Row this address names, or none.
+
+    A failed, skipped, unfinished, or differently-extended name is the same
+    answer as a name the Job never had: not found.
+    """
+    if ext != extension_of(job.output_format):
+        return None
+    row = await database.scalar(
+        select(GenerationRow).where(
+            GenerationRow.job_id == job.id, GenerationRow.name == name
+        )
+    )
+    if row is None or row.status is not RowStatus.succeeded:
+        return None
+    return row
 
 
 def progress_of(rows: Sequence[GenerationRow]) -> Progress:

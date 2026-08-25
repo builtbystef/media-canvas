@@ -1597,6 +1597,74 @@ export type GetJobResponses = {
 
 export type GetJobResponse = GetJobResponses[keyof GetJobResponses];
 
+export type GetJobOutputData = {
+    body?: never;
+    path: {
+        /**
+         * Name
+         */
+        name: string;
+        /**
+         * Ext
+         */
+        ext: string;
+        /**
+         * Jobid
+         */
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{jobId}/outputs/{name}.{ext}';
+};
+
+export type GetJobOutputErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetJobOutputError = GetJobOutputErrors[keyof GetJobOutputErrors];
+
+export type GetJobOutputResponses = {
+    /**
+     * Successful Response
+     */
+    200: Blob | File;
+};
+
+export type GetJobOutputResponse = GetJobOutputResponses[keyof GetJobOutputResponses];
+
+export type GetJobArchiveData = {
+    body?: never;
+    path: {
+        /**
+         * Jobid
+         */
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{jobId}/outputs.zip';
+};
+
+export type GetJobArchiveErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetJobArchiveError = GetJobArchiveErrors[keyof GetJobArchiveErrors];
+
+export type GetJobArchiveResponses = {
+    /**
+     * Successful Response
+     */
+    200: Blob | File;
+};
+
+export type GetJobArchiveResponse = GetJobArchiveResponses[keyof GetJobArchiveResponses];
+
 export type ListJobsData = {
     body?: never;
     path: {

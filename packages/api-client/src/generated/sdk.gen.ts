@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateJobData, CreateJobErrors, CreateJobResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteFontData, DeleteFontErrors, DeleteFontResponses, DeleteImageData, DeleteImageErrors, DeleteImageResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetJobData, GetJobErrors, GetJobResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListFontsData, ListFontsErrors, ListFontsResponses, ListImagesData, ListImagesErrors, ListImagesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RenderDocumentData, RenderDocumentErrors, RenderDocumentResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, ServeFontData, ServeFontErrors, ServeFontResponses, ServeImageData, ServeImageErrors, ServeImageResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
+import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateJobData, CreateJobErrors, CreateJobResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteFontData, DeleteFontErrors, DeleteFontResponses, DeleteImageData, DeleteImageErrors, DeleteImageResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetJobArchiveData, GetJobArchiveErrors, GetJobArchiveResponses, GetJobData, GetJobErrors, GetJobOutputData, GetJobOutputErrors, GetJobOutputResponses, GetJobResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListFontsData, ListFontsErrors, ListFontsResponses, ListImagesData, ListImagesErrors, ListImagesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RenderDocumentData, RenderDocumentErrors, RenderDocumentResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, ServeFontData, ServeFontErrors, ServeFontResponses, ServeImageData, ServeImageErrors, ServeImageResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -350,6 +350,20 @@ export const createJob = <ThrowOnError extends boolean = false>(options: Options
  * One Job, with every Row and the counts taken from those Rows.
  */
 export const getJob = <ThrowOnError extends boolean = false>(options: Options<GetJobData, ThrowOnError>): RequestResult<GetJobResponses, GetJobErrors, ThrowOnError> => (options.client ?? client).get<GetJobResponses, GetJobErrors, ThrowOnError>({ url: '/api/v1/jobs/{jobId}', ...options });
+
+/**
+ * Get Output
+ *
+ * One succeeded Row's file, streamed from the api's own storage.
+ */
+export const getJobOutput = <ThrowOnError extends boolean = false>(options: Options<GetJobOutputData, ThrowOnError>): RequestResult<GetJobOutputResponses, GetJobOutputErrors, ThrowOnError> => (options.client ?? client).get<GetJobOutputResponses, GetJobOutputErrors, ThrowOnError>({ url: '/api/v1/jobs/{jobId}/outputs/{name}.{ext}', ...options });
+
+/**
+ * Get Archive
+ *
+ * Every succeeded Row, as one zip, streamed rather than assembled.
+ */
+export const getJobArchive = <ThrowOnError extends boolean = false>(options: Options<GetJobArchiveData, ThrowOnError>): RequestResult<GetJobArchiveResponses, GetJobArchiveErrors, ThrowOnError> => (options.client ?? client).get<GetJobArchiveResponses, GetJobArchiveErrors, ThrowOnError>({ url: '/api/v1/jobs/{jobId}/outputs.zip', ...options });
 
 /**
  * List Jobs
