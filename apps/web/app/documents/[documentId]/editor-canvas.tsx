@@ -28,7 +28,7 @@ import {
   drawingBounds,
   toolForKey,
 } from "../../../lib/drawing-tools";
-import { createEditorStore } from "../../../lib/editor-store";
+import type { EditorStore } from "../../../lib/editor-store";
 import {
   alignElements,
   distributeElements,
@@ -118,18 +118,15 @@ const STAGE =
  * layer tree. Document edits enter through pure operations so ADR-0006's
  * identity-keyed preview caches remain correct. */
 export function EditorCanvas({
+  store,
   documentId,
   workspaceId,
-  stored,
-  valid,
 }: {
+  store: EditorStore;
   documentId: string;
   workspaceId: string | null;
-  stored: Record<string, unknown>;
-  valid: boolean;
 }) {
-  const initial = useRef(valid ? (stored as unknown as DesignDocument) : null);
-  const [store] = useState(() => createEditorStore(initial.current));
+  const initial = useRef(store.getState().document);
   const design = useStore(store, (state) => state.document);
   const selected = useStore(store, (state) => state.selected);
   const enteredPath = useStore(store, (state) => state.enteredPath);
@@ -142,6 +139,8 @@ export function EditorCanvas({
   const commitInspectorEdit = useStore(store, (state) => state.commitInspectorEdit);
   const commitHandleDrag = useStore(store, (state) => state.commitHandleDrag);
   const commitPlacementEdit = useStore(store, (state) => state.commitPlacementEdit);
+  const undo = useStore(store, (state) => state.undo);
+  const redo = useStore(store, (state) => state.redo);
   const currentDesign = useRef(design);
   currentDesign.current = design;
   const [selectionBox, setSelectionBox] = useState<Bounds | null>(null);
@@ -259,6 +258,13 @@ export function EditorCanvas({
         spaceHeld.current = true;
         return;
       }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+        if (isTypingTarget(event.target)) return;
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+        return;
+      }
       if (event.key === "Escape") {
         if (activeTool !== "select" || editingTextId !== null) {
           gesture.current = null;
@@ -284,7 +290,7 @@ export function EditorCanvas({
       window.removeEventListener("keydown", pressed);
       window.removeEventListener("keyup", released);
     };
-  }, [activeTool, armTool, editingTextId, enteredPath, select]);
+  }, [activeTool, armTool, editingTextId, enteredPath, redo, select, undo]);
 
   if (problem !== null)
     return (
@@ -308,12 +314,14 @@ export function EditorCanvas({
           document={design}
           selected={selected}
           onSelect={(id, parentPath) => select([id], parentPath)}
-          onRename={(id, name) => replaceDocument((current) => renameElement(current, id, name))}
+          onRename={(id, name) =>
+            commitInspectorEdit((current) => renameElement(current, id, name), [id])
+          }
           onVisibility={(id, visible) =>
-            replaceDocument((current) => setElementVisibility(current, id, visible))
+            commitInspectorEdit((current) => setElementVisibility(current, id, visible), [id])
           }
           onReorder={(path, id, index) =>
-            replaceDocument((current) => reorderElement(current, path, id, index))
+            commitInspectorEdit((current) => reorderElement(current, path, id, index), [id])
           }
         />
       </div>

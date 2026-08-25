@@ -69,3 +69,7 @@ export const failedToPromoteDocument = (status: number | undefined) =>
 /** Renaming travels on the ordinary save, so it meets the Revision guard. */
 export const failedToRenameDocument = (status: number | undefined) =>
   explain(DOCUMENT_RENAME, status);
+
+/** The blocking notice a conflicting autosave shows. Nothing is merged. */
+export const DOCUMENT_CHANGED_ELSEWHERE =
+  "This document changed elsewhere and must be reloaded. Nothing was merged.";

@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 
 import {
+  DOCUMENT_CHANGED_ELSEWHERE,
   codeIsSpent,
   failedToCreateWorkspace,
   failedToSendCode,
@@ -86,6 +87,12 @@ test("a document refusal says which of the three things went wrong", () => {
 test("promoting has one refusal of its own: there is nothing to promote", () => {
   expect(failedToPromoteDocument(422)).toMatch(/already a template/i);
   expect(failedToPromoteDocument(403)).toBe(failedToChangeDocument(403));
+});
+
+test("a conflicting save names the reload and says nothing was merged", () => {
+  expect(DOCUMENT_CHANGED_ELSEWHERE).toMatch(/changed elsewhere/i);
+  expect(DOCUMENT_CHANGED_ELSEWHERE).toMatch(/reload/i);
+  expect(DOCUMENT_CHANGED_ELSEWHERE).toMatch(/merged/i);
 });
 
 test("a refusal nobody recognises still says something true", () => {

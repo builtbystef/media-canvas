@@ -1,24 +1,17 @@
 import { getDocument } from "@media-canvas/api-client";
-import { validateDocument } from "@media-canvas/core";
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
-import { kindLabel } from "../../../lib/documents";
 import { asThisCaller, signedInOrSignIn } from "../../../lib/identity";
-import { HOME } from "../../../lib/routes";
 import { WORKSPACE_COOKIE, chosenMembership, mayChangeDocuments } from "../../../lib/workspaces";
-import { buttonVariants } from "../../../components/ui/button";
-import { DocumentName } from "./document-name";
-import { EditorCanvas } from "./editor-canvas";
+import { EditorSession } from "./editor-session";
 
 export const metadata = { title: "Editor — Media Canvas" };
 
 /**
  * The editor, at the document's own url — one page for both kinds.
  *
- * What this slice owns is the chrome around the canvas: the top bar, and the
- * name renamed in place. The canvas itself is the compiled document (n5csrl),
- * and the stage below is the space it lands in.
+ * The page fetches the stored document. The session migrates it, holds undo,
+ * and autosaves against the Revision the fetch loaded.
  */
 export default async function EditorPage({ params }: { params: Promise<{ documentId: string }> }) {
   const identity = await signedInOrSignIn();
@@ -32,28 +25,9 @@ export default async function EditorPage({ params }: { params: Promise<{ documen
   if (document === undefined) notFound();
 
   const chosen = chosenMembership(identity, (await cookies()).get(WORKSPACE_COOKIE)?.value);
-  const mayRename = chosen !== null && mayChangeDocuments(chosen.role);
+  const mayEdit = chosen !== null && mayChangeDocuments(chosen.role);
 
   return (
-    <div className="w-[min(64rem,100%)] self-start">
-      <header className="flex items-center gap-3 border-b pb-4">
-        <Link href={HOME} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-          ← Documents
-        </Link>
-        {mayRename ? (
-          <DocumentName loaded={document} />
-        ) : (
-          <span className="text-sm font-medium">{document.name}</span>
-        )}
-        <span className="text-xs text-muted-foreground">{kindLabel(document.kind)}</span>
-        <span className="flex-1" />
-      </header>
-      <EditorCanvas
-        documentId={documentId}
-        workspaceId={chosen?.workspace.id ?? null}
-        stored={document.document}
-        valid={validateDocument(document.document).length === 0}
-      />
-    </div>
+    <EditorSession loaded={document} workspaceId={chosen?.workspace.id ?? null} mayEdit={mayEdit} />
   );
 }

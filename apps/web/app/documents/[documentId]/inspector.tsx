@@ -890,9 +890,16 @@ function SimpleNumber({
       {label}
       <Input
         className={CONTROL}
+        key={String(value)}
         type="number"
-        value={value}
-        onChange={(event) => onCommit(event.currentTarget.valueAsNumber)}
+        defaultValue={value}
+        onBlur={(event) => {
+          if (Number.isFinite(event.currentTarget.valueAsNumber))
+            onCommit(event.currentTarget.valueAsNumber);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur();
+        }}
       />
     </Label>
   );

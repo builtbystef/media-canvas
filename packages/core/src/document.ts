@@ -3,7 +3,7 @@
 // worker never sees anything else. `validateDocument` is the one authority on
 // whether unknown input is a valid v1 document.
 
-/** The `schemaVersion` this core accepts. Migrations arrive with the first bump. */
+/** The `schemaVersion` this core accepts. `migrateDocument` is the load hook. */
 export const DESIGN_DOCUMENT_SCHEMA_VERSION = 1;
 
 export type DesignDocument = {
