@@ -1,0 +1,16 @@
+{
+	# Keep the admin API inside the container. Caddy's state lives in /data,
+	# which compose mounts from the certificate volume.
+	admin localhost:2019
+}
+
+{$SITE_ADDRESS} {
+	@api path /api /api/* /assets /assets/* /jobs /jobs/*
+	handle @api {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}

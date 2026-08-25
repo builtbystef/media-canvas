@@ -39,6 +39,19 @@ Those containers are the whole setup: the api reads its configuration from
 never needs a step of its own. `pnpm test` runs the api's tests against that
 same Postgres, in a database of their own that is recreated for each run.
 
+## Run the whole application with Compose
+
+After copying `.env.example` to `.env` and filling in its required values, one
+command builds and starts the application and its infrastructure:
+
+```sh
+docker compose --profile app up -d --build
+```
+
+With `DOMAIN` empty, open `http://localhost` (or the configured `HTTP_PORT`).
+Set `DOMAIN` and run the same command again to serve that domain over HTTPS;
+Caddy obtains and renews the certificates.
+
 Renders happen in one pinned image and nowhere else (ADR-0002):
 
 ```sh

@@ -1,0 +1,8 @@
+.git
+.beaver
+.dev
+.env
+.venv
+**/__pycache__
+**/node_modules
+apps/web/.next

@@ -75,6 +75,75 @@ services:
       retries: 5
       start_period: 10s
 
+  api:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set it in .env, copied from .env.example}"
+      GARAGE_DEFAULT_ACCESS_KEY: "${GARAGE_DEFAULT_ACCESS_KEY:?set it in .env, copied from .env.example}"
+      GARAGE_DEFAULT_SECRET_KEY: "${GARAGE_DEFAULT_SECRET_KEY:?set it in .env, copied from .env.example}"
+      STORAGE_ENDPOINT: http://garage:3900
+      STORAGE_REGION: "${STORAGE_REGION:-garage}"
+      ASSETS_BUCKET: "${ASSETS_BUCKET:-media-canvas-assets}"
+      OUTPUTS_BUCKET: "${OUTPUTS_BUCKET:-media-canvas-outputs}"
+      INTERNAL_API_TOKEN: "${INTERNAL_API_TOKEN:?set it in .env, copied from .env.example}"
+      WORKER_INTERNAL_HOST: worker
+      WORKER_INTERNAL_PORT: "${WORKER_INTERNAL_PORT:-4000}"
+      DOMAIN: "${DOMAIN:-}"
+      PUBLIC_URL: "${PUBLIC_URL:-}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      garage:
+        condition: service_healthy
+
+  web:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:8000
+    depends_on:
+      - api
+
+  worker:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_TOKEN: "${INTERNAL_API_TOKEN:?set it in .env, copied from .env.example}"
+      WORKER_INTERNAL_PORT: "${WORKER_INTERNAL_PORT:-4000}"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  caddy:
+    profiles: [app]
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      # A bare domain activates Caddy's automatic HTTPS. The explicit HTTP
+      # address used when it is empty disables automatic HTTPS completely.
+      SITE_ADDRESS: "${DOMAIN:-http://:80}"
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "443:443"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - api
+      - web
+
 volumes:
   postgres-data:
   garage-data:
+  caddy-data:
