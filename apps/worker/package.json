@@ -7,7 +7,7 @@
     "environment:write": "node src/write-environment.ts",
     "image:build": "docker build --file Dockerfile --tag media-canvas-worker:pinned ../..",
     "image:check": "pnpm run image:build && docker run --rm media-canvas-worker:pinned bash -c 'node --test apps/worker/src/checks/*.check.ts'",
-    "goldens:bake": "mkdir -p goldens/baselines && pnpm run image:build && docker run --rm -v \"$(pwd)/goldens/baselines:/srv/media-canvas/apps/worker/goldens/baselines\" media-canvas-worker:pinned node apps/worker/src/bake-baselines.ts"
+    "goldens:bake": "mkdir -p goldens/baselines && pnpm run image:build && docker run --rm --user \"$(id -u):$(id -g)\" -e HOME=/tmp -v \"$(pwd)/goldens/baselines:/srv/media-canvas/apps/worker/goldens/baselines\" media-canvas-worker:pinned node apps/worker/src/bake-baselines.ts"
   },
   "dependencies": {
     "@media-canvas/core": "workspace:*",

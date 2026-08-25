@@ -13,7 +13,7 @@ depends_on:
     - d2v61j
 parent: 1qoccb
 created: 2026-08-15T05:49:36Z
-updated: 2026-08-25T16:42:33Z
+updated: 2026-08-25T16:55:03Z
 ---
 
 ## What to build
@@ -63,3 +63,7 @@ Decisions
 Not done in this session — needs the reviewer
 - Docker is denied here, so goldens:bake was not run and composite.png is not committed. image:check will fail the composite until someone bakes inside the pinned image and commits the PNG.
 - Close this issue to approve, or note requested changes and remove needs-review.
+
+**builtbystef** — 2026-08-25T16:55:03Z
+
+Bake failed with EACCES on the bind-mounted baselines dir: the image USER is render (uid 10001) and cannot write the host mount. goldens:bake now runs the container as the host uid with HOME=/tmp so the PNG lands owned by the reviewer. Chromium still runs inside the pinned image; only the process uid on the write-out changed.
