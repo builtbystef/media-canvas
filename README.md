@@ -86,7 +86,9 @@ pnpm smoke:browser
 ```
 
 Set `SMOKE_BASE_URL` when Caddy is not at `http://localhost`, for example
-`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser`. The runner must also
+`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser`. A sandboxed runner
+can route the `stack.local` alias through its egress proxy with
+`SMOKE_BASE_URL=http://stack.local SMOKE_PROXY="$HTTPS_PROXY"`. The runner must also
 be able to invoke `docker compose logs api`, which is how it observes the code
 and the `/me` request made after a history restore. Keep browser scenarios in
 `tools/browser-smoke/browser-smoke.e2e.ts`; behavior a pure module can answer stays in

@@ -37,7 +37,7 @@ test("signed-out app pages are gated by sign-in", async ({ page }) => {
   for (const path of ["/", "/workspaces/new"]) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/sign-in$/);
-    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await expect(page.getByLabel("Email address")).toBeVisible();
   }
 });
 
@@ -45,7 +45,7 @@ test("a console Mailer code signs a new User in", async ({ page }) => {
   await signIn(page, uniqueEmail());
 
   await expect(page).toHaveURL(/\/workspaces\/new$/);
-  await expect(page.getByRole("heading", { name: "Create your workspace" })).toBeVisible();
+  await expect(page.getByText("Create your workspace")).toBeVisible();
 });
 
 test("session-changing navigations and history restore recheck the server", async ({ page }) => {
@@ -59,11 +59,11 @@ test("session-changing navigations and history restore recheck the server", asyn
   await page.getByRole("link", { name: "Templates" }).click();
   await expect(page).toHaveURL(/\?tab=templates$/);
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByLabel("Email address")).toBeVisible();
 
   const beforeBack = occurrences(apiLogs(), "GET /api/v1/me HTTP/1.1");
   await page.goBack();
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByLabel("Email address")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Documents" })).toHaveCount(0);
   await expect
     .poll(() => occurrences(apiLogs(), "GET /api/v1/me HTTP/1.1"))
@@ -106,7 +106,7 @@ test("the browser joins Workspace and document gestures", async ({ page }) => {
   );
   await page.getByLabel("Document name").press("Enter");
   await enterSave;
-  await page.getByRole("link", { name: "Media Canvas" }).click();
+  await page.getByRole("link", { name: "Documents" }).click();
 
   const design = page
     .getByRole("listitem")

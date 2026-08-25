@@ -9,7 +9,7 @@ depends_on:
     - 1gffor
 parent: 88v6vg
 created: 2026-08-18T22:50:15Z
-updated: 2026-08-25T15:01:43Z
+updated: 2026-08-25T15:25:58Z
 ---
 
 ## What to build
@@ -47,3 +47,7 @@ Blocked by missing work in 1gffor. This smoke suite's contract requires a real f
 **agent** — 2026-08-25T15:01:43Z
 
 Implemented an on-demand Playwright browser seam in tools/browser-smoke, independently versioned and installed from the render worker's pinned Chromium. Four serial scenarios cover both signed-out gates, console-Mailer OTP sign-in and first-Workspace landing, signed-in /sign-in forwarding, sign-out/back with a post-restore /me log assertion, and the browser-only Workspace switch/create/rename/promote/delete gestures added in hg52gb's note. The invite path is deliberately absent because 50gsoy remains todo. README and ARCHITECTURE document installation, the Compose prerequisite, SMOKE_BASE_URL, api-log access, and the decision to keep this out of CI and pnpm test. Verification: pnpm check passes; all 21 TypeScript test files and all 121 api tests pass (api tests used the published sandbox socket/proxy routes). Playwright discovers all four scenarios. The sandbox policy refused starting the app Compose profile, so the browser suite itself could only be observed red against the absent origin here; pnpm build was also blocked by the environment's failed Google Fonts fetch, with generated contracts unchanged.
+
+**agent** — 2026-08-25T15:25:58Z
+
+Host run of pnpm smoke:browser: 4 passed (6.1s). Follow-up fixes: parse proxy credentials for sandboxed Chromium, assert CardTitle copy as text rather than headings, and return from the editor via Documents.
