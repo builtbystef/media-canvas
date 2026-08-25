@@ -728,6 +728,73 @@
         }
       }
     },
+    "/api/v1/documents/{documentId}/render": {
+      "post": {
+        "tags": [
+          "render"
+        ],
+        "summary": "Render Document",
+        "description": "Turn this document into a file. Editor-level; a Viewer is refused.\n\nThe bytes come back on this response. The same call twice is two\nresponses; nothing is recorded and nothing is stored.",
+        "operationId": "renderDocument",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Documentid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderRefusal"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/fonts": {
       "post": {
         "tags": [
@@ -2131,6 +2198,41 @@
         ],
         "title": "Refusal",
         "description": "Why a file was refused: the code the editor branches on, and the\nsentence it shows when it has nothing better."
+      },
+      "RenderBody": {
+        "properties": {
+          "values": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Values"
+          },
+          "output": {
+            "$ref": "#/components/schemas/OutputFormat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "output"
+        ],
+        "title": "RenderBody",
+        "description": "What rendering takes: the values, and the file they should become."
+      },
+      "RenderRefusal": {
+        "properties": {
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/NamedProblem"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "errors"
+        ],
+        "title": "RenderRefusal",
+        "description": "What POST /render answers when the values are wrong."
       },
       "Role": {
         "type": "string",

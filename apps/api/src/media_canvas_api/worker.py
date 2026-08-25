@@ -32,6 +32,10 @@ INSPECTION_TIMEOUT = 30.0
 # stopped answering still must not hold the submit open indefinitely.
 VALIDATION_TIMEOUT = 30.0
 
+# A cold browser plus a heavy document is slower than validation; a worker
+# that has stopped answering still must not hold the call open indefinitely.
+RENDER_TIMEOUT = 60.0
+
 
 class WorkerUnreachable(RuntimeError):
     """The worker did not answer. Nothing the caller did causes this."""
@@ -86,6 +90,21 @@ class NamedProblem(BaseModel):
     asset_id: str | None = None
 
 
+class ValuesRefused(Exception):
+    """The worker refused the values: named-Variable errors, no bytes."""
+
+    def __init__(self, errors: list[NamedProblem]) -> None:
+        self.errors = errors
+
+
+@dataclass(frozen=True)
+class RenderedFile:
+    """What a successful render is: the bytes, and what they are."""
+
+    body: bytes
+    content_type: str
+
+
 class RowError(NamedProblem):
     """A NamedProblem that also says which Row it is in."""
 
@@ -106,6 +125,15 @@ class BatchValidation(BaseModel):
 _batch = TypeAdapter[BatchValidation](BatchValidation)
 
 
+class RenderRefusal(BaseModel):
+    """What POST /render answers when the values are wrong."""
+
+    errors: list[NamedProblem]
+
+
+_refusal = TypeAdapter[RenderRefusal](RenderRefusal)
+
+
 @dataclass(frozen=True)
 class ValidateCall:
     """One batch the api asked the worker to validate."""
@@ -116,9 +144,19 @@ class ValidateCall:
     cells: bool = False
 
 
+@dataclass(frozen=True)
+class RenderCall:
+    """One document the api asked the worker to render."""
+
+    workspace_id: str
+    template: dict[str, Any]
+    values: dict[str, Any]
+    output: dict[str, Any]
+
+
 class Worker(Protocol):
-    """What the api asks the worker. Font inspection and batch validation
-    today; the synchronous render call joins them on its own slice."""
+    """What the api asks the worker: inspect a font, validate a batch, or
+    render one document into file bytes."""
 
     async def inspect_font(self, font: bytes) -> FontInspection:
         """Read a font file with the compiler's own parser."""
@@ -133,6 +171,16 @@ class Worker(Protocol):
         cells: bool = False,
     ) -> BatchValidation:
         """Ask whether this Template and these Rows may become a Job."""
+        ...
+
+    async def render(
+        self,
+        workspace_id: str,
+        template: dict[str, Any],
+        values: dict[str, Any],
+        output: dict[str, Any],
+    ) -> RenderedFile:
+        """Turn one document plus values into file bytes."""
         ...
 
 
@@ -208,6 +256,46 @@ class HttpWorker:
             )
         return _batch.validate_json(answer.content)
 
+    async def render(
+        self,
+        workspace_id: str,
+        template: dict[str, Any],
+        values: dict[str, Any],
+        output: dict[str, Any],
+    ) -> RenderedFile:
+        payload: dict[str, Any] = {
+            "workspaceId": workspace_id,
+            "template": template,
+            "values": values,
+            "output": output,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=RENDER_TIMEOUT) as calling:
+                answer = await calling.post(
+                    f"{self.base_url}/render",
+                    json=payload,
+                    headers={"authorization": f"Bearer {self.token}"},
+                )
+        except httpx.HTTPError as silent:
+            raise WorkerUnreachable(
+                f"the render worker did not answer at {self.base_url}"
+            ) from silent
+        if answer.status_code == 401:
+            raise WorkerUnreachable(
+                "the render worker refused the api's credential — the api and "
+                "the worker must read the same INTERNAL_API_TOKEN"
+            )
+        if answer.status_code == 422:
+            raise ValuesRefused(_refusal.validate_json(answer.content).errors)
+        if answer.is_error:
+            raise WorkerUnreachable(
+                f"the render worker answered {answer.status_code} at {self.base_url}"
+            )
+        return RenderedFile(
+            body=answer.content,
+            content_type=answer.headers.get("content-type", "application/octet-stream"),
+        )
+
 
 def a_regular_face() -> FontFacts:
     """What the fake reads in a font file unless a test says otherwise."""
@@ -233,9 +321,12 @@ class RecordingWorker:
     )
     inspections: list[bytes] = field(default_factory=list)
     validations: list[ValidateCall] = field(default_factory=list)
+    renders: list[RenderCall] = field(default_factory=list)
     batch: BatchValidation = field(
         default_factory=lambda: BatchValidation(errors=[], template_errors=[])
     )
+    file: bytes = b"rendered-file"
+    value_errors: list[NamedProblem] | None = None
 
     def reads(self, **facts: object) -> None:
         """Answer with a readable font carrying these facts, everything else
@@ -262,6 +353,10 @@ class RecordingWorker:
         """Answer that the Template itself is not a document."""
         self.batch = BatchValidation(errors=[], template_errors=list(errors))
 
+    def refuses_values(self, *errors: NamedProblem) -> None:
+        """Answer that these values are wrong, and produce no bytes."""
+        self.value_errors = list(errors)
+
     async def validate_batch(
         self,
         workspace_id: str,
@@ -276,3 +371,35 @@ class RecordingWorker:
             )
         )
         return self.batch
+
+    async def render(
+        self,
+        workspace_id: str,
+        template: dict[str, Any],
+        values: dict[str, Any],
+        output: dict[str, Any],
+    ) -> RenderedFile:
+        self.renders.append(
+            RenderCall(
+                workspace_id=workspace_id,
+                template=template,
+                values=values,
+                output=output,
+            )
+        )
+        if self.value_errors is not None:
+            raise ValuesRefused(self.value_errors)
+        return RenderedFile(body=self.file, content_type=_content_type(output))
+
+
+def _content_type(output: dict[str, Any]) -> str:
+    """The content type the worker would send for this format."""
+    match output.get("format"):
+        case "png":
+            return "image/png"
+        case "jpeg":
+            return "image/jpeg"
+        case "pdf":
+            return "application/pdf"
+        case _:
+            return "application/octet-stream"

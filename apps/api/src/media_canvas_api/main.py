@@ -16,6 +16,7 @@ from media_canvas_api import (
     internal,
     internal_jobs,
     jobs,
+    render,
     workspaces,
 )
 from media_canvas_api.access import AccessMiddleware, DevelopmentCors
@@ -120,6 +121,7 @@ app = FastAPI(title="media-canvas-api", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(workspaces.router)
 app.include_router(documents.router)
+app.include_router(render.router)
 app.include_router(fonts.router)
 app.include_router(images.router)
 app.include_router(jobs.router)

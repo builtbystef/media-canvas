@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateJobData, CreateJobErrors, CreateJobResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteFontData, DeleteFontErrors, DeleteFontResponses, DeleteImageData, DeleteImageErrors, DeleteImageResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetJobData, GetJobErrors, GetJobResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListFontsData, ListFontsErrors, ListFontsResponses, ListImagesData, ListImagesErrors, ListImagesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, ServeFontData, ServeFontErrors, ServeFontResponses, ServeImageData, ServeImageErrors, ServeImageResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
+import type { ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateJobData, CreateJobErrors, CreateJobResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteFontData, DeleteFontErrors, DeleteFontResponses, DeleteImageData, DeleteImageErrors, DeleteImageResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetJobData, GetJobErrors, GetJobResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListFontsData, ListFontsErrors, ListFontsResponses, ListImagesData, ListImagesErrors, ListImagesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RenderDocumentData, RenderDocumentErrors, RenderDocumentResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, ServeFontData, ServeFontErrors, ServeFontResponses, ServeImageData, ServeImageErrors, ServeImageResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -207,6 +207,23 @@ export const saveDocument = <ThrowOnError extends boolean = false>(options: Opti
  * promoting one.
  */
 export const promoteDocument = <ThrowOnError extends boolean = false>(options: Options<PromoteDocumentData, ThrowOnError>): RequestResult<PromoteDocumentResponses, PromoteDocumentErrors, ThrowOnError> => (options.client ?? client).post<PromoteDocumentResponses, PromoteDocumentErrors, ThrowOnError>({ url: '/api/v1/documents/{documentId}/promote', ...options });
+
+/**
+ * Render Document
+ *
+ * Turn this document into a file. Editor-level; a Viewer is refused.
+ *
+ * The bytes come back on this response. The same call twice is two
+ * responses; nothing is recorded and nothing is stored.
+ */
+export const renderDocument = <ThrowOnError extends boolean = false>(options: Options<RenderDocumentData, ThrowOnError>): RequestResult<RenderDocumentResponses, RenderDocumentErrors, ThrowOnError> => (options.client ?? client).post<RenderDocumentResponses, RenderDocumentErrors, ThrowOnError>({
+    url: '/api/v1/documents/{documentId}/render',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List Fonts

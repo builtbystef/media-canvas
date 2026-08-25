@@ -540,6 +540,33 @@ export type Refusal = {
 };
 
 /**
+ * RenderBody
+ *
+ * What rendering takes: the values, and the file they should become.
+ */
+export type RenderBody = {
+    /**
+     * Values
+     */
+    values?: {
+        [key: string]: unknown;
+    };
+    output: OutputFormat;
+};
+
+/**
+ * RenderRefusal
+ *
+ * What POST /render answers when the values are wrong.
+ */
+export type RenderRefusal = {
+    /**
+     * Errors
+     */
+    errors: Array<NamedProblem>;
+};
+
+/**
  * Role
  *
  * What one Membership may do inside its Workspace.
@@ -1219,6 +1246,36 @@ export type PromoteDocumentResponses = {
 };
 
 export type PromoteDocumentResponse = PromoteDocumentResponses[keyof PromoteDocumentResponses];
+
+export type RenderDocumentData = {
+    body: RenderBody;
+    path: {
+        /**
+         * Documentid
+         */
+        documentId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{documentId}/render';
+};
+
+export type RenderDocumentErrors = {
+    /**
+     * Unprocessable Content
+     */
+    422: RenderRefusal;
+};
+
+export type RenderDocumentError = RenderDocumentErrors[keyof RenderDocumentErrors];
+
+export type RenderDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: Blob | File;
+};
+
+export type RenderDocumentResponse = RenderDocumentResponses[keyof RenderDocumentResponses];
 
 export type ListFontsData = {
     body?: never;
