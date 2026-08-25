@@ -125,8 +125,16 @@ services:
       INTERNAL_API_TOKEN: "${INTERNAL_API_TOKEN:?set it in .env, copied from .env.example}"
       WORKER_INTERNAL_PORT: "${WORKER_INTERNAL_PORT:-4000}"
       API_INTERNAL_URL: http://api:8000
+      REDIS_HOST: redis
+      GARAGE_DEFAULT_ACCESS_KEY: "${GARAGE_DEFAULT_ACCESS_KEY:?set it in .env, copied from .env.example}"
+      GARAGE_DEFAULT_SECRET_KEY: "${GARAGE_DEFAULT_SECRET_KEY:?set it in .env, copied from .env.example}"
+      STORAGE_ENDPOINT: http://garage:3900
+      STORAGE_REGION: "${STORAGE_REGION:-garage}"
+      OUTPUTS_BUCKET: "${OUTPUTS_BUCKET:-media-canvas-outputs}"
     depends_on:
       redis:
+        condition: service_healthy
+      garage:
         condition: service_healthy
       api:
         condition: service_started

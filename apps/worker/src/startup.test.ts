@@ -9,6 +9,11 @@ import { explainListenFailure } from "./internal-service.ts";
 
 const entry = join(import.meta.dirname, "index.ts");
 
+const storage = {
+  GARAGE_DEFAULT_ACCESS_KEY: "gk",
+  GARAGE_DEFAULT_SECRET_KEY: "garage-secret-key",
+};
+
 let occupied: { close: () => Promise<void> } | undefined;
 
 afterEach(async () => {
@@ -52,6 +57,7 @@ test("a port already in use fails naming the variable that names the port", asyn
   const { code, stderr } = await startWorker({
     INTERNAL_API_TOKEN: "a-shared-secret",
     WORKER_INTERNAL_PORT: String(port),
+    ...storage,
   });
 
   expect(code).not.toBe(0);
@@ -65,6 +71,7 @@ test("that failure is a sentence, not a stack trace", async () => {
   const { stderr } = await startWorker({
     INTERNAL_API_TOKEN: "a-shared-secret",
     WORKER_INTERNAL_PORT: String(port),
+    ...storage,
   });
 
   expect(stderr).not.toContain("    at ");
@@ -87,10 +94,21 @@ test("a missing credential is told the same way: one sentence, no stack trace", 
   expect(stderr.trim().split("\n")).toHaveLength(1);
 });
 
+test("a missing object-storage credential is told the same way", async () => {
+  const { code, stderr } = await startWorker({
+    INTERNAL_API_TOKEN: "a-shared-secret",
+  });
+
+  expect(code).not.toBe(0);
+  expect(stderr).toContain("GARAGE_DEFAULT_ACCESS_KEY");
+  expect(stderr).not.toContain("    at ");
+});
+
 test("a port that is not a port is told the same way", async () => {
   const { code, stderr } = await startWorker({
     INTERNAL_API_TOKEN: "a-shared-secret",
     WORKER_INTERNAL_PORT: "http",
+    ...storage,
   });
 
   expect(code).not.toBe(0);
