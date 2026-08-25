@@ -1,7 +1,8 @@
-import type { DesignDocument, RectElement } from "@media-canvas/core";
+import type { DesignDocument, RectElement, TextElement } from "@media-canvas/core";
 import { describe, expect, it } from "vitest";
 import { moveElements } from "./document-operations";
 import { createEditorStore } from "./editor-store";
+import { renameVariable } from "./variable-operations";
 
 const base = {
   type: "rect" as const,
@@ -181,5 +182,53 @@ describe("undo and redo", () => {
     expect(store.getState().document?.elements).toMatchObject([{ opacity: 0.2 }, { opacity: 0.2 }]);
     expect(undoUntilStable(store)).toBe(1);
     expect(store.getState().document).toBe(start);
+  });
+
+  it("records renaming a Variable as one Undo Entry that restores the fill and the token", () => {
+    const box: RectElement = { ...rect("box", 0), fill: { $var: "old" } };
+    const headline: TextElement = {
+      id: "headline",
+      type: "text",
+      x: 0,
+      y: 20,
+      width: 200,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      content: "Price: {{old}}",
+      fontAssetId: "font",
+      fontSize: 16,
+      lineHeight: 1.2,
+      letterSpacing: 0,
+      align: "left",
+      anchor: "top",
+      color: "#000000",
+    };
+    const start: DesignDocument = {
+      schemaVersion: 1,
+      canvas: { width: 100, height: 100, background: "#FFFFFF" },
+      variables: [{ name: "old", type: "color", default: "#0055FF" }],
+      elements: [box, headline],
+    };
+    const store = createEditorStore(start);
+
+    store.getState().commitInspectorEdit(
+      (document) => {
+        const renamed = renameVariable(document, "old", "new");
+        return renamed.ok ? renamed.document : document;
+      },
+      ["box", "headline"],
+    );
+
+    expect(store.getState().document?.variables).toEqual([
+      { name: "new", type: "color", default: "#0055FF" },
+    ]);
+    expect(store.getState().document?.elements).toMatchObject([
+      { fill: { $var: "new" } },
+      { content: "Price: {{new}}" },
+    ]);
+    expect(undoUntilStable(store)).toBe(1);
+    expect(store.getState().document).toBe(start);
+    expect(store.getState().selected).toEqual(["box", "headline"]);
   });
 });

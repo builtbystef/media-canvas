@@ -2,6 +2,7 @@
 
 import { saveDocument, type DocumentView } from "@media-canvas/api-client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   beginSave,
@@ -18,7 +19,8 @@ import { kindLabel } from "../../../lib/documents";
 import { createEditorStore } from "../../../lib/editor-store";
 import { DOCUMENT_CHANGED_ELSEWHERE } from "../../../lib/failures";
 import { openStoredDocument } from "../../../lib/open-document";
-import { HOME } from "../../../lib/routes";
+import { promoteToTemplate } from "../../../lib/promote";
+import { HOME, editorPath } from "../../../lib/routes";
 import { Problem } from "../../../components/problem";
 import { Button, buttonVariants } from "../../../components/ui/button";
 import {
@@ -40,10 +42,12 @@ export function EditorSession({
   loaded,
   workspaceId,
   mayEdit,
+  promotedFrom,
 }: {
   loaded: DocumentView;
   workspaceId: string | null;
   mayEdit: boolean;
+  promotedFrom: { id: string; name: string } | null;
 }) {
   const opened = openStoredDocument(loaded.document);
   const [store] = useState(() => createEditorStore(opened.ok ? opened.document : null));
@@ -72,10 +76,25 @@ export function EditorSession({
         )}
         <span className="text-xs text-muted-foreground">{kindLabel(loaded.kind)}</span>
         {mayEdit && opened.ok ? <SaveIndicator indicator={persist.indicator} /> : null}
+        {promotedFrom !== null && (
+          <Link
+            href={editorPath(promotedFrom.id)}
+            className="text-xs text-muted-foreground hover:underline"
+          >
+            promoted from {promotedFrom.name}
+          </Link>
+        )}
         <span className="flex-1" />
+        {mayEdit && loaded.kind === "design" && <PromoteAction documentId={loaded.id} />}
       </header>
       {opened.ok ? (
-        <EditorCanvas store={store} documentId={loaded.id} workspaceId={workspaceId} />
+        <EditorCanvas
+          store={store}
+          documentId={loaded.id}
+          workspaceId={workspaceId}
+          isTemplate={loaded.kind === "template"}
+          mayEdit={mayEdit}
+        />
       ) : (
         <main className="my-6 rounded-lg border p-12">
           <Problem message={opened.error.message} />
@@ -230,4 +249,31 @@ function useDocumentSave({
       apply(noteRename(autosaveRef.current, next, Date.now()));
     },
   };
+}
+
+function PromoteAction({ documentId }: { documentId: string }) {
+  const router = useRouter();
+  const [problem, setProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function promote() {
+    setBusy(true);
+    setProblem(null);
+    const result = await promoteToTemplate(documentId);
+    setBusy(false);
+    if (!result.ok) {
+      setProblem(result.message);
+      return;
+    }
+    router.push(result.path);
+  }
+
+  return (
+    <span className="flex items-center gap-2">
+      <Button type="button" size="sm" disabled={busy} onClick={() => void promote()}>
+        {busy ? "Promoting…" : "Promote to Template"}
+      </Button>
+      <Problem message={problem} />
+    </span>
+  );
 }

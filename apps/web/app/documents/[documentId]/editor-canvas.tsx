@@ -57,6 +57,7 @@ import { ToggleGroup, ToggleGroupItem } from "../../../components/ui/toggle-grou
 import { Inspector } from "./inspector";
 import { LayerList } from "./layer-list";
 import { applyUpdate } from "./mounted-preview";
+import { VariablesPanel } from "./variables-panel";
 
 type Gesture =
   | {
@@ -121,10 +122,14 @@ export function EditorCanvas({
   store,
   documentId,
   workspaceId,
+  isTemplate,
+  mayEdit,
 }: {
   store: EditorStore;
   documentId: string;
   workspaceId: string | null;
+  isTemplate: boolean;
+  mayEdit: boolean;
 }) {
   const initial = useRef(store.getState().document);
   const design = useStore(store, (state) => state.document);
@@ -324,6 +329,9 @@ export function EditorCanvas({
             commitInspectorEdit((current) => reorderElement(current, path, id, index), [id])
           }
         />
+        {isTemplate && (
+          <VariablesPanel document={design} mayEdit={mayEdit} onCommit={commitInspectorEdit} />
+        )}
       </div>
       <main
         className={STAGE}

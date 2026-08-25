@@ -26,8 +26,25 @@ export default async function EditorPage({ params }: { params: Promise<{ documen
 
   const chosen = chosenMembership(identity, (await cookies()).get(WORKSPACE_COOKIE)?.value);
   const mayEdit = chosen !== null && mayChangeDocuments(chosen.role);
+  const promotedFrom = await loadPromotedFrom(document.promotedFromId);
 
   return (
-    <EditorSession loaded={document} workspaceId={chosen?.workspace.id ?? null} mayEdit={mayEdit} />
+    <EditorSession
+      loaded={document}
+      workspaceId={chosen?.workspace.id ?? null}
+      mayEdit={mayEdit}
+      promotedFrom={promotedFrom}
+    />
   );
+}
+
+async function loadPromotedFrom(
+  promotedFromId: string | null,
+): Promise<{ id: string; name: string } | null> {
+  if (promotedFromId === null) return null;
+  const { data: source } = await getDocument({
+    ...(await asThisCaller()),
+    path: { documentId: promotedFromId },
+  });
+  return source === undefined ? null : { id: source.id, name: source.name };
 }

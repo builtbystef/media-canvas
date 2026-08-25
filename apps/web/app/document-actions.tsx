@@ -1,9 +1,10 @@
 "use client";
 
-import { deleteDocument, promoteDocument, type DocumentSummary } from "@media-canvas/api-client";
+import { deleteDocument, type DocumentSummary } from "@media-canvas/api-client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { failedToChangeDocument, failedToPromoteDocument } from "../lib/failures";
+import { failedToChangeDocument } from "../lib/failures";
+import { promoteToTemplate } from "../lib/promote";
 import { Problem } from "../components/problem";
 import { Button } from "../components/ui/button";
 import {
@@ -21,10 +22,10 @@ import {
  * What a row can do to its document besides open it.
  *
  * Promotion is offered on a design only — a template has nothing to be
- * promoted into — and it leaves the list showing both, the design and the
- * template it now has. Deleting asks first, because nothing else in the
- * product undoes it: an alert dialog rather than a plain one, so the choice
- * is what the surface is for and escape does not stand in for cancelling.
+ * promoted into — and it opens the new copy, the same as the editor's top-bar
+ * action. Deleting asks first, because nothing else in the product undoes it:
+ * an alert dialog rather than a plain one, so the choice is what the surface
+ * is for and escape does not stand in for cancelling.
  */
 export function DocumentActions({ row }: { row: DocumentSummary }) {
   const router = useRouter();
@@ -35,13 +36,13 @@ export function DocumentActions({ row }: { row: DocumentSummary }) {
   async function promote() {
     setBusy(true);
     setProblem(null);
-    const { error, response } = await promoteDocument({ path: { documentId: row.id } });
+    const result = await promoteToTemplate(row.id);
     setBusy(false);
-    if (error !== undefined) {
-      setProblem(failedToPromoteDocument(response?.status));
+    if (!result.ok) {
+      setProblem(result.message);
       return;
     }
-    router.refresh();
+    router.push(result.path);
   }
 
   async function remove() {
