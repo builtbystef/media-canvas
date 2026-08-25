@@ -1,10 +1,8 @@
 ---
 id: 6bqdxe
 title: The golden-image harness and the composite fixture
-state: in-progress
+state: done
 priority: medium
-labels:
-    - needs-review
 depends_on:
     - jnih1z
     - r0w3w6
@@ -13,7 +11,7 @@ depends_on:
     - d2v61j
 parent: 1qoccb
 created: 2026-08-15T05:49:36Z
-updated: 2026-08-25T16:55:03Z
+updated: 2026-08-25T16:57:32Z
 ---
 
 ## What to build
