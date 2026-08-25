@@ -18,6 +18,7 @@ RUN corepack enable pnpm \
 COPY apps/web apps/web
 COPY packages/api-client packages/api-client
 COPY packages/core packages/core
+COPY tsconfig tsconfig
 RUN pnpm --filter web build \
   && rm -rf /root/.cache/pnpm /root/.local/share/pnpm/store
 
