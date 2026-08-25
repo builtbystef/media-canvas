@@ -68,6 +68,30 @@ to it, so a change to the Dockerfile, to Playwright, to the bundled fonts or to
 the compiler is a change of environment: rewrite the tuple with the command
 above and re-bake the baselines it invalidates.
 
+## Browser smoke suite
+
+A small Playwright suite covers only behavior that needs a DOM, browser history,
+or the cookie jar. It runs on demand, not in CI or as part of `pnpm test`,
+because it requires the full Compose stack and reads one-time codes from the
+console Mailer's api log. Its Playwright installation is separate from the
+render worker's fidelity-pinned browser.
+
+Prepare its Chromium once, start a console-Mailer stack at the default HTTP
+origin, and run it from another terminal:
+
+```sh
+pnpm smoke:browser:install
+docker compose --profile app up -d --build --wait
+pnpm smoke:browser
+```
+
+Set `SMOKE_BASE_URL` when Caddy is not at `http://localhost`, for example
+`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser`. The runner must also
+be able to invoke `docker compose logs api`, which is how it observes the code
+and the `/me` request made after a history restore. Keep browser scenarios in
+`tools/browser-smoke/browser-smoke.e2e.ts`; behavior a pure module can answer stays in
+that module's Vitest suite instead.
+
 Adding a table is adding a migration:
 
 ```sh

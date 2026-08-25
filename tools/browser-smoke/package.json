@@ -1,0 +1,12 @@
+{
+  "name": "browser-smoke",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "smoke": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:"
+  }
+}

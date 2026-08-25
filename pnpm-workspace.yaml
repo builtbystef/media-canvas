@@ -21,6 +21,10 @@ catalog:
   # full package downloads browsers onto every machine that installs the
   # workspace, and browsers belong in the pinned image alone.
   playwright-core: 1.62.1
+  # Browser smoke tests are deliberately independent of the render worker's
+  # fidelity pin above. They follow compatible Playwright releases and install
+  # their own Chromium only when the on-demand suite is prepared.
+  "@playwright/test": ^1.62.1
   opentype.js: ^1.3.4
   zod: ^4.4.3
   zustand: ^5.0.15

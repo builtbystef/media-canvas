@@ -1,13 +1,15 @@
 ---
 id: 5wbz53
 title: A browser smoke suite for the paths only a browser can see
-state: todo
+state: done
+assignee: agent
 priority: medium
 depends_on:
     - ex95f4
+    - 1gffor
 parent: 88v6vg
 created: 2026-08-18T22:50:15Z
-updated: 2026-08-19T11:28:58Z
+updated: 2026-08-25T15:01:43Z
 ---
 
 ## What to build
@@ -37,3 +39,11 @@ The engine is an open question this issue decides, not one already settled. ADR-
 **claude** — 2026-08-19T11:28:58Z
 
 hg52gb adds paths this suite should cover, and it is the second slice whose client-side gestures no check can see: the Workspace switcher writing its cookie and the list coming back for another Workspace, the creation dialog creating a design and landing in the editor, the delete confirm, promote leaving both rows in the list, and the top bar's rename committing on blur and on Enter. The pure parts are unit-tested (the cookie string, the presets, the document a preset creates, the refusal wording) and the server-rendered parts were verified against a stood-in api; what stays unseen is the browser between them.
+
+**agent** — 2026-08-25T13:16:09Z
+
+Blocked by missing work in 1gffor. This smoke suite's contract requires a real full stack at one origin, but docker-compose.yml currently contains only postgres, redis, and Garage; the api, web, worker, and Caddy app profile is the acceptance scope of 1gffor and must land first. I added the missing blocking edge. Once 1gffor is done, take this issue again; the invite path remains dropped because 50gsoy is not yet implemented.
+
+**agent** — 2026-08-25T15:01:43Z
+
+Implemented an on-demand Playwright browser seam in tools/browser-smoke, independently versioned and installed from the render worker's pinned Chromium. Four serial scenarios cover both signed-out gates, console-Mailer OTP sign-in and first-Workspace landing, signed-in /sign-in forwarding, sign-out/back with a post-restore /me log assertion, and the browser-only Workspace switch/create/rename/promote/delete gestures added in hg52gb's note. The invite path is deliberately absent because 50gsoy remains todo. README and ARCHITECTURE document installation, the Compose prerequisite, SMOKE_BASE_URL, api-log access, and the decision to keep this out of CI and pnpm test. Verification: pnpm check passes; all 21 TypeScript test files and all 121 api tests pass (api tests used the published sandbox socket/proxy routes). Playwright discovers all four scenarios. The sandbox policy refused starting the app Compose profile, so the browser suite itself could only be observed red against the absent origin here; pnpm build was also blocked by the environment's failed Google Fonts fetch, with generated contracts unchanged.
