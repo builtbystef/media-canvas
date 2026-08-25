@@ -121,9 +121,12 @@ services:
     environment:
       INTERNAL_API_TOKEN: "${INTERNAL_API_TOKEN:?set it in .env, copied from .env.example}"
       WORKER_INTERNAL_PORT: "${WORKER_INTERNAL_PORT:-4000}"
+      API_INTERNAL_URL: http://api:8000
     depends_on:
       redis:
         condition: service_healthy
+      api:
+        condition: service_started
 
   caddy:
     profiles: [app]

@@ -15,13 +15,14 @@ import {
   internalServiceConfig,
   InternalServiceConfigError,
 } from "./internal-service.ts";
+import { createPagePool } from "./page-pool.ts";
 
 function fail(message: string): never {
   console.error(message);
   process.exit(1);
 }
 
-function readConfig(): { token: string; port: number } {
+function readConfig(): { token: string; port: number; apiBaseUrl: string } {
   try {
     return internalServiceConfig(process.env);
   } catch (failure) {
@@ -30,8 +31,9 @@ function readConfig(): { token: string; port: number } {
   }
 }
 
-const { token, port } = readConfig();
-const service = createInternalService({ token });
+const { token, port, apiBaseUrl } = readConfig();
+const pool = createPagePool();
+const service = createInternalService({ token, apiBaseUrl, pool });
 
 service.on("error", (failure: unknown) => {
   // A failure we cannot put in a sentence is worth its whole stack.

@@ -1,7 +1,8 @@
 ---
 id: 1dxm2u
 title: The worker's internal render call and asset loading
-state: todo
+state: done
+assignee: agent
 priority: high
 depends_on:
     - gxwr7t
@@ -10,7 +11,7 @@ depends_on:
     - r0w3w6
 parent: 0egsmf
 created: 2026-08-15T06:54:22Z
-updated: 2026-08-17T04:00:24Z
+updated: 2026-08-25T17:24:25Z
 ---
 
 ## What to build
@@ -32,3 +33,21 @@ The worker turns a Template plus one row of values into file bytes, synchronousl
 **claude** — 2026-08-17T04:00:24Z
 
 The asset-bytes contract this call consumes is now written on jr6mye: GET /internal/workspaces/{workspaceId}/assets/{assetId}. Stand that exact shape in for tests; do not invent a different one.
+
+**agent** — 2026-08-25T17:24:25Z
+
+Seam: the worker's internal HTTP service (spec 0egsmf seam 2). Contract tests in apps/worker/src/internal-render.test.ts drive POST /render over real HTTP against the real core. The asset source is stood in as GET /internal/workspaces/{workspaceId}/assets/{assetId}. The page pool is stood in for the HTTP tests (CI's unit job has no Chromium); reuse, death isolation, and concurrency are tested against a real browser in page-pool.test.ts (skipped when CI=true). In-image render checks (zycblh) remain the pinned screenshot proof.
+
+Built
+- POST /render { workspaceId, template, values, output } → 200 file bytes | 422 { errors } | 502 { error: { assetId, message } }.
+- Pipeline: validate (including undeclared names) → resolve → fetch every referenced font/image → compile with data URIs → page-pool render. Value problems never open a page; a 404/timeout on an asset never opens a page.
+- Page pool of 8, lazy browser, pages reused, a closed page is discarded and the next render opens another. Pooled pages abort any non-data/about request.
+- Worker fetches held assets from the api at API_INTERNAL_URL (default http://localhost:8000; compose sets http://api:8000). External http(s) image URLs are fetched by the worker, not the page.
+
+Decisions
+- 422 vs 502 is how a later retry tells value failures from fetch failures (dblx26). Same error classes (ValueRefusal, AssetFetchError) are what the queue consumer will catch in-process.
+- Undeclared values are refused only on /render, not on /validate — extra CSV columns are dropped before validate, and this issue's worked example is the render call.
+- render(svg, options) stays one-browser-per-call for goldens (zycblh). The pool is the production path.
+- No new dependencies. fetch is Node's.
+
+Facts for a reviewer: pnpm check passes. Worker vitest 62 passed. API pytest 121 passed against the compose Postgres via the sandbox unix socket. Compose worker now depends_on api (service_started) so a deployment brings the origin it reads assets from.

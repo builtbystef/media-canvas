@@ -6,6 +6,7 @@ import { afterEach, expect, test } from "vitest";
 
 import {
   createInternalService,
+  DEFAULT_API_INTERNAL_URL,
   DEFAULT_INTERNAL_PORT,
   internalServiceConfig,
 } from "./internal-service.ts";
@@ -320,14 +321,28 @@ test("a body that is not a batch at all is refused, not answered with errors", a
 test("the service takes its port and its credential from the environment", () => {
   expect(
     internalServiceConfig({ INTERNAL_API_TOKEN: "a-shared-secret", WORKER_INTERNAL_PORT: "4100" }),
-  ).toEqual({ token: "a-shared-secret", port: 4100 });
+  ).toEqual({
+    token: "a-shared-secret",
+    port: 4100,
+    apiBaseUrl: DEFAULT_API_INTERNAL_URL,
+  });
 });
 
-test("only the credential is required; the port has the development default", () => {
+test("only the credential is required; the port and api origin have development defaults", () => {
   expect(internalServiceConfig({ INTERNAL_API_TOKEN: "a-shared-secret" })).toEqual({
     token: "a-shared-secret",
     port: DEFAULT_INTERNAL_PORT,
+    apiBaseUrl: DEFAULT_API_INTERNAL_URL,
   });
+});
+
+test("the worker reaches the api at the origin the environment names", () => {
+  expect(
+    internalServiceConfig({
+      INTERNAL_API_TOKEN: "a-shared-secret",
+      API_INTERNAL_URL: "http://api:8000",
+    }),
+  ).toMatchObject({ apiBaseUrl: "http://api:8000" });
 });
 
 test("an environment describing no runnable service fails naming the variable at fault", () => {

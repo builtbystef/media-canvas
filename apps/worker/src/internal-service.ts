@@ -9,14 +9,28 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { DesignDocument, FontInspection, ValidationError } from "@media-canvas/core";
 import { inspectFont, typeCells, validate, validateDocument } from "@media-canvas/core";
 
+import type { PagePool } from "./page-pool.ts";
+import { AssetFetchError, renderDocument, renderErrors, ValueRefusal } from "./render-document.ts";
+import type { RenderOptions } from "./render.ts";
+
 /** What the service needs to run: the credential every caller must present. */
 export type InternalServiceOptions = {
   token: string;
+  /** The page pool `/render` draws with. Unused by the other calls. */
+  pool?: PagePool;
+  /** Where the worker reads asset bytes: the api's origin, so
+   *  `GET /internal/workspaces/{workspaceId}/assets/{assetId}` is a real
+   *  path on it. */
+  apiBaseUrl?: string;
 };
 
 /** The port the service listens on when the environment names none: the
  *  compose stack and `pnpm dev` both leave it alone. */
 export const DEFAULT_INTERNAL_PORT = 4000;
+
+/** Where the worker reaches the api in development, when the environment
+ *  names no origin. */
+export const DEFAULT_API_INTERNAL_URL = "http://localhost:8000";
 
 /** The environment does not describe a runnable service. */
 export class InternalServiceConfigError extends Error {}
@@ -29,6 +43,7 @@ export class InternalServiceConfigError extends Error {}
 export function internalServiceConfig(env: Record<string, string | undefined>): {
   token: string;
   port: number;
+  apiBaseUrl: string;
 } {
   const token = env.INTERNAL_API_TOKEN;
   if (token === undefined || token === "") {
@@ -38,14 +53,24 @@ export function internalServiceConfig(env: Record<string, string | undefined>): 
     );
   }
   const declared = env.WORKER_INTERNAL_PORT;
-  if (declared === undefined || declared === "") return { token, port: DEFAULT_INTERNAL_PORT };
-  const port = Number(declared);
-  if (!Number.isInteger(port) || port < 0 || port > 65535) {
-    throw new InternalServiceConfigError(
-      `WORKER_INTERNAL_PORT: "${declared}" is not a port number.`,
-    );
+  let port = DEFAULT_INTERNAL_PORT;
+  if (declared !== undefined && declared !== "") {
+    port = Number(declared);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      throw new InternalServiceConfigError(
+        `WORKER_INTERNAL_PORT: "${declared}" is not a port number.`,
+      );
+    }
   }
-  return { token, port };
+  const origin = env.API_INTERNAL_URL;
+  const apiBaseUrl =
+    origin === undefined || origin === "" ? DEFAULT_API_INTERNAL_URL : origin.replace(/\/$/, "");
+  try {
+    new URL(apiBaseUrl);
+  } catch {
+    throw new InternalServiceConfigError(`API_INTERNAL_URL: "${apiBaseUrl}" is not a URL.`);
+  }
+  return { token, port, apiBaseUrl };
 }
 
 /**
@@ -104,8 +129,107 @@ export function createInternalService(options: InternalServiceOptions): Server {
       void handleInspectFont(request, response);
       return;
     }
+    if (request.method === "POST" && request.url === "/render") {
+      void handleRender(request, response, options);
+      return;
+    }
     send(response, 404, { message: "no such internal call" });
   });
+}
+
+/** What the api asks to turn one Template plus one row into a file. */
+export type RenderRequest = {
+  workspaceId: string;
+  template: DesignDocument;
+  values: Record<string, unknown>;
+  output: RenderOptions;
+};
+
+async function handleRender(
+  request: IncomingMessage,
+  response: ServerResponse,
+  options: InternalServiceOptions,
+): Promise<void> {
+  let body: unknown;
+  try {
+    body = await readJson(request);
+  } catch {
+    send(response, 400, { message: "the request body must be JSON" });
+    return;
+  }
+  const payload = asRenderRequest(body);
+  if (payload === undefined) {
+    send(response, 400, {
+      message:
+        "the request body must carry a workspaceId, a template, values, and an output format",
+    });
+    return;
+  }
+  const errors = renderErrors(payload.template, payload.values);
+  if (errors.length > 0) {
+    send(response, 422, { errors });
+    return;
+  }
+  if (options.pool === undefined) {
+    send(response, 500, { message: "the worker has no page pool" });
+    return;
+  }
+  try {
+    const bytes = await renderDocument({
+      ...payload,
+      pool: options.pool,
+      token: options.token,
+      ...(options.apiBaseUrl === undefined ? {} : { apiBaseUrl: options.apiBaseUrl }),
+    });
+    sendBytes(response, 200, contentType(payload.output), bytes);
+  } catch (failure) {
+    if (failure instanceof ValueRefusal) {
+      send(response, 422, { errors: failure.errors });
+      return;
+    }
+    if (failure instanceof AssetFetchError) {
+      send(response, 502, { error: { assetId: failure.assetId, message: failure.message } });
+      return;
+    }
+    send(response, 500, { message: `render failed: ${String(failure)}` });
+  }
+}
+
+function asRenderRequest(body: unknown): RenderRequest | undefined {
+  if (typeof body !== "object" || body === null) return undefined;
+  const { workspaceId, template, values, output } = body as Record<string, unknown>;
+  if (typeof workspaceId !== "string" || workspaceId === "") return undefined;
+  if (typeof values !== "object" || values === null || Array.isArray(values)) return undefined;
+  const parsed = asOutput(output);
+  if (parsed === undefined) return undefined;
+  return {
+    workspaceId,
+    template: template as DesignDocument,
+    values: values as Record<string, unknown>,
+    output: parsed,
+  };
+}
+
+function asOutput(value: unknown): RenderOptions | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const { format, scale, quality } = value as Record<string, unknown>;
+  if (format === "png" && (scale === 1 || scale === 2 || scale === 3)) {
+    return { format, scale };
+  }
+  if (format === "jpeg") {
+    if (quality === undefined) return { format };
+    if (
+      typeof quality === "number" &&
+      Number.isInteger(quality) &&
+      quality >= 0 &&
+      quality <= 100
+    ) {
+      return { format, quality };
+    }
+    return undefined;
+  }
+  if (format === "pdf") return { format };
+  return undefined;
 }
 
 async function handleValidate(request: IncomingMessage, response: ServerResponse): Promise<void> {
@@ -238,4 +362,23 @@ function send(response: ServerResponse, status: number, body: unknown): void {
     "content-length": String(Buffer.byteLength(payload)),
   });
   response.end(payload);
+}
+
+function sendBytes(
+  response: ServerResponse,
+  status: number,
+  type: string,
+  bytes: Uint8Array,
+): void {
+  response.writeHead(status, {
+    "content-type": type,
+    "content-length": String(bytes.byteLength),
+  });
+  response.end(Buffer.from(bytes));
+}
+
+function contentType(output: RenderOptions): string {
+  if (output.format === "png") return "image/png";
+  if (output.format === "jpeg") return "image/jpeg";
+  return "application/pdf";
 }
