@@ -57,6 +57,42 @@ export function setElementVisibility(
   return changeElements(document, new Set([id]), (element) => ({ ...element, visible }));
 }
 
+export function setTextContent(
+  document: DesignDocument,
+  id: string,
+  content: string,
+): DesignDocument {
+  return changeElements(document, new Set([id]), (element) =>
+    element.type === "text" ? { ...element, content } : element,
+  );
+}
+
+export function removeElements(document: DesignDocument, ids: readonly string[]): DesignDocument {
+  const wanted = new Set(ids);
+  const visit = (elements: Element[]): Element[] => {
+    let changed = false;
+    const next: Element[] = [];
+    for (const element of elements) {
+      if (wanted.has(element.id)) {
+        changed = true;
+        continue;
+      }
+      if (element.type === "group") {
+        const children = visit(element.children);
+        if (children !== element.children) {
+          next.push({ ...element, children });
+          changed = true;
+          continue;
+        }
+      }
+      next.push(element);
+    }
+    return changed ? next : elements;
+  };
+  const elements = visit(document.elements);
+  return elements === document.elements ? document : { ...document, elements };
+}
+
 /** Reorder one Element among the children at `parentPath` (an empty path means
  * top-level paint order). */
 export function reorderElement(

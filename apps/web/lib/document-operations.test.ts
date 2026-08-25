@@ -1,10 +1,18 @@
-import type { DesignDocument, Element, GroupElement, RectElement } from "@media-canvas/core";
+import type {
+  DesignDocument,
+  Element,
+  GroupElement,
+  RectElement,
+  TextElement,
+} from "@media-canvas/core";
 import { describe, expect, it } from "vitest";
 import {
   moveElements,
+  removeElements,
   renameElement,
   reorderElement,
   setElementVisibility,
+  setTextContent,
 } from "./document-operations";
 
 function rect(id: string, x = 0): RectElement {
@@ -101,5 +109,50 @@ describe("document operations", () => {
 
     expect((reordered.elements[0] as GroupElement).children).toEqual([b, a]);
     expect(reordered.elements[1]).toBe(outside);
+  });
+});
+
+function headline(content = "Hello"): TextElement {
+  return {
+    id: "headline",
+    type: "text",
+    x: 0,
+    y: 0,
+    width: 200,
+    rotation: 0,
+    opacity: 1,
+    visible: true,
+    content,
+    fontAssetId: "font",
+    fontSize: 16,
+    lineHeight: 1.2,
+    letterSpacing: 0,
+    align: "left",
+    anchor: "top",
+    color: "#000000",
+  };
+}
+
+describe("text content", () => {
+  it("replaces only the edited text Element", () => {
+    const originalHeadline = headline();
+    const other = rect("other");
+    const original = documentWith([originalHeadline, other]);
+
+    const edited = setTextContent(original, "headline", "Price: {{old}}");
+
+    expect(edited.elements[0]).toMatchObject({ content: "Price: {{old}}" });
+    expect(edited.elements[1]).toBe(other);
+    expect(edited.elements[0]).not.toBe(originalHeadline);
+  });
+
+  it("removes an emptied text Element and leaves every other identity", () => {
+    const other = rect("other");
+    const original = documentWith([headline(""), other]);
+
+    const removed = removeElements(original, ["headline"]);
+
+    expect(removed.elements).toEqual([other]);
+    expect(removed.elements[0]).toBe(other);
   });
 });

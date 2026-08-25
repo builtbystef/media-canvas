@@ -1,6 +1,6 @@
 import type { DesignDocument, Element } from "@media-canvas/core";
 import { createStore } from "zustand/vanilla";
-import { addElement } from "./document-operations";
+import { addElement, removeElements, setTextContent } from "./document-operations";
 import type { Tool } from "./drawing-tools";
 import { applyHandleDrag, type Handle, type HandleDragOptions, type Point } from "./resize-scale";
 
@@ -22,6 +22,9 @@ export type EditorState = {
   select: (selected: string[], enteredPath?: string[]) => void;
   armTool: (tool: Tool) => void;
   createElement: (element: Element) => void;
+  beginTextEdit: (id: string) => void;
+  updateTextContent: (content: string) => void;
+  endTextEdit: () => void;
   commitInspectorEdit: (
     change: (document: DesignDocument) => DesignDocument,
     ids: readonly string[],
@@ -69,6 +72,15 @@ export function createEditorStore(document: DesignDocument | null) {
       return { document: next, selected: [...touched] };
     };
 
+    const finishTextEdit = (state: EditorState): Partial<EditorState> => {
+      const id = state.editingTextId;
+      if (id === null || state.document === null) return { editingTextId: null };
+      const content = textContentOf(state.document, id);
+      const next =
+        content === null || content === "" ? removeElements(state.document, [id]) : state.document;
+      return { ...commit(state, next, [id]), editingTextId: null };
+    };
+
     return {
       document,
       selected: [],
@@ -82,17 +94,35 @@ export function createEditorStore(document: DesignDocument | null) {
           selected,
           enteredPath: enteredPath ?? state.enteredPath,
         })),
-      armTool: (activeTool) => set({ activeTool, editingTextId: null }),
+      armTool: (activeTool) => set((state) => ({ ...finishTextEdit(state), activeTool })),
       createElement: (element) =>
         set((state) => {
           if (state.document === null) return state;
-          return {
+          const next = {
             ...commit(state, addElement(state.document, element), [element.id]),
             enteredPath: [],
-            activeTool: "select",
+            activeTool: "select" as const,
             editingTextId: element.type === "text" ? element.id : null,
           };
+          return next;
         }),
+      beginTextEdit: (id) =>
+        set((state) => {
+          if (state.document === null) return state;
+          const ended =
+            state.editingTextId !== null && state.editingTextId !== id ? finishTextEdit(state) : {};
+          const document = ended.document ?? state.document;
+          if (document === null) return { ...ended, editingTextId: null };
+          return { ...ended, document, editingTextId: id, selected: [id] };
+        }),
+      updateTextContent: (content) =>
+        set((state) => {
+          if (state.document === null || state.editingTextId === null) return state;
+          return {
+            document: setTextContent(state.document, state.editingTextId, content),
+          };
+        }),
+      endTextEdit: () => set((state) => finishTextEdit(state)),
       // A typed commit calls this once; a scrub may preview through
       // `replaceDocument`, then calls this once on release with its starting
       // snapshot. That boundary is one Undo Entry.
@@ -123,7 +153,11 @@ export function createEditorStore(document: DesignDocument | null) {
           cursor -= 1;
           const restored = history[cursor];
           if (leaving === undefined || restored === undefined) return state;
-          return { document: restored.document, selected: leaving.touched };
+          return {
+            document: restored.document,
+            selected: leaving.touched,
+            editingTextId: null,
+          };
         }),
       redo: () =>
         set((state) => {
@@ -131,8 +165,22 @@ export function createEditorStore(document: DesignDocument | null) {
           cursor += 1;
           const restored = history[cursor];
           if (restored === undefined) return state;
-          return { document: restored.document, selected: restored.touched };
+          return { document: restored.document, selected: restored.touched, editingTextId: null };
         }),
     };
   });
+}
+
+function textContentOf(document: DesignDocument, id: string): string | null {
+  const visit = (elements: readonly Element[]): string | null => {
+    for (const element of elements) {
+      if (element.id === id) return element.type === "text" ? element.content : null;
+      if (element.type === "group") {
+        const found = visit(element.children);
+        if (found !== null) return found;
+      }
+    }
+    return null;
+  };
+  return visit(document.elements);
 }

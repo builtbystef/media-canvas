@@ -4,6 +4,7 @@
 // never free to rewrap a line and make the editor and the export disagree.
 
 import type { Font, RenderOptions } from "opentype.js";
+import { parse as parseFont } from "opentype.js";
 
 import type { TextElement } from "./document.ts";
 
@@ -25,6 +26,24 @@ export type TextLine = {
   x: number;
   width: number;
   pieces: TextPiece[];
+  /** Content index of the first character drawn on this line. */
+  start: number;
+  /** Content index past the last character drawn on this line. */
+  end: number;
+  /** Canvas x of each character boundary on this line (`end - start + 1`). */
+  positions: number[];
+};
+
+/** The layout the editor draws a caret from: the compiler's own line breaks,
+ *  as ranges over the content and the x of every character boundary. */
+export type TextCaretLayout = {
+  lines: Array<{ start: number; end: number; baselineY: number }>;
+  /** x of each character boundary, per line concatenated. */
+  positions: number[];
+  /** Top of the first line box, after `anchor` has placed the block. */
+  top: number;
+  ascent: number;
+  lineBoxHeight: number;
 };
 
 export type TextLayout = {
@@ -112,50 +131,80 @@ function layoutLine(
   return { pieces, width: x };
 }
 
+type BrokenLine = { text: string; start: number; end: number };
+
 /** Greedy line breaking: each word joins the line while the line still fits the
  *  wrap width, and a word that cannot fit a line of its own is broken between
  *  characters. Whitespace travels with the word that follows it, so the spaces
  *  a break consumes leave with it and the ones inside a line stay. */
 function wrapParagraph(
   paragraph: string,
+  origin: number,
   measure: (text: string) => number,
   width: number,
-): string[] {
-  const broken: string[] = [];
+): BrokenLine[] {
+  const broken: BrokenLine[] = [];
   let line = "";
-  const placeWord = (word: string): void => {
+  let lineStart = origin;
+  const emit = (text: string, start: number): BrokenLine => ({
+    text,
+    start,
+    end: start + text.length,
+  });
+  const placeWord = (word: string, start: number): void => {
     if (measure(word) <= width) {
       line = word;
+      lineStart = start;
       return;
     }
     let chunk = "";
+    let chunkStart = start;
+    let offset = 0;
     for (const character of word) {
       if (chunk !== "" && measure(chunk + character) > width) {
-        broken.push(chunk);
+        broken.push(emit(chunk, chunkStart));
         chunk = character;
+        chunkStart = start + offset;
       } else {
         chunk += character;
       }
+      offset += character.length;
     }
     line = chunk;
+    lineStart = chunkStart;
   };
-  const tokens = paragraph.match(/ *[^ ]+/g) ?? [];
-  for (const [index, token] of tokens.entries()) {
+  const tokens = [...paragraph.matchAll(/ *[^ ]+/g)];
+  if (tokens.length === 0) return [emit("", origin)];
+  for (const [index, match] of tokens.entries()) {
+    const token = match[0]!;
+    const tokenStart = origin + (match.index ?? 0);
     // The paragraph's own first token keeps the indentation it was written
     // with; a token that starts a wrapped line drops the spaces it broke at.
     if (index === 0) {
-      placeWord(token);
+      placeWord(token, tokenStart);
       continue;
     }
     if (measure(line + token) <= width) {
       line += token;
       continue;
     }
-    broken.push(line);
-    placeWord(token.trimStart());
+    broken.push(emit(line, lineStart));
+    const trimmed = token.trimStart();
+    placeWord(trimmed, tokenStart + (token.length - trimmed.length));
   }
-  broken.push(line);
+  broken.push(emit(line, lineStart));
   return broken;
+}
+
+/** Canvas x of every character boundary in `text`, from an origin of 0. */
+function boundaryXs(font: Font, text: string, element: TextElement): number[] {
+  const xs = [0];
+  let prefix = "";
+  for (const character of text) {
+    prefix += character;
+    xs.push(layoutLine(font, prefix, element).width);
+  }
+  return xs;
 }
 
 /**
@@ -177,9 +226,11 @@ export function layoutText(element: TextElement, font: Font): TextLayout {
   const broken =
     content === ""
       ? []
-      : content
-          .split("\n")
-          .flatMap((paragraph) => wrapParagraph(paragraph, measure, element.width));
+      : content.split("\n").flatMap((paragraph, index, paragraphs) => {
+          const origin =
+            paragraphs.slice(0, index).reduce((sum, part) => sum + part.length, 0) + index;
+          return wrapParagraph(paragraph, origin, measure, element.width);
+        });
   const height = broken.length * box;
   const top =
     element.anchor === "top"
@@ -187,8 +238,8 @@ export function layoutText(element: TextElement, font: Font): TextLayout {
       : element.anchor === "middle"
         ? element.y - height / 2
         : element.y - height;
-  const lines = broken.map((text, index) => {
-    const line = layoutLine(font, text, element);
+  const lines = broken.map((brokenLine, index) => {
+    const line = layoutLine(font, brokenLine.text, element);
     const x =
       element.align === "left"
         ? element.x
@@ -200,7 +251,124 @@ export function layoutText(element: TextElement, font: Font): TextLayout {
       x,
       width: line.width,
       pieces: line.pieces.map((piece) => ({ ...piece, x: x + piece.x })),
+      start: brokenLine.start,
+      end: brokenLine.end,
+      positions: boundaryXs(font, brokenLine.text, element).map((offset) => x + offset),
     };
   });
   return { lines, top, height, ascent, descent };
+}
+
+const parsedFonts = new WeakMap<ArrayBuffer, Font>();
+
+function fontFrom(bytes: ArrayBuffer): Font {
+  const cached = parsedFonts.get(bytes);
+  if (cached) return cached;
+  const font = parseFont(bytes);
+  parsedFonts.set(bytes, font);
+  return font;
+}
+
+/** The compiler's own line breaking, as ranges over the content and the x of
+ *  every character boundary — the data the editor draws a caret from. */
+export function layoutTextFromBytes(element: TextElement, fontBytes: ArrayBuffer): TextCaretLayout {
+  const layout = layoutText(element, fontFrom(fontBytes));
+  const lineBoxHeight = element.fontSize * element.lineHeight;
+  if (layout.lines.length === 0) {
+    const x =
+      element.align === "left"
+        ? element.x
+        : element.align === "center"
+          ? element.x + element.width / 2
+          : element.x + element.width;
+    return {
+      lines: [
+        {
+          start: 0,
+          end: 0,
+          baselineY: layout.top + (lineBoxHeight - element.fontSize) / 2 + layout.ascent,
+        },
+      ],
+      positions: [x],
+      top: layout.top,
+      ascent: layout.ascent,
+      lineBoxHeight,
+    };
+  }
+  return {
+    lines: layout.lines.map((line) => ({
+      start: line.start,
+      end: line.end,
+      baselineY: line.baseline,
+    })),
+    positions: layout.lines.flatMap((line) => line.positions),
+    top: layout.top,
+    ascent: layout.ascent,
+    lineBoxHeight,
+  };
+}
+
+function lineOffset(layout: TextCaretLayout, lineIndex: number): number {
+  let offset = 0;
+  for (let index = 0; index < lineIndex; index += 1) {
+    const line = layout.lines[index]!;
+    offset += line.end - line.start + 1;
+  }
+  return offset;
+}
+
+function lineIndexAt(layout: TextCaretLayout, index: number): number {
+  for (let lineIndex = 0; lineIndex < layout.lines.length; lineIndex += 1) {
+    const next = layout.lines[lineIndex + 1];
+    if (next === undefined || index < next.start) return lineIndex;
+  }
+  return Math.max(0, layout.lines.length - 1);
+}
+
+/** The caret rectangle on the canvas for a position in the content. */
+export function caretRect(
+  layout: TextCaretLayout,
+  index: number,
+): { x: number; y: number; width: number; height: number } {
+  const lineIndex = lineIndexAt(layout, index);
+  const line = layout.lines[lineIndex];
+  if (line === undefined) return { x: 0, y: 0, width: 1, height: layout.lineBoxHeight };
+  const visual = Math.max(0, Math.min(index, line.end) - line.start);
+  return {
+    x: layout.positions[lineOffset(layout, lineIndex) + visual]!,
+    y: layout.top + lineIndex * layout.lineBoxHeight,
+    width: 1,
+    height: layout.lineBoxHeight,
+  };
+}
+
+/** The content index a click on the canvas maps to. The line is chosen by y,
+ *  then the nearest character boundary on that line by x — so a click past the
+ *  last character of a wrapped line stays on that line. */
+export function hitIndex(layout: TextCaretLayout, point: { x: number; y: number }): number {
+  if (layout.lines.length === 0) return 0;
+  // Glyphs can sit past their line box (Oswald's ascent does), so the line is
+  // the one whose baseline is nearest the click, not the box the y falls in.
+  let lineIndex = 0;
+  let nearest = Number.POSITIVE_INFINITY;
+  for (const [index, line] of layout.lines.entries()) {
+    const gap = Math.abs(line.baselineY - point.y);
+    if (gap < nearest) {
+      nearest = gap;
+      lineIndex = index;
+    }
+  }
+  const line = layout.lines[lineIndex]!;
+  const offset = lineOffset(layout, lineIndex);
+  const count = line.end - line.start + 1;
+  let visualIndex = 0;
+  let distance = Number.POSITIVE_INFINITY;
+  for (let visual = 0; visual < count; visual += 1) {
+    const gap = Math.abs(layout.positions[offset + visual]! - point.x);
+    if (gap < distance) {
+      distance = gap;
+      visualIndex = visual;
+    }
+  }
+  return line.start + visualIndex;
 }

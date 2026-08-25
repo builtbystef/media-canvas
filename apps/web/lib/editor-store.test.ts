@@ -232,3 +232,68 @@ describe("undo and redo", () => {
     expect(store.getState().selected).toEqual(["box", "headline"]);
   });
 });
+
+function headline(content: string): TextElement {
+  return {
+    id: "headline",
+    type: "text",
+    x: 0,
+    y: 0,
+    width: 200,
+    rotation: 0,
+    opacity: 1,
+    visible: true,
+    content,
+    fontAssetId: "font",
+    fontSize: 16,
+    lineHeight: 1.2,
+    letterSpacing: 0,
+    align: "left",
+    anchor: "top",
+    color: "#000000",
+  };
+}
+
+describe("text editing", () => {
+  it("records one editing session as one Undo Entry", () => {
+    const start: DesignDocument = {
+      schemaVersion: 1,
+      canvas: { width: 100, height: 100, background: "#FFFFFF" },
+      elements: [headline("Hi"), rect("other", 80)],
+    };
+    const store = createEditorStore(start);
+
+    store.getState().beginTextEdit("headline");
+    store.getState().updateTextContent("Hello");
+    store.getState().updateTextContent("Hello\nworld");
+    store.getState().updateTextContent("Price: {{old}}");
+    store.getState().endTextEdit();
+
+    expect(store.getState().document?.elements[0]).toMatchObject({
+      content: "Price: {{old}}",
+    });
+    expect(store.getState().editingTextId).toBeNull();
+    expect(undoUntilStable(store)).toBe(1);
+    expect(store.getState().document).toBe(start);
+    expect(store.getState().selected).toEqual(["headline"]);
+  });
+
+  it("deletes a text Element left empty when editing ends", () => {
+    const other = rect("other", 80);
+    const start: DesignDocument = {
+      schemaVersion: 1,
+      canvas: { width: 100, height: 100, background: "#FFFFFF" },
+      elements: [headline("Hi"), other],
+    };
+    const store = createEditorStore(start);
+
+    store.getState().beginTextEdit("headline");
+    store.getState().updateTextContent("");
+    store.getState().endTextEdit();
+
+    expect(store.getState().document?.elements).toEqual([other]);
+    expect(store.getState().document?.elements[0]).toBe(other);
+    expect(undoUntilStable(store)).toBe(1);
+    expect(store.getState().document).toBe(start);
+  });
+});

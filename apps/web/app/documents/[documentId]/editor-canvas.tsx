@@ -1,10 +1,26 @@
 "use client";
 
-import type { DesignDocument, Element as DocumentElement, Preview } from "@media-canvas/core";
-import { createPreview } from "@media-canvas/core";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type {
+  DesignDocument,
+  Element as DocumentElement,
+  Preview,
+  TextLayout,
+} from "@media-canvas/core";
+import { caretRect, createPreview, hitIndex, layoutText } from "@media-canvas/core";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { useStore } from "zustand";
-import { loadAssets, missingAssets, resolverFor } from "../../../lib/canvas-assets";
+import {
+  type AssetLibrary,
+  loadAssets,
+  missingAssets,
+  resolverFor,
+} from "../../../lib/canvas-assets";
 import {
   type CanvasView,
   fitZoom,
@@ -51,6 +67,15 @@ import {
   toggleSelection,
   unionBounds,
 } from "../../../lib/selection";
+import {
+  type TextSelection,
+  moveByCharacter,
+  moveByLine,
+  moveByWord,
+  moveToLineBoundary,
+  selectWord,
+  selectionRects,
+} from "../../../lib/text-editing";
 import { cn } from "../../../lib/utils";
 import { Problem } from "../../../components/problem";
 import { ToggleGroup, ToggleGroupItem } from "../../../components/ui/toggle-group";
@@ -105,7 +130,8 @@ type Gesture =
       startAngle: number;
       delta: number;
       snapped: boolean;
-    };
+    }
+  | { kind: "text-select"; pointerId: number; id: string };
 
 /**
  * The stage is what the canvas is looked at through: it scrolls, and scrolling
@@ -141,6 +167,9 @@ export function EditorCanvas({
   const select = useStore(store, (state) => state.select);
   const armTool = useStore(store, (state) => state.armTool);
   const createElement = useStore(store, (state) => state.createElement);
+  const beginTextEdit = useStore(store, (state) => state.beginTextEdit);
+  const updateTextContent = useStore(store, (state) => state.updateTextContent);
+  const endTextEdit = useStore(store, (state) => state.endTextEdit);
   const commitInspectorEdit = useStore(store, (state) => state.commitInspectorEdit);
   const commitHandleDrag = useStore(store, (state) => state.commitHandleDrag);
   const commitPlacementEdit = useStore(store, (state) => state.commitPlacementEdit);
@@ -156,6 +185,8 @@ export function EditorCanvas({
   const canvasSpace = useRef<HTMLDivElement>(null);
   const textInput = useRef<HTMLTextAreaElement>(null);
   const preview = useRef<Preview | null>(null);
+  const library = useRef<AssetLibrary | null>(null);
+  const [textSelection, setTextSelection] = useState<TextSelection>({ anchor: 0, focus: 0 });
   const pending = useRef<{ left: number; top: number } | null>(null);
   const panning = useRef<{ x: number; y: number } | null>(null);
   const gesture = useRef<Gesture | null>(null);
@@ -176,17 +207,18 @@ export function EditorCanvas({
     }
     let left = false;
     async function open() {
-      const library = await loadAssets(workspace!, document!, [DEFAULT_FONT_ASSET_ID]);
+      const assets = await loadAssets(workspace!, document!, [DEFAULT_FONT_ASSET_ID]);
       if (left) return;
       const missing = [
-        ...missingAssets(document!, library),
-        ...(library.fonts.has(DEFAULT_FONT_ASSET_ID) ? [] : [DEFAULT_FONT_ASSET_ID]),
+        ...missingAssets(document!, assets),
+        ...(assets.fonts.has(DEFAULT_FONT_ASSET_ID) ? [] : [DEFAULT_FONT_ASSET_ID]),
       ];
       if (missing.length > 0) {
         setProblem(`This document cannot be drawn: ${missing.join(", ")} could not be fetched.`);
         return;
       }
-      const opened = createPreview(resolverFor(library));
+      library.current = assets;
+      const opened = createPreview(resolverFor(assets));
       preview.current = opened;
       if (host.current && currentDesign.current) {
         applyUpdate(host.current, opened.update(currentDesign.current));
@@ -253,12 +285,17 @@ export function EditorCanvas({
   }, [zoom, documentId]);
 
   useLayoutEffect(() => {
-    if (editingTextId !== null) textInput.current?.focus();
-  }, [editingTextId]);
+    const node = textInput.current;
+    if (editingTextId === null || node === null) return;
+    node.focus();
+    const start = Math.min(textSelection.anchor, textSelection.focus);
+    const end = Math.max(textSelection.anchor, textSelection.focus);
+    node.setSelectionRange(start, end);
+  }, [editingTextId, textSelection]);
 
   useEffect(() => {
     function pressed(event: KeyboardEvent) {
-      if (event.code === "Space") {
+      if (event.code === "Space" && !isTypingTarget(event.target)) {
         event.preventDefault();
         spaceHeld.current = true;
         return;
@@ -274,7 +311,8 @@ export function EditorCanvas({
         if (activeTool !== "select" || editingTextId !== null) {
           gesture.current = null;
           setMarquee(null);
-          armTool("select");
+          if (editingTextId !== null) endTextEdit();
+          else armTool("select");
         } else if (enteredPath.length === 0) select([]);
         else {
           const exited = enteredPath.at(-1)!;
@@ -283,6 +321,19 @@ export function EditorCanvas({
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return;
+      if (event.key === "Enter" && editingTextId === null && selected.length === 1) {
+        const id = selected[0]!;
+        const element = findElement(currentDesign.current?.elements ?? [], id);
+        if (element?.type === "text") {
+          event.preventDefault();
+          beginTextEdit(id);
+          setTextSelection({
+            anchor: element.content.length,
+            focus: element.content.length,
+          });
+          return;
+        }
+      }
       const tool = toolForKey(event.key);
       if (tool !== null) armTool(tool);
     }
@@ -295,7 +346,18 @@ export function EditorCanvas({
       window.removeEventListener("keydown", pressed);
       window.removeEventListener("keyup", released);
     };
-  }, [activeTool, armTool, editingTextId, enteredPath, redo, select, undo]);
+  }, [
+    activeTool,
+    armTool,
+    beginTextEdit,
+    editingTextId,
+    endTextEdit,
+    enteredPath,
+    redo,
+    select,
+    selected,
+    undo,
+  ]);
 
   if (problem !== null)
     return (
@@ -340,8 +402,24 @@ export function EditorCanvas({
         onDoubleClick={(event) => {
           const chain = mountedChainAt(event.clientX, event.clientY, host.current);
           const target = selectionTarget(chain, enteredPath);
-          if (target === null || findElement(design.elements, target)?.type !== "group") return;
-          const path = [...enteredPath, target];
+          const element = target === null ? null : findElement(design.elements, target);
+          if (element?.type === "text") {
+            beginTextEdit(element.id);
+            const layout = layoutOf(element, library.current);
+            if (layout !== null) {
+              const local = svgLocalPoint(event.clientX, event.clientY, host.current, element.id);
+              const index =
+                local === null
+                  ? hitIndex(layout, { x: element.x, y: element.y })
+                  : hitIndex(layout, local);
+              setTextSelection(selectWord(element.content, index));
+            } else {
+              setTextSelection(selectWord(element.content, 0));
+            }
+            return;
+          }
+          if (element?.type !== "group") return;
+          const path = [...enteredPath, target!];
           const child = selectionTarget(chain, path);
           select(child === null ? [] : [child], path);
         }}
@@ -356,6 +434,26 @@ export function EditorCanvas({
             return;
           }
           if (event.button !== 0 || zoom === null) return;
+          if (editingTextId !== null) {
+            const chain = mountedChainAt(event.clientX, event.clientY, host.current);
+            const target = selectionTarget(chain, enteredPath, event.metaKey || event.ctrlKey);
+            const editing = findElement(design.elements, editingTextId);
+            if (target === editingTextId && editing?.type === "text") {
+              const layout = layoutOf(editing, library.current);
+              const local = svgLocalPoint(event.clientX, event.clientY, host.current, editing.id);
+              const index =
+                layout === null ? 0 : hitIndex(layout, local ?? { x: editing.x, y: editing.y });
+              setTextSelection(
+                event.shiftKey
+                  ? { ...textSelection, focus: index }
+                  : { anchor: index, focus: index },
+              );
+              gesture.current = { kind: "text-select", pointerId: event.pointerId, id: editing.id };
+              event.currentTarget.setPointerCapture(event.pointerId);
+              return;
+            }
+            endTextEdit();
+          }
           if (activeTool === "text" || activeTool === "rect" || activeTool === "ellipse") {
             const point = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
             if (point.x < 0 || point.y < 0 || point.x > canvas.width || point.y > canvas.height)
@@ -479,6 +577,16 @@ export function EditorCanvas({
           }
           const active = gesture.current;
           if (active?.pointerId !== event.pointerId || zoom === null) return;
+          if (active.kind === "text-select") {
+            const editing = findElement(design.elements, active.id);
+            if (editing?.type !== "text") return;
+            const layout = layoutOf(editing, library.current);
+            if (layout === null) return;
+            const local = svgLocalPoint(event.clientX, event.clientY, host.current, editing.id);
+            const index = hitIndex(layout, local ?? { x: editing.x, y: editing.y });
+            setTextSelection((current) => ({ ...current, focus: index }));
+            return;
+          }
           if (active.kind === "move") {
             const raw = {
               x: (event.clientX - active.clientX) / zoom,
@@ -641,7 +749,7 @@ export function EditorCanvas({
               className="pointer-events-none absolute inset-0 overflow-visible"
               aria-hidden="true"
             >
-              {selectionBox && (
+              {selectionBox && editingTextId === null && (
                 <SelectionBox
                   bounds={selectionBox}
                   handles={handlesForSelection(
@@ -650,6 +758,16 @@ export function EditorCanvas({
                       return element === null ? [] : [element];
                     }),
                   )}
+                />
+              )}
+              {editingTextId !== null && (
+                <TextCaretOverlay
+                  element={findElement(design.elements, editingTextId)}
+                  layout={layoutOf(findElement(design.elements, editingTextId), library.current)}
+                  selection={textSelection}
+                  host={host.current}
+                  space={canvasSpace.current}
+                  zoom={scale}
                 />
               )}
               {guides.map((guide) => (
@@ -706,9 +824,37 @@ export function EditorCanvas({
         <textarea
           aria-label="Text content"
           className="sr-only"
-          defaultValue=""
-          readOnly
+          onChange={(event) => {
+            updateTextContent(event.currentTarget.value);
+            setTextSelection({
+              anchor: event.currentTarget.selectionStart,
+              focus: event.currentTarget.selectionEnd,
+            });
+          }}
+          onKeyDown={(event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+              event.preventDefault();
+              return;
+            }
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
+              event.preventDefault();
+              setTextSelection({
+                anchor: 0,
+                focus: textContentOf(design, editingTextId).length,
+              });
+              return;
+            }
+            const editing = findElement(design.elements, editingTextId);
+            if (editing?.type !== "text") return;
+            const layout = layoutOf(editing, library.current);
+            const next = textKey(event, editing.content, textSelection, layout);
+            if (next === null) return;
+            event.preventDefault();
+            setTextSelection(next);
+          }}
           ref={textInput}
+          value={textContentOf(design, editingTextId)}
+          wrap="off"
         />
       )}
     </div>
@@ -942,6 +1088,132 @@ function findElement(elements: readonly DocumentElement[], id: string): Document
     }
   }
   return null;
+}
+
+function textContentOf(document: DesignDocument, id: string): string {
+  const element = findElement(document.elements, id);
+  return element?.type === "text" ? element.content : "";
+}
+
+function layoutOf(element: DocumentElement | null, assets: AssetLibrary | null): TextLayout | null {
+  if (element?.type !== "text" || assets === null) return null;
+  const bytes = assets.fonts.get(element.fontAssetId);
+  return bytes === undefined ? null : layoutText(element, bytes);
+}
+
+function svgLocalPoint(
+  clientX: number,
+  clientY: number,
+  host: globalThis.Element | null,
+  elementId: string,
+): Point | null {
+  const svg = host?.querySelector("svg");
+  const node = host?.querySelector(`[data-element="${CSS.escape(elementId)}"]`);
+  if (!(svg instanceof SVGSVGElement) || !(node instanceof SVGGraphicsElement)) return null;
+  const ctm = node.getScreenCTM();
+  if (ctm === null) return null;
+  const point = svg.createSVGPoint();
+  point.x = clientX;
+  point.y = clientY;
+  const local = point.matrixTransform(ctm.inverse());
+  return { x: local.x, y: local.y };
+}
+
+function overlayFromSvg(
+  x: number,
+  y: number,
+  host: globalThis.Element | null,
+  elementId: string,
+  space: globalThis.Element | null,
+  zoom: number,
+): Point {
+  const svg = host?.querySelector("svg");
+  const node = host?.querySelector(`[data-element="${CSS.escape(elementId)}"]`);
+  const origin = space?.getBoundingClientRect();
+  if (
+    !(svg instanceof SVGSVGElement) ||
+    !(node instanceof SVGGraphicsElement) ||
+    origin === undefined
+  ) {
+    return { x, y };
+  }
+  const ctm = node.getScreenCTM();
+  if (ctm === null) return { x, y };
+  const point = svg.createSVGPoint();
+  point.x = x;
+  point.y = y;
+  const screen = point.matrixTransform(ctm);
+  return { x: (screen.x - origin.left) / zoom, y: (screen.y - origin.top) / zoom };
+}
+
+function textKey(
+  event: ReactKeyboardEvent<HTMLTextAreaElement>,
+  content: string,
+  selection: TextSelection,
+  layout: TextLayout | null,
+): TextSelection | null {
+  const extend = event.shiftKey;
+  if (event.key === "ArrowLeft" && event.altKey) return moveByWord(content, selection, -1, extend);
+  if (event.key === "ArrowRight" && event.altKey) return moveByWord(content, selection, 1, extend);
+  if (event.key === "ArrowLeft" && (event.metaKey || event.ctrlKey) && layout) {
+    return moveToLineBoundary(layout, selection, "start", extend);
+  }
+  if (event.key === "ArrowRight" && (event.metaKey || event.ctrlKey) && layout) {
+    return moveToLineBoundary(layout, selection, "end", extend);
+  }
+  if (event.key === "ArrowLeft") return moveByCharacter(content, selection, -1, extend);
+  if (event.key === "ArrowRight") return moveByCharacter(content, selection, 1, extend);
+  if (layout === null) return null;
+  if (event.key === "ArrowUp") return moveByLine(layout, selection, -1, extend);
+  if (event.key === "ArrowDown") return moveByLine(layout, selection, 1, extend);
+  if (event.key === "Home") return moveToLineBoundary(layout, selection, "start", extend);
+  if (event.key === "End") return moveToLineBoundary(layout, selection, "end", extend);
+  return null;
+}
+
+function TextCaretOverlay({
+  element,
+  layout,
+  selection,
+  host,
+  space,
+  zoom,
+}: {
+  element: DocumentElement | null;
+  layout: TextLayout | null;
+  selection: TextSelection;
+  host: globalThis.Element | null;
+  space: globalThis.Element | null;
+  zoom: number;
+}) {
+  if (element?.type !== "text" || layout === null) return null;
+  const caret = caretRect(layout, selection.focus);
+  const origin = overlayFromSvg(caret.x, caret.y, host, element.id, space, zoom);
+  const highlights = selectionRects(layout, selection.anchor, selection.focus).map((rect) => {
+    const placed = overlayFromSvg(rect.x, rect.y, host, element.id, space, zoom);
+    return { ...rect, x: placed.x, y: placed.y };
+  });
+  return (
+    <>
+      {highlights.map((rect) => (
+        <span
+          className="absolute bg-primary/30"
+          key={`${String(rect.x)}:${String(rect.y)}`}
+          style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
+        />
+      ))}
+      <span
+        className="absolute w-px bg-primary"
+        style={{
+          left: origin.x,
+          top: origin.y,
+          height: caret.height,
+          transform: element.rotation === 0 ? undefined : `rotate(${String(element.rotation)}deg)`,
+          transformOrigin: "0 0",
+        }}
+      />
+    </>
+  );
 }
 
 function siblingsAt(elements: DocumentElement[], path: readonly string[]): DocumentElement[] {

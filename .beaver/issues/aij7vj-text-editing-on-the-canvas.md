@@ -1,14 +1,15 @@
 ---
 id: aij7vj
 title: Text editing on the canvas
-state: todo
+state: done
+assignee: agent
 priority: high
 depends_on:
     - 8919ix
     - jnih1z
 parent: ek7pq1
 created: 2026-08-15T07:12:37Z
-updated: 2026-08-15T07:12:37Z
+updated: 2026-08-25T20:38:39Z
 ---
 
 ## What to build
@@ -25,3 +26,17 @@ Typing on the canvas, with the compiled markup as the only text renderer. A hidd
 - [ ] The caret and the selection highlight are drawn in the overlay above the markup, never inside the document.
 - [ ] A text element left empty when editing ends is deleted, so no invisible zero-height elements accumulate.
 - [ ] One editing session is one undo entry, from entering to leaving, however many keystrokes it contained.
+
+## Notes
+
+**agent** — 2026-08-25T20:38:37Z
+
+Implemented text editing on the canvas. AFK test seams (parent spec): the core `layoutText` export for layout, caret, and hit-testing; the document-operation / store seam for content mutation, empty-on-exit, and one Undo Entry per session.
+
+The compiler's existing line-breaking in `packages/core/src/text.ts` now also records each line's content range and character-boundary x values. `layoutText(element, fontBytes)` (plus `caretRect` / `hitIndex`) is the new core export; it calls that same layout, never a second breaker. Click-past-the-last-character-of-a-wrapped-line is pinned against Oswald Bold at the wrap worked example. Line hit-testing uses nearest baseline, not the line box: Oswald's ascent sits past the box, so a click on the first baseline would otherwise land on the next line.
+
+The editor holds a hidden textarea for the raw content (tokens included). Keystrokes `replaceDocument` through `updateTextContent`; `endTextEdit` is the one Undo Entry. Enter inserts a hard break; Escape, a tool change, or a click off the element ends the session; an emptied element is removed. Caret and selection highlight live in the HTML overlay, placed from the compiler layout via the mounted node's CTM.
+
+`apps/worker/environment.json` compiler hash updated (`environment:write`) because the compiler source changed. Line breaks and emitted markup are unchanged, so goldens were not rebaked.
+
+pnpm check passes. All 322 TypeScript tests pass. The unchanged FastAPI suite could not start: compose Postgres is not on this sandbox's loopback (unix socket is under `.dev/run/pg`).
