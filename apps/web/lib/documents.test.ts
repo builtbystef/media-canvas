@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 
 import { kindLabel, kindShown, tabNamed, updatedLabel } from "./documents.ts";
-import { editorPath, listPath } from "./routes.ts";
+import { editorPath, jobPath, listPath } from "./routes.ts";
 
 /**
  * What one list shows.
@@ -46,4 +46,10 @@ test("a row opens its document at the document's own url", () => {
   );
   expect(listPath("all")).toBe("/");
   expect(listPath("templates")).toBe("/?tab=templates");
+});
+
+test("a job is reached at the job's own url", () => {
+  expect(jobPath("6c8a1f4e-1d2b-4c3a-9e5f-7a8b9c0d1e2f")).toBe(
+    "/jobs/6c8a1f4e-1d2b-4c3a-9e5f-7a8b9c0d1e2f",
+  );
 });

@@ -12,7 +12,7 @@ A pnpm + uv monorepo. TS projects live under `apps/*` and `packages/*` (pnpm wor
 - **`packages/core`** (`@media-canvas/core`) — the shared TypeScript core (ADR-0003): Design Document schema types, validation, value substitution, and the JSON→SVG compiler. Imported by `apps/web` and `apps/worker`; the single place render fidelity is defined.
 - **`packages/fonts`** (`@media-canvas/fonts`) — the bundled font set: the nine SIL OFL families vendored as static TTFs, and the manifest naming each file's Font Asset id (the SHA-256 of its bytes), family, weight, and style. The compiler's metrics, the worker's font configuration, the golden fixtures, and Workspace seeding all read that manifest instead of file names.
 - **`packages/api-client`** (`@media-canvas/api-client`) — TypeScript client generated (`@hey-api/openapi-ts`) from the committed `apps/api/openapi.json`.
-- **Root Compose stack** — the default services are development infrastructure (Postgres, Redis, and Garage). The `app` profile adds repository-built api, web, and pinned worker images plus Caddy, the only public application origin. Caddy sends `/api`, `/assets`, and `/jobs` paths to the api and all other paths to the web app; a configured `DOMAIN` activates its automatic HTTPS.
+- **Root Compose stack** — the default services are development infrastructure (Postgres, Redis, and Garage). The `app` profile adds repository-built api, web, and pinned worker images plus Caddy, the only public application origin. Caddy sends `/api` and `/assets` paths to the api and all other paths to the web app; a configured `DOMAIN` activates its automatic HTTPS.
 
 ## Seams
 

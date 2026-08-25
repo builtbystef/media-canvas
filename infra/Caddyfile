@@ -5,7 +5,7 @@
 }
 
 {$SITE_ADDRESS} {
-	@api path /api /api/* /assets /assets/* /jobs /jobs/*
+	@api path /api /api/* /assets /assets/*
 	handle @api {
 		reverse_proxy api:8000
 	}

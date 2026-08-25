@@ -14,5 +14,8 @@ export const NEW_WORKSPACE = "/workspaces/new";
 /** The editor, at the document's own url — one page for both kinds. */
 export const editorPath = (documentId: string) => `/documents/${documentId}`;
 
+/** The job view, at the job's own url. */
+export const jobPath = (jobId: string) => `/jobs/${jobId}`;
+
 /** The list, filtered. The tab that hides nothing is the plain list. */
 export const listPath = (tab: Tab) => (tab === "all" ? HOME : `${HOME}?tab=${tab}`);

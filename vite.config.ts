@@ -18,6 +18,7 @@ export default defineConfig({
       ".pi/**",
       // Vendored pixelmatch 7.2.0 — keep the upstream text, not ours.
       "apps/worker/src/goldens/pixelmatch.js",
+      "apps/web/vendor/**",
     ],
   },
   lint: {
@@ -32,6 +33,7 @@ export default defineConfig({
       "**/.next/**",
       "**/src/generated/**",
       "apps/worker/src/goldens/pixelmatch.js",
+      "apps/web/vendor/**",
     ],
     overrides: [
       {
