@@ -147,6 +147,28 @@ class Invite(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class ApiKey(Base):
+    """A Workspace-owned secret that scripts present instead of a session.
+
+    The plaintext is shown once, at creation; this row keeps its hash and a
+    short prefix so the list can name a key without ever holding it again.
+    """
+
+    __tablename__ = "api_keys"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(100))
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    prefix: Mapped[str] = mapped_column(String(8))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+
+
 class DocumentKind(StrEnum):
     """Which of the two things a stored document is.
 

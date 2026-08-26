@@ -74,6 +74,28 @@ export type CodeVerification = {
 };
 
 /**
+ * CreatedKey
+ */
+export type CreatedKey = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Prefix
+     */
+    prefix: string;
+    /**
+     * Key
+     */
+    key: string;
+};
+
+/**
  * DatabaseHealth
  */
 export type DatabaseHealth = {
@@ -441,6 +463,42 @@ export type JpegOutput = {
      * Quality
      */
     quality?: number;
+};
+
+/**
+ * KeyRequest
+ */
+export type KeyRequest = {
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
+ * KeyView
+ */
+export type KeyView = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Prefix
+     */
+    prefix: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Last Used At
+     */
+    last_used_at: string | null;
 };
 
 /**
@@ -1260,6 +1318,102 @@ export type AcceptInviteResponses = {
 };
 
 export type AcceptInviteResponse = AcceptInviteResponses[keyof AcceptInviteResponses];
+
+export type ListWorkspaceApiKeysData = {
+    body?: never;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/api-keys';
+};
+
+export type ListWorkspaceApiKeysErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListWorkspaceApiKeysError = ListWorkspaceApiKeysErrors[keyof ListWorkspaceApiKeysErrors];
+
+export type ListWorkspaceApiKeysResponses = {
+    /**
+     * Response Listworkspaceapikeys
+     *
+     * Successful Response
+     */
+    200: Array<KeyView>;
+};
+
+export type ListWorkspaceApiKeysResponse = ListWorkspaceApiKeysResponses[keyof ListWorkspaceApiKeysResponses];
+
+export type CreateWorkspaceApiKeyData = {
+    body: KeyRequest;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/api-keys';
+};
+
+export type CreateWorkspaceApiKeyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateWorkspaceApiKeyError = CreateWorkspaceApiKeyErrors[keyof CreateWorkspaceApiKeyErrors];
+
+export type CreateWorkspaceApiKeyResponses = {
+    /**
+     * Successful Response
+     */
+    201: CreatedKey;
+};
+
+export type CreateWorkspaceApiKeyResponse = CreateWorkspaceApiKeyResponses[keyof CreateWorkspaceApiKeyResponses];
+
+export type DeleteWorkspaceApiKeyData = {
+    body?: never;
+    path: {
+        /**
+         * Apikeyid
+         */
+        apiKeyId: string;
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/api-keys/{apiKeyId}';
+};
+
+export type DeleteWorkspaceApiKeyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteWorkspaceApiKeyError = DeleteWorkspaceApiKeyErrors[keyof DeleteWorkspaceApiKeyErrors];
+
+export type DeleteWorkspaceApiKeyResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteWorkspaceApiKeyResponse = DeleteWorkspaceApiKeyResponses[keyof DeleteWorkspaceApiKeyResponses];
 
 export type ListDocumentsData = {
     body?: never;

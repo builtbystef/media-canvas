@@ -167,7 +167,8 @@ def workspace_scoped_answers(
             method,
             path.replace("{workspaceId}", workspace)
             .replace("{userId}", someone.id)
-            .replace("{inviteId}", someone.id),
+            .replace("{inviteId}", someone.id)
+            .replace("{apiKeyId}", someone.id),
             json={"name": "Anything", "role": "viewer"},
         ).status_code
         for path, operations in client.app.openapi()["paths"].items()

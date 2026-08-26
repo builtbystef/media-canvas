@@ -9,6 +9,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from media_canvas_api import (
+    api_keys,
     auth,
     documents,
     fonts,
@@ -122,6 +123,7 @@ app = FastAPI(title="media-canvas-api", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(workspaces.router)
 app.include_router(invites.router)
+app.include_router(api_keys.router)
 app.include_router(documents.router)
 app.include_router(render.router)
 app.include_router(fonts.router)

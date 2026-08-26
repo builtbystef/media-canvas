@@ -7,10 +7,12 @@ here it is a closed one. May this caller do *this*, in *this* Workspace, is
 `requiring()`: one gate every Workspace-scoped route in the product declares
 instead of writing the Role check out again.
 
-Being admitted means one of two things, decided by the address. Everything a
-person reaches carries a session cookie; everything under `/internal` is the
-render worker, which holds no account and presents the credential the two
-services share. Neither is ever accepted where the other belongs.
+Being admitted means one of three things, decided by the address. Everything a
+person reaches carries a session cookie; a script presents `Authorization:
+Bearer mc_...` and is an Editor of that key's Workspace, on the generation
+surface only; everything under `/internal` is the render worker, which holds
+no account and presents the credential the two services share. A key is never
+a way around the settings pages, and the worker is never a member of anything.
 """
 
 from secrets import compare_digest
@@ -24,9 +26,10 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from media_canvas_api.clock import Clock
+from media_canvas_api.keys import authenticate_key, record_use
 from media_canvas_api.mailer import Mailer
 from media_canvas_api.memberships import membership_in
-from media_canvas_api.models import Membership, Role
+from media_canvas_api.models import ApiKey, Membership, Role
 from media_canvas_api.queue import RowQueue
 from media_canvas_api.sessions import (
     COOKIE_NAME,
@@ -88,21 +91,40 @@ class AccessMiddleware:
                     await unauthenticated(scope, receive, send)
                     return
             elif not is_public(request.url.path):
-                token = request.cookies.get(COOKIE_NAME, "")
-                signed_in = await authenticate(
-                    database, token, scope["app"].state.clock()
-                )
-                if signed_in is None:
-                    await unauthenticated(scope, receive, send)
-                    return
-                request.state.signed_in = signed_in
-                if signed_in.rolled:
-                    send = also_sending(
-                        send,
-                        session_cookie_header(
-                            token, secure=settings.cookies_require_https
-                        ),
+                presented = request.headers.get("authorization", "")
+                scheme, _, bearer = presented.partition(" ")
+                if scheme.lower() == "bearer" and bearer.startswith("mc_"):
+                    key = await authenticate_key(database, bearer)
+                    if key is None:
+                        await unauthenticated(scope, receive, send)
+                        return
+                    request.state.api_key = key
+                    try:
+                        await record_use(database, key, scope["app"].state.clock())
+                    except Exception:
+                        await database.rollback()
+                    allowed = getattr(
+                        scope["app"].state, "generation_surface", no_generation_surface
                     )
+                    if not allowed(request.url.path):
+                        await forbidden(scope, receive, send)
+                        return
+                else:
+                    token = request.cookies.get(COOKIE_NAME, "")
+                    signed_in = await authenticate(
+                        database, token, scope["app"].state.clock()
+                    )
+                    if signed_in is None:
+                        await unauthenticated(scope, receive, send)
+                        return
+                    request.state.signed_in = signed_in
+                    if signed_in.rolled:
+                        send = also_sending(
+                            send,
+                            session_cookie_header(
+                                token, secure=settings.cookies_require_https
+                            ),
+                        )
             await self.app(scope, receive, send)
 
 
@@ -178,6 +200,23 @@ async def unauthenticated(scope: Scope, receive: Receive, send: Send) -> None:
     await response(scope, receive, send)
 
 
+async def forbidden(scope: Scope, receive: Receive, send: Send) -> None:
+    response = JSONResponse(
+        {"detail": "API keys cannot reach this route."}, status_code=403
+    )
+    await response(scope, receive, send)
+
+
+def no_generation_surface(_path: str) -> bool:
+    """Nothing is generation surface until those routes declare themselves.
+
+    A key is therefore refused on every shipped route. The generation issue
+    replaces this default; tests that need the permitted case mount a probe
+    and put a predicate on `app.state.generation_surface`.
+    """
+    return False
+
+
 def request_database(request: Request) -> AsyncSession:
     return request.state.database
 
@@ -232,13 +271,24 @@ def requiring(role: Role) -> params.Depends:
     hands it to the route — so a route that has run at all has already been
     checked, and cannot have been checked wrongly. `role` is the least Role
     that is enough: an Owner passes an Editor's gate, an Editor a Viewer's.
+
+    A key has no Membership: it is an Editor of its own Workspace, and only
+    of that one. The same ladder applies, so an Owner-only route refuses it.
     """
 
     async def resolve(
         workspace_id: Annotated[UUID, Path(alias="workspaceId")],
         database: Database,
-        signed_in: CurrentSession,
+        request: Request,
     ) -> Membership:
+        key: ApiKey | None = getattr(request.state, "api_key", None)
+        if key is not None:
+            if key.workspace_id != workspace_id:
+                raise HTTPException(404, UNREACHABLE)
+            granted = key_as_editor(key)
+            refuse_unless(granted, role)
+            return granted
+        signed_in: SignedIn = request.state.signed_in
         membership = await membership_in(database, workspace_id, signed_in.user.id)
         if membership is None:
             raise HTTPException(404, UNREACHABLE)
@@ -246,6 +296,20 @@ def requiring(role: Role) -> params.Depends:
         return membership
 
     return Depends(resolve)
+
+
+def key_as_editor(key: ApiKey) -> Membership:
+    """The Editor place a key occupies in its Workspace.
+
+    Not a row: a key is not a member. The object is only what the gate and
+    the route read — the Workspace, and the Role.
+    """
+    return Membership(
+        workspace_id=key.workspace_id,
+        user_id=key.id,
+        role=Role.editor,
+        created_at=key.created_at,
+    )
 
 
 def refuse_unless(membership: Membership, role: Role) -> None:

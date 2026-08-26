@@ -107,3 +107,7 @@ _Avoid_: permission level, access tier
 **Workspace Invite**:
 An Owner's emailed, single-use offer of Membership in one Workspace with one Role. Accepting it signs the recipient in — creating their User first if the email is new to the instance.
 _Avoid_: invite link, invitation email, admin invite
+
+**API Key**:
+A Workspace-owned secret that authenticates a script as an Editor of that Workspace, on the generation surface only.
+_Avoid_: access token, personal access token
