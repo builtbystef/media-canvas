@@ -1200,7 +1200,7 @@
           "jobs"
         ],
         "summary": "Create Job",
-        "description": "Submit a batch against this Template, or return the Job a repeated\nidempotency key already created.",
+        "description": "Submit a batch against this Template, or return the Job a repeated\nidempotency key already created.\n\nA text/csv body is the same channel: format and idempotency key travel\nas query parameters, cells stay strings, and the worker types them.",
         "operationId": "createJob",
         "parameters": [
           {
@@ -1212,6 +1212,50 @@
               "format": "uuid",
               "title": "Templateid"
             }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "png",
+                "jpeg",
+                "pdf"
+              ]
+            }
+          },
+          {
+            "name": "scale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "idempotencyKey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -1219,7 +1263,20 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SubmitJob"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SubmitJob"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Body"
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string"
               }
             }
           }

@@ -1538,14 +1538,22 @@ export type ServeImageResponses = {
 };
 
 export type CreateJobData = {
-    body: SubmitJob;
+    /**
+     * Body
+     */
+    body: SubmitJob | string;
     path: {
         /**
          * Templateid
          */
         templateId: string;
     };
-    query?: never;
+    query?: {
+        format?: 'png' | 'jpeg' | 'pdf';
+        scale?: 1 | 2 | 3;
+        quality?: number;
+        idempotencyKey?: string;
+    };
     url: '/api/v1/templates/{templateId}/jobs';
 };
 

@@ -7,16 +7,19 @@ enqueues one identifiers-only task per Row (ADR-0004). Finished files leave
 through here too: the api streams them from its own storage, never a URL.
 """
 
-from collections.abc import Sequence
+import csv
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from datetime import datetime
+from io import StringIO
 from re import compile as regexp
 from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Path, params
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, params
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from pydantic.alias_generators import to_camel
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -42,7 +45,7 @@ from media_canvas_api.models import (
     RowStatus,
 )
 from media_canvas_api.storage import serve, serve_archive
-from media_canvas_api.worker import BatchValidation, NamedProblem, RowError, Worker
+from media_canvas_api.worker import NamedProblem, RowError, Worker
 
 router = APIRouter(prefix="/api/v1", tags=["jobs"])
 
@@ -68,6 +71,10 @@ NAME_CHARSET = (
     "A row name may only contain letters, digits, dot, dash and underscore, "
     "and may be at most 128 characters."
 )
+UNKNOWN_COLUMN = "'{name}' is not a declared Variable."
+EMPTY_CSV = "A CSV submission needs at least one data row."
+MISSING_FORMAT = "A CSV submission needs a format."
+CONTRADICTORY_FORMAT = "The output format contradicts itself."
 
 
 class JobPayload(BaseModel):
@@ -93,6 +100,8 @@ class PdfOutput(BaseModel):
 type OutputFormat = Annotated[
     PngOutput | JpegOutput | PdfOutput, Field(discriminator="format")
 ]
+
+_output = TypeAdapter[OutputFormat](OutputFormat)
 
 
 class Progress(JobPayload):
@@ -213,42 +222,143 @@ ReadableJob = Annotated[GenerationJob, holding_job(Role.viewer)]
     response_model=JobView,
     response_model_exclude_none=True,
     responses={422: {"model": BatchRefusal}},
+    openapi_extra={
+        "parameters": [
+            {
+                "name": "format",
+                "in": "query",
+                "required": False,
+                "schema": {"type": "string", "enum": ["png", "jpeg", "pdf"]},
+            },
+            {
+                "name": "scale",
+                "in": "query",
+                "required": False,
+                "schema": {"type": "integer", "enum": [1, 2, 3]},
+            },
+            {
+                "name": "quality",
+                "in": "query",
+                "required": False,
+                "schema": {"type": "integer", "minimum": 1, "maximum": 100},
+            },
+            {
+                "name": "idempotencyKey",
+                "in": "query",
+                "required": False,
+                "schema": {"type": "string"},
+            },
+        ],
+        "requestBody": {
+            "content": {
+                "text/csv": {"schema": {"type": "string"}},
+            },
+        },
+    },
 )
 async def create_job(
-    body: SubmitJob,
+    request: Request,
     template: EditableTemplate,
     database: Database,
     worker: WorkerService,
     work: WorkQueue,
     clock: Now,
+    body: SubmitJob | str,
 ) -> JobView | JSONResponse:
     """Submit a batch against this Template, or return the Job a repeated
-    idempotency key already created."""
-    if body.idempotency_key:
-        existing = await job_for_key(database, template.id, body.idempotency_key)
+    idempotency key already created.
+
+    A text/csv body is the same channel: format and idempotency key travel
+    as query parameters, cells stay strings, and the worker types them.
+    """
+    if _csv_request(request):
+        output, idempotency_key = output_from_query(request.query_params)
+        text = body if isinstance(body, str) else ""
+        rows, header_errors = rows_from_csv(
+            text.removeprefix("\ufeff"), template.document
+        )
+        if header_errors:
+            return refused(header_errors)
+        return await accept_batch(
+            rows=rows,
+            output=output,
+            idempotency_key=idempotency_key,
+            cells=True,
+            template=template,
+            database=database,
+            worker=worker,
+            work=work,
+            clock=clock,
+        )
+    if isinstance(body, str):
+        raise RequestValidationError(
+            [
+                {
+                    "type": "model_attributes_type",
+                    "loc": ("body",),
+                    "msg": (
+                        "Input should be a valid dictionary or object "
+                        "to extract fields from"
+                    ),
+                    "input": body,
+                }
+            ]
+        )
+    return await accept_batch(
+        rows=body.rows,
+        output=body.output,
+        idempotency_key=body.idempotency_key,
+        cells=False,
+        template=template,
+        database=database,
+        worker=worker,
+        work=work,
+        clock=clock,
+    )
+
+
+async def accept_batch(
+    *,
+    rows: list[dict[str, Any]],
+    output: OutputFormat,
+    idempotency_key: str | None,
+    cells: bool,
+    template: Document,
+    database: Database,
+    worker: Worker,
+    work: WorkQueue,
+    clock: Now,
+) -> JobView | JSONResponse:
+    """Validate, snapshot, and store — or refuse the whole batch."""
+    if idempotency_key:
+        existing = await job_for_key(database, template.id, idempotency_key)
         if existing is not None:
             return JSONResponse(
                 status_code=200,
                 content=_dumped(await view_of(database, existing)),
             )
 
-    named, name_errors = names_for(body.rows)
+    named, name_errors = names_for(rows)
     if name_errors:
         return refused(name_errors)
 
-    judged = await validate_with(worker, template, [values for _, _, values in named])
+    values = [row_values for _, _, row_values in named]
+    judged = await worker.validate_batch(
+        str(template.workspace_id), template.document, values, cells=cells
+    )
     if judged.errors or judged.template_errors:
         return refused(judged.errors, judged.template_errors)
 
+    stored_values = judged.rows if cells and judged.rows is not None else values
     now = clock()
     job = GenerationJob(
         id=uuid4(),
         workspace_id=template.workspace_id,
         template_id=template.id,
         template_snapshot=deepcopy(template.document),
-        output_format=body.output.model_dump(),
+        output_format=output.model_dump(),
         state=JobState.queued,
-        idempotency_key=body.idempotency_key,
+        idempotency_key=idempotency_key,
         created_at=now,
         updated_at=now,
     )
@@ -258,11 +368,11 @@ async def create_job(
             job_id=job.id,
             row_index=index,
             name=name,
-            values=values,
+            values=typed,
             status=RowStatus.queued,
             attempts=0,
         )
-        for index, name, values in named
+        for (index, name, _), typed in zip(named, stored_values, strict=True)
     ]
     database.add_all(stored_rows)
     try:
@@ -271,9 +381,9 @@ async def create_job(
         # Two submissions with the same key arrived together: the first
         # writer won, and this one is the retry that must not render twice.
         await database.rollback()
-        if body.idempotency_key is None:
+        if idempotency_key is None:
             raise
-        existing = await job_for_key(database, template.id, body.idempotency_key)
+        existing = await job_for_key(database, template.id, idempotency_key)
         if existing is None:
             raise
         return JSONResponse(
@@ -282,6 +392,98 @@ async def create_job(
         )
     await work.enqueue([(job.id, row.id) for row in stored_rows])
     return view_of_rows(job, stored_rows)
+
+
+def _csv_request(request: Request) -> bool:
+    content_type = request.headers.get("content-type", "")
+    return content_type.split(";", 1)[0].strip().lower() == "text/csv"
+
+
+def output_from_query(params: Mapping[str, str]) -> tuple[OutputFormat, str | None]:
+    """The format a CSV submission carries in query parameters.
+
+    A missing or self-contradictory format is refused before any cell is
+    read: png takes a scale, jpeg an optional quality, pdf neither.
+    """
+    fmt = params.get("format")
+    if fmt is None:
+        raise HTTPException(422, MISSING_FORMAT)
+    has_scale = "scale" in params
+    has_quality = "quality" in params
+    if (
+        (fmt == "png" and has_quality)
+        or (fmt == "jpeg" and has_scale)
+        or (fmt == "pdf" and (has_scale or has_quality))
+    ):
+        raise HTTPException(422, CONTRADICTORY_FORMAT)
+    payload: dict[str, Any] = {"format": fmt}
+    try:
+        if has_scale:
+            payload["scale"] = int(params["scale"])
+        if has_quality:
+            payload["quality"] = int(params["quality"])
+        return _output.validate_python(payload), params.get("idempotencyKey")
+    except (TypeError, ValueError, ValidationError) as exc:
+        raise HTTPException(422, CONTRADICTORY_FORMAT) from exc
+
+
+def declared_variable_names(document: dict[str, Any]) -> set[str]:
+    """The Variable names the Template declares.
+
+    The header check is this module's: core ignores unknown keys, so a CSV
+    column that names nothing declared would otherwise be stored and silently
+    dropped. Only names are read; types stay the worker's (ADR-0003).
+    """
+    declared = document.get("variables")
+    if not isinstance(declared, list):
+        return set()
+    return {
+        item["name"]
+        for item in declared
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
+
+
+def rows_from_csv(
+    text: str, document: dict[str, Any]
+) -> tuple[list[dict[str, Any]], list[RowError]]:
+    """Parse CSV text into string cells, or the reasons the file is refused.
+
+    Empty cells are omitted, so a default applies and an explicit empty
+    string stays reachable only through JSON. Row indexes count data rows
+    from zero; the header is not one of them.
+    """
+    reader = csv.reader(StringIO(text))
+    try:
+        header = next(reader)
+    except StopIteration:
+        return [], [RowError(row_index=0, message=EMPTY_CSV)]
+
+    declared = declared_variable_names(document)
+    unknown = [
+        RowError(
+            row_index=0,
+            variable=column,
+            message=UNKNOWN_COLUMN.format(name=column),
+        )
+        for column in header
+        if column != "_name" and column not in declared
+    ]
+
+    rows: list[dict[str, Any]] = []
+    for cells in reader:
+        row: dict[str, Any] = {}
+        for name, cell in zip(header, cells, strict=False):
+            if cell == "":
+                continue
+            row[name] = cell
+        rows.append(row)
+
+    if not rows:
+        return [], [RowError(row_index=0, message=EMPTY_CSV)]
+    if unknown:
+        return [], unknown
+    return rows, []
 
 
 @router.get("/jobs/{jobId}", operation_id="getJob", response_model_exclude_none=True)
@@ -399,14 +601,6 @@ async def job_for_key(
             GenerationJob.template_id == template_id,
             GenerationJob.idempotency_key == key,
         )
-    )
-
-
-async def validate_with(
-    worker: Worker, template: Document, rows: list[dict[str, Any]]
-) -> BatchValidation:
-    return await worker.validate_batch(
-        str(template.workspace_id), template.document, rows
     )
 
 

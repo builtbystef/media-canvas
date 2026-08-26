@@ -370,6 +370,8 @@ class RecordingWorker:
                 workspace_id=workspace_id, template=template, rows=rows, cells=cells
             )
         )
+        if cells and self.batch.rows is None:
+            return self.batch.model_copy(update={"rows": list(rows)})
         return self.batch
 
     async def render(

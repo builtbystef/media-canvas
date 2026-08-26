@@ -334,6 +334,9 @@ export const serveImage = <ThrowOnError extends boolean = false>(options: Option
  *
  * Submit a batch against this Template, or return the Job a repeated
  * idempotency key already created.
+ *
+ * A text/csv body is the same channel: format and idempotency key travel
+ * as query parameters, cells stay strings, and the worker types them.
  */
 export const createJob = <ThrowOnError extends boolean = false>(options: Options<CreateJobData, ThrowOnError>): RequestResult<CreateJobResponses, CreateJobErrors, ThrowOnError> => (options.client ?? client).post<CreateJobResponses, CreateJobErrors, ThrowOnError>({
     url: '/api/v1/templates/{templateId}/jobs',
