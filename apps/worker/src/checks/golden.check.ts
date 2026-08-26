@@ -21,6 +21,7 @@ import {
 import {
   baselinePath,
   compiledFixture,
+  fixtureRenderOptions,
   parityFixture,
   workerGoldens,
 } from "../goldens/fixtures.ts";
@@ -37,7 +38,7 @@ for (const fixture of workerGoldens) {
       `no baseline for "${fixture.name}"; bake it inside the pinned image with pnpm --filter worker run goldens:bake`,
     );
     const svg = compiledFixture(fixture);
-    const actual = await render(svg, { format: "png", scale: 1 });
+    const actual = await render(svg, fixtureRenderOptions(fixture));
     const expected = new Uint8Array(readFileSync(path));
     const result = comparePngs(actual, expected, WORKER_MAX_DIFF_RATIO);
     assert.equal(

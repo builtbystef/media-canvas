@@ -34,14 +34,31 @@ image.
 
 ## Fixtures in this issue
 
+Worker-output goldens: ratio 0 at pixelmatch `threshold: 0.1`.
+
 - `composite` — the render-fidelity prototype hard case (linear gradient,
   shadow, alpha, ellipse clip, image crop, rotation, group opacity, vector,
-  wrapped text). Worker-output golden: ratio 0 at pixelmatch `threshold: 0.1`.
-- `cross-flavor` — the same document, compared live between full Chromium and
-  `chrome-headless-shell` inside the one pinned image. The single fixture with
-  a nonzero allowance: differing-pixel ratio 0.006. That admits the measured
-  0.534% glyph-edge AA drift and rejects a one-line layout shift or a changed
-  fill.
+  wrapped text).
+- `font-*` — one fixture per bundled family (Inter, Montserrat, Lora, Playfair
+  Display, Oswald, Bebas Neue, Pacifico, Dancing Script, JetBrains Mono). Each
+  covers that family's weights and styles and a character with no glyph (☃).
+- `anchors` — top/middle/bottom × left/center/right; each cell is wrapped
+  `LIMITED OFFER` at the compile-example width of 120.
+- `fills` — radial and solid fills, borders, and per-corner corner radii.
+- `groups` — nested groups, z-order across levels, a hidden child inside a
+  visible group, and a hidden group.
+- `fit-modes` — `cover` / `contain` / `stretch` over a transparent asset and
+  the sample photograph.
+- `nonsquare` — a 640×360 canvas.
+- `scale-2x` — a 240×120 canvas exported at deviceScaleFactor 2.
+- `template` — a Template rendered from a row: text, image, solid color,
+  interpolated number, visibility, a declared default, and the wrap boundary
+  at 290 and 120.
+- `cross-flavor` — the composite document, compared live between full Chromium
+  and `chrome-headless-shell` inside the one pinned image. The single fixture
+  with a nonzero allowance: differing-pixel ratio 0.006. That admits the
+  measured 0.534% glyph-edge AA drift and rejects a one-line layout shift or a
+  changed fill.
 
 Missing values, missing assets, and validation failures are not goldens.
 They are functional tests on `validate` and `compile` in `@media-canvas/core`.

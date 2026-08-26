@@ -9,7 +9,13 @@ import type { RenderEnvironment } from "../environment.ts";
 import { renderEnvironment } from "../environment.ts";
 import { render } from "../render.ts";
 import { computeEnvironment } from "../write-environment.ts";
-import { baselinePath, baselinesDirectory, compiledFixture, workerGoldens } from "./fixtures.ts";
+import {
+  baselinePath,
+  baselinesDirectory,
+  compiledFixture,
+  fixtureRenderOptions,
+  workerGoldens,
+} from "./fixtures.ts";
 
 const IMAGE_BROWSERS_PATH = "/opt/playwright-browsers";
 
@@ -66,7 +72,7 @@ export async function bakeBaselines(): Promise<string[]> {
   const written: string[] = [];
   for (const fixture of workerGoldens) {
     const svg = compiledFixture(fixture);
-    const png = await render(svg, { format: "png", scale: 1 });
+    const png = await render(svg, fixtureRenderOptions(fixture));
     const path = baselinePath(fixture.name);
     writeFileSync(path, png);
     written.push(path);
