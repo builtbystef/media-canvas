@@ -16,6 +16,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useStore } from "zustand";
+import { uploadImage } from "@media-canvas/api-client";
 import {
   type AssetLibrary,
   loadAssets,
@@ -46,6 +47,17 @@ import {
   toolForKey,
 } from "../../../lib/drawing-tools";
 import type { EditorStore } from "../../../lib/editor-store";
+import { applyCropPan } from "../../../lib/image-crop";
+import {
+  canAcceptImageDrop,
+  failPlaceholder,
+  finishImageDrop,
+  imageElementFromAsset,
+  imageSourcesFromDrop,
+  type ImagePlaceholder,
+  refusalMessage,
+  startPlaceholder,
+} from "../../../lib/image-placement";
 import {
   alignElements,
   distributeElements,
@@ -61,6 +73,7 @@ import {
   handleForPointerTarget,
   handlesForSelection,
 } from "../../../lib/resize-scale";
+import { updateSelectedElements } from "../../../lib/inspector-operations";
 import {
   type Bounds,
   marqueeSelection,
@@ -127,6 +140,16 @@ type Gesture =
       delta: Point;
       keepAspect: boolean;
       fromCenter: boolean;
+      crop: boolean;
+    }
+  | {
+      kind: "crop-pan";
+      pointerId: number;
+      clientX: number;
+      clientY: number;
+      document: DesignDocument;
+      id: string;
+      delta: Point;
     }
   | {
       kind: "rotate";
@@ -171,6 +194,7 @@ export function EditorCanvas({
   const enteredPath = useStore(store, (state) => state.enteredPath);
   const activeTool = useStore(store, (state) => state.activeTool);
   const editingTextId = useStore(store, (state) => state.editingTextId);
+  const croppingId = useStore(store, (state) => state.croppingId);
   const replaceDocument = useStore(store, (state) => state.replaceDocument);
   const select = useStore(store, (state) => state.select);
   const armTool = useStore(store, (state) => state.armTool);
@@ -178,6 +202,8 @@ export function EditorCanvas({
   const beginTextEdit = useStore(store, (state) => state.beginTextEdit);
   const updateTextContent = useStore(store, (state) => state.updateTextContent);
   const endTextEdit = useStore(store, (state) => state.endTextEdit);
+  const enterCrop = useStore(store, (state) => state.enterCrop);
+  const leaveCrop = useStore(store, (state) => state.leaveCrop);
   const commitInspectorEdit = useStore(store, (state) => state.commitInspectorEdit);
   const commitHandleDrag = useStore(store, (state) => state.commitHandleDrag);
   const commitPlacementEdit = useStore(store, (state) => state.commitPlacementEdit);
@@ -202,6 +228,8 @@ export function EditorCanvas({
   const remembering = useRef(false);
   const [zoom, setZoom] = useState<number | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [placeholders, setPlaceholders] = useState<ImagePlaceholder[]>([]);
+  const lastCanvasPoint = useRef<Point | null>(null);
   const canvas = design?.canvas;
 
   // Opening waits for all assets, then mounts the compiler's SVG once.
@@ -321,6 +349,8 @@ export function EditorCanvas({
           setMarquee(null);
           if (editingTextId !== null) endTextEdit();
           else armTool("select");
+        } else if (croppingId !== null) {
+          leaveCrop();
         } else if (enteredPath.length === 0) select([]);
         else {
           const exited = enteredPath.at(-1)!;
@@ -358,14 +388,41 @@ export function EditorCanvas({
     activeTool,
     armTool,
     beginTextEdit,
+    croppingId,
     editingTextId,
     endTextEdit,
     enteredPath,
+    leaveCrop,
     redo,
     select,
     selected,
     undo,
   ]);
+
+  useEffect(() => {
+    function pasted(event: ClipboardEvent) {
+      if (!mayEdit || workspaceId === null || isTypingTarget(event.target)) return;
+      const held = currentDesign.current;
+      if (held === null || library.current === null) return;
+      if (imageSourcesFromDrop(event.clipboardData ?? { files: [] }).length === 0) return;
+      event.preventDefault();
+      const point = lastCanvasPoint.current ?? {
+        x: held.canvas.width / 2,
+        y: held.canvas.height / 2,
+      };
+      void acceptImageDrop({
+        data: event.clipboardData ?? { files: [] },
+        point,
+        canvas: held.canvas,
+        workspaceId,
+        library: library.current,
+        createElement,
+        setPlaceholders,
+      });
+    }
+    window.addEventListener("paste", pasted);
+    return () => window.removeEventListener("paste", pasted);
+  }, [createElement, mayEdit, workspaceId]);
 
   if (problem !== null)
     return (
@@ -411,6 +468,10 @@ export function EditorCanvas({
           const chain = mountedChainAt(event.clientX, event.clientY, host.current);
           const target = selectionTarget(chain, enteredPath);
           const element = target === null ? null : findElement(design.elements, target);
+          if (element?.type === "image") {
+            enterCrop(element.id);
+            return;
+          }
           if (element?.type === "text") {
             beginTextEdit(element.id);
             const layout = layoutOf(element, library.current);
@@ -432,6 +493,14 @@ export function EditorCanvas({
           select(child === null ? [] : [child], path);
         }}
         onPointerDown={(event) => {
+          if (zoom !== null) {
+            lastCanvasPoint.current = canvasPoint(
+              event.clientX,
+              event.clientY,
+              canvasSpace.current,
+              zoom,
+            );
+          }
           if (
             event.button === 1 ||
             (event.button === 0 && (spaceHeld.current || activeTool === "hand"))
@@ -520,6 +589,7 @@ export function EditorCanvas({
               delta: { x: 0, y: 0 },
               keepAspect: event.shiftKey,
               fromCenter: event.altKey,
+              crop: croppingId !== null && selected.length === 1 && selected[0] === croppingId,
             };
             event.currentTarget.setPointerCapture(event.pointerId);
             return;
@@ -551,7 +621,17 @@ export function EditorCanvas({
                 ? selected
                 : [target];
             select(next);
-            if (next.length > 0)
+            if (next.length === 1 && next[0] === croppingId) {
+              gesture.current = {
+                kind: "crop-pan",
+                pointerId: event.pointerId,
+                clientX: event.clientX,
+                clientY: event.clientY,
+                document: design,
+                id: next[0],
+                delta: { x: 0, y: 0 },
+              };
+            } else if (next.length > 0)
               gesture.current = {
                 kind: "move",
                 pointerId: event.pointerId,
@@ -574,7 +654,35 @@ export function EditorCanvas({
           }
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
+        onDragOver={(event) => {
+          if (!mayEdit) return;
+          if (!canAcceptImageDrop(event.dataTransfer)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          if (!mayEdit || workspaceId === null || zoom === null || library.current === null) return;
+          const point = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
+          void acceptImageDrop({
+            data: event.dataTransfer,
+            point,
+            canvas,
+            workspaceId,
+            library: library.current,
+            createElement,
+            setPlaceholders,
+          });
+        }}
         onPointerMove={(event) => {
+          if (zoom !== null) {
+            lastCanvasPoint.current = canvasPoint(
+              event.clientX,
+              event.clientY,
+              canvasSpace.current,
+              zoom,
+            );
+          }
           const from = panning.current;
           const view = viewport.current;
           if (from !== null && view !== null) {
@@ -593,6 +701,18 @@ export function EditorCanvas({
             const local = svgLocalPoint(event.clientX, event.clientY, host.current, editing.id);
             const index = hitIndex(layout, local ?? { x: editing.x, y: editing.y });
             setTextSelection((current) => ({ ...current, focus: index }));
+            return;
+          }
+          if (active.kind === "crop-pan") {
+            active.delta = {
+              x: (event.clientX - active.clientX) / zoom,
+              y: (event.clientY - active.clientY) / zoom,
+            };
+            replaceDocument(() =>
+              updateSelectedElements(active.document, [active.id], (element) =>
+                element.type === "image" ? applyCropPan(element, active.delta) : element,
+              ),
+            );
             return;
           }
           if (active.kind === "move") {
@@ -650,6 +770,7 @@ export function EditorCanvas({
                 bounds: active.bounds,
                 keepAspect: active.keepAspect,
                 fromCenter: active.fromCenter,
+                crop: active.crop,
               }),
             );
           } else {
@@ -673,7 +794,16 @@ export function EditorCanvas({
         onPointerUp={(event) => {
           panning.current = null;
           const active = gesture.current;
-          if (active?.pointerId === event.pointerId && active.kind === "move") {
+          if (active?.pointerId === event.pointerId && active.kind === "crop-pan") {
+            commitPlacementEdit(
+              (document) =>
+                updateSelectedElements(document, [active.id], (element) =>
+                  element.type === "image" ? applyCropPan(element, active.delta) : element,
+                ),
+              [active.id],
+              active.document,
+            );
+          } else if (active?.pointerId === event.pointerId && active.kind === "move") {
             commitPlacementEdit(
               (document) => moveElements(document, active.ids, active.delta.x, active.delta.y),
               active.ids,
@@ -695,6 +825,7 @@ export function EditorCanvas({
                 bounds: active.bounds,
                 keepAspect: active.keepAspect,
                 fromCenter: active.fromCenter,
+                crop: active.crop,
               },
               active.document,
             );
@@ -765,6 +896,7 @@ export function EditorCanvas({
                       const element = findElement(design.elements, id);
                       return element === null ? [] : [element];
                     }),
+                    croppingId !== null,
                   )}
                 />
               )}
@@ -794,6 +926,29 @@ export function EditorCanvas({
                   style={boxStyle(marquee)}
                 />
               )}
+              {placeholders.map((placeholder) => (
+                <button
+                  className={cn(
+                    "pointer-events-auto absolute z-10 max-w-64 rounded-md bg-popover px-2 py-1 text-left text-xs shadow-md ring-1 ring-foreground/10",
+                    placeholder.status === "failed" && "text-destructive",
+                  )}
+                  key={placeholder.id}
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    if (placeholder.status === "failed") {
+                      setPlaceholders((current) =>
+                        current.filter((item) => item.id !== placeholder.id),
+                      );
+                    }
+                  }}
+                  style={{ left: placeholder.x, top: placeholder.y }}
+                  type="button"
+                >
+                  {placeholder.status === "uploading"
+                    ? "Uploading…"
+                    : (placeholder.message ?? "Upload failed")}
+                </button>
+              ))}
               {isTemplate &&
                 [...new Set(unknownTokens(design).flatMap((token) => token.elementIds))].map(
                   (id) => {
@@ -912,6 +1067,67 @@ export function EditorCanvas({
       )}
     </div>
   );
+}
+
+async function acceptImageDrop({
+  data,
+  point,
+  canvas,
+  workspaceId,
+  library,
+  createElement,
+  setPlaceholders,
+}: {
+  data: {
+    files?: FileList | readonly File[];
+    types?: readonly string[];
+    getData?: (type: string) => string;
+  };
+  point: Point;
+  canvas: DesignDocument["canvas"];
+  workspaceId: string;
+  library: AssetLibrary;
+  createElement: (element: DocumentElement) => void;
+  setPlaceholders: (change: (current: ImagePlaceholder[]) => ImagePlaceholder[]) => void;
+}) {
+  for (const source of imageSourcesFromDrop(data)) {
+    if (source.kind === "asset") {
+      library.images.set(source.id, {
+        url: source.url,
+        width: source.width,
+        height: source.height,
+      });
+      createElement(imageElementFromAsset(crypto.randomUUID(), source, point, canvas));
+      continue;
+    }
+    const placeholder = startPlaceholder(crypto.randomUUID(), point);
+    setPlaceholders((current) => [...current, placeholder]);
+    const { data: asset, error } = await uploadImage({
+      path: { workspaceId },
+      body: { file: source.file },
+    });
+    const finished = finishImageDrop(
+      placeholder,
+      asset
+        ? { ok: true, asset, elementId: crypto.randomUUID(), canvas }
+        : { ok: false, message: refusalMessage(error) },
+    );
+    if (asset && finished.kind === "placed") {
+      library.images.set(asset.id, {
+        url: asset.url,
+        width: asset.width,
+        height: asset.height,
+      });
+      createElement(finished.element);
+      setPlaceholders((current) => current.filter((item) => item.id !== placeholder.id));
+    } else if (finished.kind === "rejected") {
+      setPlaceholders((current) =>
+        current.map((item) =>
+          item.id === placeholder.id ? failPlaceholder(item, finished.message) : item,
+        ),
+      );
+    }
+  }
 }
 
 function TokenAutocomplete({

@@ -18,6 +18,7 @@ export type EditorState = {
   enteredPath: string[];
   activeTool: Tool;
   editingTextId: string | null;
+  croppingId: string | null;
   replaceDocument: (change: (document: DesignDocument) => DesignDocument) => void;
   select: (selected: string[], enteredPath?: string[]) => void;
   armTool: (tool: Tool) => void;
@@ -25,6 +26,8 @@ export type EditorState = {
   beginTextEdit: (id: string) => void;
   updateTextContent: (content: string) => void;
   endTextEdit: () => void;
+  enterCrop: (id: string) => void;
+  leaveCrop: () => void;
   commitInspectorEdit: (
     change: (document: DesignDocument) => DesignDocument,
     ids: readonly string[],
@@ -87,24 +90,32 @@ export function createEditorStore(document: DesignDocument | null) {
       enteredPath: [],
       activeTool: "select",
       editingTextId: null,
+      croppingId: null,
       replaceDocument: (change) =>
         set((state) => ({ document: state.document === null ? null : change(state.document) })),
       select: (selected, enteredPath) =>
         set((state) => ({
           selected,
           enteredPath: enteredPath ?? state.enteredPath,
+          croppingId:
+            state.croppingId !== null && selected.length === 1 && selected[0] === state.croppingId
+              ? state.croppingId
+              : null,
         })),
-      armTool: (activeTool) => set((state) => ({ ...finishTextEdit(state), activeTool })),
+      enterCrop: (id) => set({ croppingId: id, selected: [id] }),
+      leaveCrop: () => set({ croppingId: null }),
+      armTool: (activeTool) =>
+        set((state) => ({ ...finishTextEdit(state), activeTool, croppingId: null })),
       createElement: (element) =>
         set((state) => {
           if (state.document === null) return state;
-          const next = {
+          return {
             ...commit(state, addElement(state.document, element), [element.id]),
             enteredPath: [],
             activeTool: "select" as const,
             editingTextId: element.type === "text" ? element.id : null,
+            croppingId: null,
           };
-          return next;
         }),
       beginTextEdit: (id) =>
         set((state) => {
@@ -113,7 +124,7 @@ export function createEditorStore(document: DesignDocument | null) {
             state.editingTextId !== null && state.editingTextId !== id ? finishTextEdit(state) : {};
           const document = ended.document ?? state.document;
           if (document === null) return { ...ended, editingTextId: null };
-          return { ...ended, document, editingTextId: id, selected: [id] };
+          return { ...ended, document, editingTextId: id, selected: [id], croppingId: null };
         }),
       updateTextContent: (content) =>
         set((state) => {

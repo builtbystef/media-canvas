@@ -5,6 +5,7 @@ import type {
   ImageContent,
   Shadow,
 } from "@media-canvas/core";
+import { cropImageFrame } from "./image-crop";
 
 export type Handle =
   | "top-left"
@@ -24,6 +25,8 @@ export type HandleDragOptions = {
   /** Mounted bounds are required for text, groups, and multiple selections,
    * whose complete dimensions are not stored on one Element. */
   bounds?: Bounds;
+  /** Crop Mode: the frame moves and the bitmap stays put. */
+  crop?: boolean;
 };
 
 const CORNERS: Handle[] = ["top-left", "top-right", "bottom-right", "bottom-left"];
@@ -56,12 +59,13 @@ export function handleForPointerTarget(target: PointerTarget): Handle | null {
   return null;
 }
 
-export function handlesForSelection(elements: readonly Element[]): Handle[] {
+export function handlesForSelection(elements: readonly Element[], crop = false): Handle[] {
   if (elements.length !== 1) return elements.length === 0 ? [] : CORNERS;
   const element = elements[0]!;
   if (element.type === "rect" || element.type === "ellipse" || element.type === "vector") {
     return RESIZE_HANDLES;
   }
+  if (element.type === "image") return crop ? RESIZE_HANDLES : CORNERS;
   return element.type === "text" ? TEXT_HANDLES : CORNERS;
 }
 
@@ -83,9 +87,16 @@ export function applyHandleDrag(
   }
 
   const selected = findElement(document.elements, ids[0]!);
-  if (!selected || !handlesForSelection([selected]).includes(handle)) return document;
+  if (!selected || !handlesForSelection([selected], options.crop).includes(handle)) {
+    return document;
+  }
   const delta = toLocal(screenDelta, selected.rotation);
 
+  if (selected.type === "image" && options.crop) {
+    return changeElements(document, new Set(ids), (element) =>
+      element.type === "image" ? cropImageFrame(element, handle, screenDelta, options) : element,
+    );
+  }
   if (selected.type === "rect" || selected.type === "ellipse" || selected.type === "vector") {
     return changeElements(document, new Set(ids), (element) =>
       resizeElement(element, handle, delta, options),
