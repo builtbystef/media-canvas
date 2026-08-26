@@ -1,14 +1,25 @@
 "use client";
 
-import { getJob, type JobView as Job, type RowView } from "@media-canvas/api-client";
+import {
+  cancelJob,
+  deleteJob,
+  getJob,
+  type JobView as Job,
+  type RowView,
+} from "@media-canvas/api-client";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { failedToEndJob } from "../../../lib/failures";
 import {
   ROW_FILTERS,
   archiveControl,
+  cancelConfirmText,
+  deleteConfirmText,
   filterCount,
   filterLabel,
   jobArchiveHref,
+  jobEndAction,
   jobStateLabel,
   nextJobRefreshIn,
   outputFormatLabel,
@@ -19,8 +30,20 @@ import {
   rowsShown,
   runJobRefreshLoop,
   type ArchiveControl,
+  type JobEndAction,
   type RowFilter,
 } from "../../../lib/job-view";
+import { JOBS } from "../../../lib/routes";
+import { Problem } from "../../../components/problem";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../../components/ui/alert-dialog";
 import { Button, buttonVariants } from "../../../components/ui/button";
 
 /**
@@ -28,17 +51,36 @@ import { Button, buttonVariants } from "../../../components/ui/button";
  *
  * The page that mounts this has already loaded the job once. This keeps
  * asking every two seconds while anything is left to render, and goes quiet
- * the moment a response is terminal. Counts are always the ones that response
- * carried — never a total built across refreshes.
+ * the moment a response is terminal — including after a cancel, which applies
+ * the returned job in place. Counts are always the ones that response
+ * carried — never a total built across refreshes. Cancel and delete are
+ * Editor-level; a Viewer is offered neither. The snapshot line is a prop,
+ * computed from the one template fetch the page made.
  */
-export function JobView({ initial, templateName }: { initial: Job; templateName: string | null }) {
+export function JobView({
+  initial,
+  templateName,
+  snapshot,
+  canEnd,
+}: {
+  initial: Job;
+  templateName: string | null;
+  snapshot: string | null;
+  canEnd: boolean;
+}) {
+  const router = useRouter();
   const [job, setJob] = useState(initial);
   const [filter, setFilter] = useState<RowFilter>("all");
+  const [confirming, setConfirming] = useState<JobEndAction | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const latest = useRef(job);
   latest.current = job;
+  const stopRefresh = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const ac = new AbortController();
+    stopRefresh.current = ac;
     const wait = (ms: number) =>
       new Promise<void>((resolve) => {
         if (ac.signal.aborted) {
@@ -74,12 +116,43 @@ export function JobView({ initial, templateName }: { initial: Job; templateName:
       );
     })();
 
-    return () => ac.abort();
+    return () => {
+      ac.abort();
+      if (stopRefresh.current === ac) stopRefresh.current = null;
+    };
   }, [initial.id, initial.state]);
 
   const shown = progressOf(job.progress);
   const listed = rowsShown(job.rows, filter);
   const archive = archiveControl(job.state, job.progress.succeeded);
+  const end = jobEndAction(job.state, canEnd);
+
+  async function confirmEnd() {
+    if (confirming === null) return;
+    setBusy(true);
+    setProblem(null);
+    if (confirming === "cancel") {
+      const { data, error, response } = await cancelJob({ path: { jobId: job.id } });
+      setBusy(false);
+      setConfirming(null);
+      if (error !== undefined || data === undefined) {
+        setProblem(failedToEndJob(response?.status));
+        return;
+      }
+      stopRefresh.current?.abort();
+      setJob(data);
+      return;
+    }
+    const { error, response } = await deleteJob({ path: { jobId: job.id } });
+    setBusy(false);
+    setConfirming(null);
+    if (error !== undefined) {
+      setProblem(failedToEndJob(response?.status));
+      return;
+    }
+    router.push(JOBS);
+    router.refresh();
+  }
 
   return (
     <main className="mt-6">
@@ -89,9 +162,46 @@ export function JobView({ initial, templateName }: { initial: Job; templateName:
           <p className="mt-1 text-sm text-muted-foreground">
             {jobStateLabel(job.state)} · {outputFormatLabel(job.output)}
           </p>
+          {snapshot !== null ? (
+            <p className="mt-2 text-sm text-muted-foreground">{snapshot}</p>
+          ) : null}
         </div>
-        <ArchiveDownload jobId={job.id} control={archive} />
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            {end === "cancel" ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => setConfirming("cancel")}
+              >
+                Cancel
+              </Button>
+            ) : null}
+            {end === "delete" ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={busy}
+                onClick={() => setConfirming("delete")}
+              >
+                Delete
+              </Button>
+            ) : null}
+            <ArchiveDownload jobId={job.id} control={archive} />
+          </div>
+          <Problem message={problem} />
+        </div>
       </div>
+      <EndJobDialog
+        action={confirming}
+        succeeded={job.progress.succeeded}
+        busy={busy}
+        onOpenChange={(open) => !open && !busy && setConfirming(null)}
+        onConfirm={() => void confirmEnd()}
+      />
       <ProgressSummary shown={shown} onFailed={() => setFilter("failed")} />
       <nav className="mt-4 flex flex-wrap gap-1" aria-label="Row status">
         {ROW_FILTERS.map((named) => (
@@ -108,6 +218,47 @@ export function JobView({ initial, templateName }: { initial: Job; templateName:
       </nav>
       <RowList rows={listed} />
     </main>
+  );
+}
+
+function EndJobDialog({
+  action,
+  succeeded,
+  busy,
+  onOpenChange,
+  onConfirm,
+}: {
+  action: JobEndAction | null;
+  succeeded: number;
+  busy: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  const isCancel = action === "cancel";
+  return (
+    <AlertDialog open={action !== null} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{isCancel ? "Cancel this job?" : "Delete this job?"}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {isCancel ? cancelConfirmText(succeeded) : deleteConfirmText(succeeded)}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>
+            {isCancel ? "Keep rendering" : "Cancel"}
+          </AlertDialogCancel>
+          <Button
+            type="button"
+            variant={isCancel ? "default" : "destructive"}
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {busy ? (isCancel ? "Canceling…" : "Deleting…") : isCancel ? "Cancel job" : "Delete"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

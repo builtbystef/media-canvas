@@ -6,6 +6,7 @@ import {
   failedToCreateWorkspace,
   failedToSendCode,
   failedToChangeDocument,
+  failedToEndJob,
   failedToPromoteDocument,
   failedToRenameDocument,
   failedToVerifyCode,
@@ -98,4 +99,17 @@ test("a conflicting save names the reload and says nothing was merged", () => {
 test("a refusal nobody recognises still says something true", () => {
   expect(failedToChangeDocument(500)).toBe(failedToChangeDocument(undefined));
   expect(failedToRenameDocument(418)).toBe(failedToChangeDocument(undefined));
+});
+
+test("a job cancel or delete refusal says which of the three things went wrong", () => {
+  const notAllowed = failedToEndJob(403);
+  const gone = failedToEndJob(404);
+  const signedOut = failedToEndJob(401);
+
+  expect(new Set([notAllowed, gone, signedOut]).size).toBe(3);
+  expect(notAllowed).toMatch(/Editor/);
+  expect(gone).toMatch(/no longer/);
+  expect(signedOut).toMatch(/Sign in again/);
+  expect(failedToEndJob(500)).toContain("could not be reached");
+  expect(failedToEndJob(undefined)).toContain("could not be reached");
 });

@@ -73,3 +73,12 @@ export const failedToRenameDocument = (status: number | undefined) =>
 /** The blocking notice a conflicting autosave shows. Nothing is merged. */
 export const DOCUMENT_CHANGED_ELSEWHERE =
   "This document changed elsewhere and must be reloaded. Nothing was merged.";
+
+const JOB_END: Record<number, string> = {
+  401: "You have been signed out. Sign in again to carry on.",
+  403: "Only an Editor or an Owner of this workspace can cancel or delete its jobs.",
+  404: "That job is no longer here. Somebody may have deleted it.",
+};
+
+/** Cancel and delete — Editor-level, and a missing job is the same as gone. */
+export const failedToEndJob = (status: number | undefined) => explain(JOB_END, status);

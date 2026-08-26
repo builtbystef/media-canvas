@@ -124,6 +124,58 @@ export function outputFormatLabel(output: OutputFormat): string {
 
 const TERMINAL: ReadonlySet<JobState> = new Set(["completed", "failed", "canceled"]);
 
+export type JobEndAction = "cancel" | "delete";
+
+/**
+ * Which way this job can still end, if the caller may end jobs at all.
+ *
+ * Cancel while there is work left to stop; delete only once the job is
+ * terminal, so no dialog ever has to explain cancelling first. A Viewer is
+ * offered neither — `canEnd` is that gate.
+ */
+export function jobEndAction(state: JobState, canEnd: boolean): JobEndAction | null {
+  if (!canEnd) return null;
+  return LIVE.has(state) ? "cancel" : "delete";
+}
+
+/** The cancel confirm, naming the finished renders that survive it. */
+export function cancelConfirmText(succeeded: number): string {
+  return `Stops rendering; the ${String(succeeded)} finished renders are kept, the rest become skipped.`;
+}
+
+/** The delete confirm, naming the output files it destroys. */
+export function deleteConfirmText(succeeded: number): string {
+  return `Permanently deletes this job and its ${String(succeeded)} output files.`;
+}
+
+const snapshotTakenAt = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+  timeZone: "UTC",
+});
+
+/**
+ * Whether the job rendered from a snapshot the template has since outgrown.
+ *
+ * Three outcomes over the template's state and the job's creation time: the
+ * template is newer, it is not, or it is gone. Informational only — it does
+ * not change outputs, downloads, or the actions offered.
+ */
+export function snapshotLine(
+  template: { updatedAt: string } | null,
+  jobCreatedAt: string,
+): string | null {
+  if (template === null) return "The template no longer exists.";
+  if (new Date(template.updatedAt).getTime() <= new Date(jobCreatedAt).getTime()) {
+    return null;
+  }
+  return `Rendered from a snapshot taken at ${snapshotTakenAt.format(new Date(jobCreatedAt))}; the template has changed since.`;
+}
+
 /** The zip control: on only when the job has ended with at least one success. */
 export type ArchiveControl = { enabled: true } | { enabled: false; reason: string };
 

@@ -8,8 +8,11 @@ import { afterEach, expect, test, vi } from "vitest";
 import {
   JOB_REFRESH_MS,
   archiveControl,
+  cancelConfirmText,
+  deleteConfirmText,
   filterCount,
   jobArchiveHref,
+  jobEndAction,
   nextJobRefreshIn,
   outputFormatLabel,
   progressOf,
@@ -17,6 +20,7 @@ import {
   rowOutputHref,
   rowsShown,
   runJobRefreshLoop,
+  snapshotLine,
 } from "./job-view.ts";
 
 /**
@@ -221,4 +225,52 @@ test("the Row list virtualizes through the registry package", () => {
   expect(pkg.dependencies["@tanstack/react-virtual"]).toMatch(/^(?:\d|\^|~)/);
   expect(pkg.dependencies["@tanstack/react-virtual"]).not.toMatch(/^file:/);
   expect(existsSync(join(webRoot, "vendor"))).toBe(false);
+});
+
+test("cancel is offered while the job is live, and delete only once it has ended", () => {
+  expect(jobEndAction("queued", true)).toBe("cancel");
+  expect(jobEndAction("rendering", true)).toBe("cancel");
+  expect(jobEndAction("completed", true)).toBe("delete");
+  expect(jobEndAction("failed", true)).toBe("delete");
+  expect(jobEndAction("canceled", true)).toBe("delete");
+});
+
+test("neither cancel nor delete is offered when the caller cannot end jobs", () => {
+  expect(jobEndAction("queued", false)).toBeNull();
+  expect(jobEndAction("rendering", false)).toBeNull();
+  expect(jobEndAction("completed", false)).toBeNull();
+  expect(jobEndAction("failed", false)).toBeNull();
+  expect(jobEndAction("canceled", false)).toBeNull();
+});
+
+test("the cancel confirm names the finished renders that are kept", () => {
+  // Worked example: 812 succeeded at the moment of the confirm → 812 kept.
+  const text = cancelConfirmText(812);
+  expect(text).toContain("812");
+  expect(text).toMatch(/kept/);
+  expect(text).toMatch(/skipped/);
+});
+
+test("the delete confirm names the output files it destroys", () => {
+  // Worked example: a completed job with 812 succeeded Rows → 812 files.
+  const text = deleteConfirmText(812);
+  expect(text).toContain("812");
+  expect(text).toMatch(/files/);
+  expect(text).toMatch(/deletes/i);
+});
+
+test("the snapshot line follows the template's state against the job's creation time", () => {
+  const createdAt = "2026-08-15T07:29:16Z";
+
+  const stale = snapshotLine({ updatedAt: "2026-08-16T00:00:00Z" }, createdAt);
+  expect(stale).toMatch(/snapshot/);
+  expect(stale).toMatch(/changed since/);
+  expect(stale).toContain("15 Aug 2026, 07:29");
+
+  expect(snapshotLine({ updatedAt: "2026-08-14T00:00:00Z" }, createdAt)).toBeNull();
+  expect(snapshotLine({ updatedAt: createdAt }, createdAt)).toBeNull();
+
+  const missing = snapshotLine(null, createdAt);
+  expect(missing).toMatch(/no longer exists/);
+  expect(missing).not.toBe(stale);
 });
