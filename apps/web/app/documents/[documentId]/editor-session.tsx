@@ -33,6 +33,7 @@ import {
 } from "../../../components/ui/alert-dialog";
 import { DocumentName } from "./document-name";
 import { EditorCanvas } from "./editor-canvas";
+import { GenerateAction } from "./generate-dialog";
 
 /**
  * The open editor: migrate at load, hold the store, autosave against the
@@ -85,6 +86,14 @@ export function EditorSession({
           </Link>
         )}
         <span className="flex-1" />
+        {mayEdit && opened.ok && (
+          <GenerateAction
+            documentId={loaded.id}
+            name={persist.name}
+            kind={loaded.kind}
+            store={store}
+          />
+        )}
         {mayEdit && loaded.kind === "design" && <PromoteAction documentId={loaded.id} />}
       </header>
       {opened.ok ? (
