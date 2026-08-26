@@ -5,19 +5,23 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef, useState } from "react";
 import {
   ROW_FILTERS,
+  archiveControl,
   filterCount,
   filterLabel,
+  jobArchiveHref,
   jobStateLabel,
   nextJobRefreshIn,
   outputFormatLabel,
   progressOf,
   rowErrorText,
+  rowOutputHref,
   rowStatusLabel,
   rowsShown,
   runJobRefreshLoop,
+  type ArchiveControl,
   type RowFilter,
 } from "../../../lib/job-view";
-import { Button } from "../../../components/ui/button";
+import { Button, buttonVariants } from "../../../components/ui/button";
 
 /**
  * Live progress and the Row list for one Generation Job.
@@ -75,13 +79,19 @@ export function JobView({ initial, templateName }: { initial: Job; templateName:
 
   const shown = progressOf(job.progress);
   const listed = rowsShown(job.rows, filter);
+  const archive = archiveControl(job.state, job.progress.succeeded);
 
   return (
     <main className="mt-6">
-      <h1 className="font-heading text-xl font-semibold">{templateName ?? "Generation Job"}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {jobStateLabel(job.state)} · {outputFormatLabel(job.output)}
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-xl font-semibold">{templateName ?? "Generation Job"}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {jobStateLabel(job.state)} · {outputFormatLabel(job.output)}
+          </p>
+        </div>
+        <ArchiveDownload jobId={job.id} control={archive} />
+      </div>
       <ProgressSummary shown={shown} onFailed={() => setFilter("failed")} />
       <nav className="mt-4 flex flex-wrap gap-1" aria-label="Row status">
         {ROW_FILTERS.map((named) => (
@@ -161,7 +171,7 @@ function RowList({ rows }: { rows: RowView[] }) {
               style={{ transform: `translateY(${String(item.start)}px)` }}
             >
               <div className="flex items-baseline gap-3">
-                <span className="text-sm font-medium">{row.name}</span>
+                <RowName row={row} />
                 <span className="text-xs text-muted-foreground">{rowStatusLabel(row.status)}</span>
               </div>
               {error !== null ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
@@ -169,6 +179,40 @@ function RowList({ rows }: { rows: RowView[] }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function RowName({ row }: { row: RowView }) {
+  const href = rowOutputHref(row);
+  if (href === null) {
+    return <span className="text-sm font-medium">{row.name}</span>;
+  }
+  return (
+    <a href={href} download className="text-sm font-medium hover:underline">
+      {row.name}
+    </a>
+  );
+}
+
+function ArchiveDownload({ jobId, control }: { jobId: string; control: ArchiveControl }) {
+  if (control.enabled) {
+    return (
+      <a
+        href={jobArchiveHref(jobId)}
+        download
+        className={buttonVariants({ variant: "outline", size: "sm" })}
+      >
+        Download all (.zip)
+      </a>
+    );
+  }
+  return (
+    <div className="flex max-w-56 flex-col items-end gap-1">
+      <Button type="button" variant="outline" size="sm" disabled>
+        Download all (.zip)
+      </Button>
+      <p className="text-right text-xs text-muted-foreground">{control.reason}</p>
     </div>
   );
 }

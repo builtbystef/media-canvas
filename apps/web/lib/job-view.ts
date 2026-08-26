@@ -121,3 +121,29 @@ export function outputFormatLabel(output: OutputFormat): string {
   }
   return "PDF";
 }
+
+const TERMINAL: ReadonlySet<JobState> = new Set(["completed", "failed", "canceled"]);
+
+/** The zip control: on only when the job has ended with at least one success. */
+export type ArchiveControl = { enabled: true } | { enabled: false; reason: string };
+
+export function archiveControl(state: JobState, succeeded: number): ArchiveControl {
+  if (!TERMINAL.has(state)) {
+    return { enabled: false, reason: "Available once the job has finished." };
+  }
+  if (succeeded < 1) {
+    return { enabled: false, reason: "No succeeded Rows to download." };
+  }
+  return { enabled: true };
+}
+
+/** The address the job already carried, or none if this Row has no output. */
+export function rowOutputHref(row: RowView): string | null {
+  if (row.status !== "succeeded") return null;
+  return row.url ?? null;
+}
+
+/** The contract's zip endpoint for this job — an api path, never storage. */
+export function jobArchiveHref(jobId: string): string {
+  return `/api/v1/jobs/${jobId}/outputs.zip`;
+}

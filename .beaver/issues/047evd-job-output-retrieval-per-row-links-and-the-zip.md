@@ -1,14 +1,15 @@
 ---
 id: 047evd
 title: 'Job output retrieval: per-Row links and the zip'
-state: todo
+state: done
+assignee: agent
 priority: high
 depends_on:
     - p45jd2
     - 211q1b
 parent: wz3ev2
 created: 2026-08-15T07:29:10Z
-updated: 2026-08-15T07:29:10Z
+updated: 2026-08-26T12:56:46Z
 ---
 
 ## What to build
@@ -25,3 +26,26 @@ The files come down from the page that reports them. Each succeeded Row links to
 - [ ] No storage URL, signed link, or credential appears anywhere in the page or its requests.
 - [ ] A Viewer in the job's Workspace can use both routes out.
 - [ ] The enablement rule is tested as pure logic over a job's state and counts.
+
+## Notes
+
+**agent** — 2026-08-26T12:01:21Z
+
+Seam: client pure logic (Vitest, no browser) — the spec's seam 1. Enablement of the zip control is a function of job state and succeeded count; a Row's link is the url the job response already carried, or none.
+
+**agent** — 2026-08-26T12:56:44Z
+
+Built per-Row output links and the zip control on the job view. A succeeded Row's name is a download link at the url the job response already carried. Failed, skipped, and unfinished Rows have none. The header "Download all (.zip)" points at the contract zip endpoint and is enabled only when the job is terminal with at least one succeeded Row; when disabled, the reason is shown. `pnpm check` equivalent (`vp check` + package checks) green. 360 TS tests and 152 api tests green (api tests via the sandbox unix sockets).
+
+**What landed.** `archiveControl`, `rowOutputHref`, and `jobArchiveHref` in `lib/job-view.ts`. The view uses those: the Row name becomes an `<a href={row.url} download>` only when `rowOutputHref` returns the carried address; the header control is a link to `/api/v1/jobs/{id}/outputs.zip` when enabled, otherwise a disabled button plus the reason.
+
+**Seam.** Spec seam 1 — client pure logic, Vitest, no browser. Worked examples are literal: rendering/400 → disabled; completed/0 → disabled with a different reason; completed/1 → enabled; 812 succeeded + 6 failed → 812 links and none on the failed Rows.
+
+**Decisions a reviewer should know.**
+
+- *Per-Row addresses are never constructed.* `rowOutputHref` returns `row.url` for a succeeded Row and null otherwise, even if a failed Row somehow carried a url.
+- *The zip href is the contract path.* The job response does not carry an archive url. The spec's "header button pointing at the contract's zip endpoint" is `/api/v1/jobs/{id}/outputs.zip`. Same-origin, so the session cookie goes with it and a Viewer can follow both routes. No storage URL, signed link, or credential.
+- *No role gating in the UI.* Anyone who can open the page (any member, Viewer included) sees the same links. The api already admits Viewers on both download routes.
+- *Cancel, delete, and the snapshot line stay with xhps0x.*
+
+**Testing.** `lib/job-view.test.ts` now has 11 cases (3 new).

@@ -7,11 +7,14 @@ import { afterEach, expect, test, vi } from "vitest";
 
 import {
   JOB_REFRESH_MS,
+  archiveControl,
   filterCount,
+  jobArchiveHref,
   nextJobRefreshIn,
   outputFormatLabel,
   progressOf,
   rowErrorText,
+  rowOutputHref,
   rowsShown,
   runJobRefreshLoop,
 } from "./job-view.ts";
@@ -150,6 +153,63 @@ test("the output format is named the way the job asked for it", () => {
   expect(outputFormatLabel({ format: "png", scale: 2 })).toBe("PNG ×2");
   expect(outputFormatLabel({ format: "jpeg", quality: 90 })).toBe("JPEG 90");
   expect(outputFormatLabel({ format: "pdf" })).toBe("PDF");
+});
+
+test("the zip is enabled only when the job is terminal with at least one success", () => {
+  // Worked examples: rendering with 400 succeeded → disabled; completed with
+  // 0 succeeded → disabled; completed with 1 succeeded → enabled.
+  const stillRendering = archiveControl("rendering", 400);
+  expect(stillRendering.enabled).toBe(false);
+  if (stillRendering.enabled) throw new Error("expected a reason");
+  expect(stillRendering.reason.length).toBeGreaterThan(0);
+
+  const noneSucceeded = archiveControl("completed", 0);
+  expect(noneSucceeded.enabled).toBe(false);
+  if (noneSucceeded.enabled) throw new Error("expected a reason");
+  expect(noneSucceeded.reason.length).toBeGreaterThan(0);
+  expect(noneSucceeded.reason).not.toBe(stillRendering.reason);
+
+  expect(archiveControl("completed", 1)).toEqual({ enabled: true });
+  expect(archiveControl("failed", 1)).toEqual({ enabled: true });
+  expect(archiveControl("canceled", 3)).toEqual({ enabled: true });
+  expect(archiveControl("queued", 0).enabled).toBe(false);
+});
+
+test("a succeeded Row links at the address the job carried, and no other Row does", () => {
+  // Worked example: 812 succeeded and 6 failed → 812 links, none on the failed.
+  const rows: RowView[] = [
+    ...Array.from({ length: 812 }, (_, index) => ({
+      index,
+      name: `ok-${String(index)}`,
+      status: "succeeded" as const,
+      url: `/api/v1/jobs/j/outputs/ok-${String(index)}.png`,
+    })),
+    ...Array.from({ length: 6 }, (_, offset) => ({
+      index: 812 + offset,
+      name: `bad-${String(offset)}`,
+      status: "failed" as const,
+    })),
+  ];
+  const hrefs = rows.map(rowOutputHref);
+
+  expect(hrefs.filter((href) => href !== null)).toHaveLength(812);
+  expect(hrefs.slice(812)).toEqual([null, null, null, null, null, null]);
+  expect(hrefs[0]).toBe("/api/v1/jobs/j/outputs/ok-0.png");
+  expect(rowOutputHref(row(0, "skipped"))).toBeNull();
+  expect(rowOutputHref(row(0, "queued"))).toBeNull();
+  expect(rowOutputHref(row(0, "rendering"))).toBeNull();
+  expect(
+    rowOutputHref({
+      index: 1,
+      name: "ghost",
+      status: "failed",
+      url: "/api/v1/jobs/j/outputs/ghost.png",
+    }),
+  ).toBeNull();
+});
+
+test("the archive points at the contract zip, never a storage URL", () => {
+  expect(jobArchiveHref("job-1")).toBe("/api/v1/jobs/job-1/outputs.zip");
 });
 
 test("the Row list virtualizes through the registry package", () => {
