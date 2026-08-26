@@ -55,16 +55,17 @@ import {
 } from "../../../lib/drawing-tools";
 import type { EditorStore } from "../../../lib/editor-store";
 import { applyCropPan } from "../../../lib/image-crop";
+import { canAcceptCanvasDrop, canvasDropSources } from "../../../lib/canvas-drop";
 import {
-  canAcceptImageDrop,
   failPlaceholder,
   finishImageDrop,
   imageElementFromAsset,
-  imageSourcesFromDrop,
   type ImagePlaceholder,
   refusalMessage,
   startPlaceholder,
 } from "../../../lib/image-placement";
+import { presetShapeElement } from "../../../lib/preset-shapes";
+import { importSvg, importedSvgGroup } from "../../../lib/svg-import";
 import {
   alignElements,
   distributeElements,
@@ -110,6 +111,7 @@ import { ToggleGroup, ToggleGroupItem } from "../../../components/ui/toggle-grou
 import { AssetsPanel, FontFaceStyles } from "./assets-panel";
 import { Inspector } from "./inspector";
 import { LayerList } from "./layer-list";
+import { ShapesPanel } from "./shapes-panel";
 import { applyUpdate } from "./mounted-preview";
 import { VariablesPanel } from "./variables-panel";
 
@@ -436,13 +438,13 @@ export function EditorCanvas({
       if (!mayEdit || workspaceId === null || isTypingTarget(event.target)) return;
       const held = currentDesign.current;
       if (held === null || library.current === null) return;
-      if (imageSourcesFromDrop(event.clipboardData ?? { files: [] }).length === 0) return;
+      if (canvasDropSources(event.clipboardData ?? { files: [] }).length === 0) return;
       event.preventDefault();
       const point = lastCanvasPoint.current ?? {
         x: held.canvas.width / 2,
         y: held.canvas.height / 2,
       };
-      void acceptImageDrop({
+      void acceptCanvasDrop({
         data: event.clipboardData ?? { files: [] },
         point,
         canvas: held.canvas,
@@ -515,6 +517,7 @@ export function EditorCanvas({
             setImages((current) => current.filter((image) => image.id !== imageId))
           }
         />
+        <ShapesPanel mayEdit={mayEdit} />
         {isTemplate && (
           <VariablesPanel document={design} mayEdit={mayEdit} onCommit={commitInspectorEdit} />
         )}
@@ -715,15 +718,15 @@ export function EditorCanvas({
         }}
         onDragOver={(event) => {
           if (!mayEdit) return;
-          if (!canAcceptImageDrop(event.dataTransfer)) return;
+          if (!canAcceptCanvasDrop(event.dataTransfer)) return;
           event.preventDefault();
           event.dataTransfer.dropEffect = "copy";
         }}
         onDrop={(event) => {
           event.preventDefault();
-          if (!mayEdit || workspaceId === null || zoom === null || library.current === null) return;
+          if (!mayEdit || zoom === null) return;
           const point = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
-          void acceptImageDrop({
+          void acceptCanvasDrop({
             data: event.dataTransfer,
             point,
             canvas,
@@ -1134,7 +1137,7 @@ export function EditorCanvas({
   );
 }
 
-async function acceptImageDrop({
+async function acceptCanvasDrop({
   data,
   point,
   canvas,
@@ -1151,14 +1154,29 @@ async function acceptImageDrop({
   };
   point: Point;
   canvas: DesignDocument["canvas"];
-  workspaceId: string;
-  library: AssetLibrary;
+  workspaceId: string | null;
+  library: AssetLibrary | null;
   createElement: (element: DocumentElement) => void;
   setPlaceholders: (change: (current: ImagePlaceholder[]) => ImagePlaceholder[]) => void;
   onImageAdded: (image: ImageAssetView) => void;
 }) {
-  for (const source of imageSourcesFromDrop(data)) {
-    if (source.kind === "asset") {
+  for (const source of canvasDropSources(data)) {
+    if (source.kind === "preset-shape") {
+      createElement(presetShapeElement(crypto.randomUUID(), source.name, point, canvas));
+      continue;
+    }
+    if (source.kind === "svg-file") {
+      const imported = importSvg(await source.file.text(), () => crypto.randomUUID());
+      if (!imported.ok) {
+        const placeholder = startPlaceholder(crypto.randomUUID(), point);
+        setPlaceholders((current) => [...current, failPlaceholder(placeholder, imported.message)]);
+        continue;
+      }
+      createElement(importedSvgGroup(crypto.randomUUID(), imported, point, canvas));
+      continue;
+    }
+    if (library === null) continue;
+    if (source.kind === "image-asset") {
       library.images.set(source.id, {
         url: source.url,
         width: source.width,
@@ -1167,6 +1185,7 @@ async function acceptImageDrop({
       createElement(imageElementFromAsset(crypto.randomUUID(), source, point, canvas));
       continue;
     }
+    if (workspaceId === null) continue;
     const placeholder = startPlaceholder(crypto.randomUUID(), point);
     setPlaceholders((current) => [...current, placeholder]);
     const { data: asset, error } = await uploadImage({
