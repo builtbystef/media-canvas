@@ -58,3 +58,12 @@ export function rememberedWorkspace(workspaceId: string): string {
 export function mayChangeDocuments(role: Role): boolean {
   return role !== "viewer";
 }
+
+/**
+ * What the Owner is told before the Workspace and its files go away.
+ *
+ * The settings panel (hddsdp) is what presents this. The words live here so
+ * the warning is the same contract the purge is: files go, and nothing
+ * brings them back.
+ */
+export const WORKSPACE_DELETE_WARNING = "Files are removed and the action cannot be undone.";

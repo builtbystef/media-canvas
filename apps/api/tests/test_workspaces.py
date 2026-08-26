@@ -1,8 +1,11 @@
 from typing import Any
 from uuid import uuid4
 
+import pytest
+from botocore.exceptions import ClientError
 from conftest import Account, Accounts, Join
 from fastapi.testclient import TestClient
+from media_canvas_api.storage import Bucket, ObjectStore
 
 
 def test_creating_a_workspace_makes_the_caller_its_owner(
@@ -175,3 +178,124 @@ def workspace_scoped_answers(
         if "{workspaceId}" in path
         for method in operations
     }
+
+
+def keys_under(bucket: Bucket, prefix: str) -> list[str]:
+    found: list[str] = []
+    pages = bucket.client.get_paginator("list_objects_v2").paginate(
+        Bucket=bucket.name, Prefix=prefix
+    )
+    for page in pages:
+        found.extend(stored["Key"] for stored in page.get("Contents", ()))
+    return found
+
+
+def test_deleting_a_workspace_removes_its_stored_objects(
+    client: TestClient, accounts: Accounts, objects: ObjectStore
+) -> None:
+    """The files go with the Workspace: assets and generated outputs alike."""
+    alice = accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client, accounts, alice)
+    objects.assets.put(
+        f"{workspace}/images/photo.png", b"photo", content_type="image/png"
+    )
+    objects.outputs.put(
+        f"{workspace}/jobs/{uuid4()}/hero.png", b"out", content_type="image/png"
+    )
+
+    deleted = client.delete(f"/api/v1/workspaces/{workspace}")
+
+    assert deleted.status_code == 204
+    assert keys_under(objects.assets, f"{workspace}/") == []
+    assert keys_under(objects.outputs, f"{workspace}/") == []
+
+
+def test_a_delete_that_fails_after_the_rows_leaves_the_objects_behind(
+    client: TestClient,
+    accounts: Accounts,
+    objects: ObjectStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rows first, objects second: a crash never leaves a record of a file
+    that is already gone. The leftover objects are accepted."""
+    alice = accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client, accounts, alice)
+    key = f"{workspace}/images/photo.png"
+    objects.assets.put(key, b"photo", content_type="image/png")
+
+    def refuse(*_: object) -> None:
+        raise ClientError({"Error": {"Code": "InternalError"}}, "DeleteObjects")
+
+    monkeypatch.setattr(Bucket, "delete_prefix", refuse)
+    with pytest.raises(ClientError):
+        client.delete(f"/api/v1/workspaces/{workspace}")
+
+    assert client.get("/api/v1/me").json()["memberships"] == []
+    assert objects.assets.open(key) is not None
+
+
+def test_re_running_a_delete_interrupted_after_the_rows_finishes_the_purge(
+    client: TestClient,
+    accounts: Accounts,
+    objects: ObjectStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The second call still takes the leftover objects, and does not error."""
+    alice = accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client, accounts, alice)
+    key = f"{workspace}/images/photo.png"
+    objects.assets.put(key, b"photo", content_type="image/png")
+
+    def refuse(*_: object) -> None:
+        raise ClientError({"Error": {"Code": "InternalError"}}, "DeleteObjects")
+
+    monkeypatch.setattr(Bucket, "delete_prefix", refuse)
+    with pytest.raises(ClientError):
+        client.delete(f"/api/v1/workspaces/{workspace}")
+    monkeypatch.undo()
+
+    again = client.delete(f"/api/v1/workspaces/{workspace}")
+
+    assert again.status_code != 500
+    assert objects.assets.open(key) is None
+    assert keys_under(objects.assets, f"{workspace}/") == []
+
+
+def test_deleting_one_workspace_leaves_another_s_copy_of_the_same_bytes(
+    client: TestClient, accounts: Accounts, objects: ObjectStore
+) -> None:
+    """The same image in two Workspaces is two objects. Deleting one takes
+    only its own."""
+    alice = accounts.sign_in("alice@example.com")
+    first = a_workspace(client, accounts, alice)
+    second = a_workspace(client, accounts, alice)
+    picture = b"the-same-bytes"
+    objects.assets.put(f"{first}/images/shared.png", picture, content_type="image/png")
+    objects.assets.put(f"{second}/images/shared.png", picture, content_type="image/png")
+
+    deleted = client.delete(f"/api/v1/workspaces/{first}")
+
+    assert deleted.status_code == 204
+    assert objects.assets.open(f"{first}/images/shared.png") is None
+    kept = objects.assets.open(f"{second}/images/shared.png")
+    assert kept is not None
+    assert kept.read() == picture
+
+
+def test_a_stranger_deleting_a_workspace_does_not_take_its_objects(
+    client: TestClient, accounts: Accounts, objects: ObjectStore
+) -> None:
+    """A caller with no Membership gets the same 404 as for a missing
+    Workspace, and the files stay. The leftover-purge path is only for a
+    Workspace whose rows are already gone."""
+    alice = accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client, accounts, alice)
+    key = f"{workspace}/images/photo.png"
+    objects.assets.put(key, b"photo", content_type="image/png")
+    accounts.sign_in("mallory@example.com")
+
+    refused = client.delete(f"/api/v1/workspaces/{workspace}")
+    imaginary = client.delete(f"/api/v1/workspaces/{uuid4()}")
+
+    assert (refused.status_code, refused.json()) == (404, imaginary.json())
+    assert objects.assets.open(key) is not None

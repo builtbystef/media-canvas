@@ -6,14 +6,17 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from media_canvas_api.access import (
+    UNREACHABLE,
     CurrentSession,
     Database,
     Now,
     Owning,
     Storage,
     Viewing,
+    refuse_unless,
 )
 from media_canvas_api.bundled_fonts import seed_bundled_fonts
 from media_canvas_api.memberships import (
@@ -21,11 +24,13 @@ from media_canvas_api.memberships import (
     close_workspace,
     member,
     members_of,
+    membership_in,
     reassign,
     release,
     start_workspace,
 )
 from media_canvas_api.models import Membership, Role, Workspace
+from media_canvas_api.storage import ObjectStore
 from media_canvas_api.views import MemberView, UserView, WorkspaceView
 
 router = APIRouter(prefix="/api/v1", tags=["workspaces"])
@@ -82,10 +87,43 @@ async def rename_workspace(
 @router.delete(
     "/workspaces/{workspaceId}", status_code=204, operation_id="deleteWorkspace"
 )
-async def delete_workspace(owner: Owning, database: Database) -> None:
+async def delete_workspace(
+    workspace_id: Annotated[UUID, Path(alias="workspaceId")],
+    signed_in: CurrentSession,
+    database: Database,
+    storage: Storage,
+) -> None:
     """Delete the Workspace and its contents. Only an Owner may, and it ends
-    the Workspace for every member of it at once."""
-    await close_workspace(database, owner.workspace_id)
+    the Workspace for every member of it at once.
+
+    The rows go first and the stored objects second, so a crash between the
+    two never leaves a record pointing at a file that is already gone. A
+    second call, after the rows have already gone, still takes leftover
+    objects — the prefix delete is safe to run again — and answers the same
+    404 a stranger would get, so it cannot tell a deleted Workspace from one
+    that never existed.
+    """
+    membership = await membership_in(database, workspace_id, signed_in.user.id)
+    if membership is None:
+        if await database.get(Workspace, workspace_id) is None:
+            await remove_stored_objects(storage, workspace_id)
+        raise HTTPException(404, UNREACHABLE)
+    refuse_unless(membership, Role.owner)
+    await close_workspace(database, workspace_id)
+    await remove_stored_objects(storage, workspace_id)
+
+
+async def remove_stored_objects(storage: ObjectStore, workspace_id: UUID) -> None:
+    """Delete every object this Workspace stored, in either bucket.
+
+    The prefix is the Workspace's id: assets live under `{id}/fonts` and
+    `{id}/images`, outputs under `{id}/jobs`. A prefix that holds nothing is
+    not an error, so this is safe to run again after a crash that already
+    took some of the files.
+    """
+    prefix = f"{workspace_id}/"
+    await run_in_threadpool(storage.assets.delete_prefix, prefix)
+    await run_in_threadpool(storage.outputs.delete_prefix, prefix)
 
 
 @router.get("/workspaces/{workspaceId}/members", operation_id="listWorkspaceMembers")

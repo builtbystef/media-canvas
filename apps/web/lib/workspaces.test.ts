@@ -2,6 +2,7 @@ import type { Identity, MembershipView } from "@media-canvas/api-client";
 import { expect, test } from "vitest";
 
 import {
+  WORKSPACE_DELETE_WARNING,
   chosenMembership,
   mayChangeDocuments,
   membershipIn,
@@ -71,4 +72,9 @@ test("the editor reads the Role in the document's Workspace, not the shell's", (
   expect(mayChangeDocuments(inDocument.role)).toBe(false);
   expect(mayChangeDocuments(inShell.role)).toBe(true);
   expect(membershipIn(signedIn, "33333333-3333-4333-8333-333333333333")).toBeNull();
+});
+
+test("the Owner is warned that deleting a Workspace removes its files for good", () => {
+  expect(WORKSPACE_DELETE_WARNING).toMatch(/files are removed/i);
+  expect(WORKSPACE_DELETE_WARNING).toMatch(/cannot be undone/i);
 });
