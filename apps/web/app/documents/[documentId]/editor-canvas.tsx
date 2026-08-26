@@ -9,6 +9,7 @@ import type {
 } from "@media-canvas/core";
 import { caretRect, createPreview, hitIndex, layoutText } from "@media-canvas/core";
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -16,7 +17,13 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useStore } from "zustand";
-import { uploadImage } from "@media-canvas/api-client";
+import {
+  listFonts,
+  listImages,
+  uploadImage,
+  type FontAssetView,
+  type ImageAssetView,
+} from "@media-canvas/api-client";
 import {
   type AssetLibrary,
   loadAssets,
@@ -100,6 +107,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { Problem } from "../../../components/problem";
 import { ToggleGroup, ToggleGroupItem } from "../../../components/ui/toggle-group";
+import { AssetsPanel, FontFaceStyles } from "./assets-panel";
 import { Inspector } from "./inspector";
 import { LayerList } from "./layer-list";
 import { applyUpdate } from "./mounted-preview";
@@ -229,6 +237,8 @@ export function EditorCanvas({
   const [zoom, setZoom] = useState<number | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [placeholders, setPlaceholders] = useState<ImagePlaceholder[]>([]);
+  const [fonts, setFonts] = useState<FontAssetView[]>([]);
+  const [images, setImages] = useState<ImageAssetView[]>([]);
   const lastCanvasPoint = useRef<Point | null>(null);
   const canvas = design?.canvas;
 
@@ -269,6 +279,21 @@ export function EditorCanvas({
       left = true;
     };
   }, [workspaceId, documentId]);
+
+  useEffect(() => {
+    if (workspaceId === null) return;
+    let left = false;
+    Promise.all([listFonts({ path: { workspaceId } }), listImages({ path: { workspaceId } })])
+      .then(([fontList, imageList]) => {
+        if (left) return;
+        setFonts(fontList.data ?? []);
+        setImages(imageList.data ?? []);
+      })
+      .catch(() => undefined);
+    return () => {
+      left = true;
+    };
+  }, [workspaceId]);
 
   // Later snapshots patch only what their identities say changed.
   useLayoutEffect(() => {
@@ -399,6 +424,13 @@ export function EditorCanvas({
     undo,
   ]);
 
+  const rememberFont = useCallback((font: FontAssetView) => {
+    setFonts((current) => [font, ...current.filter((item) => item.id !== font.id)]);
+  }, []);
+  const rememberImage = useCallback((image: ImageAssetView) => {
+    setImages((current) => [image, ...current.filter((item) => item.id !== image.id)]);
+  }, []);
+
   useEffect(() => {
     function pasted(event: ClipboardEvent) {
       if (!mayEdit || workspaceId === null || isTypingTarget(event.target)) return;
@@ -418,11 +450,22 @@ export function EditorCanvas({
         library: library.current,
         createElement,
         setPlaceholders,
+        onImageAdded: rememberImage,
       });
     }
     window.addEventListener("paste", pasted);
     return () => window.removeEventListener("paste", pasted);
-  }, [createElement, mayEdit, workspaceId]);
+  }, [createElement, mayEdit, rememberImage, workspaceId]);
+
+  const holdFont = async (font: FontAssetView) => {
+    const held = library.current;
+    if (held === null) return false;
+    if (held.fonts.has(font.id)) return true;
+    const response = await fetch(font.url);
+    if (!response.ok) return false;
+    held.fonts.set(font.id, await response.arrayBuffer());
+    return true;
+  };
 
   if (problem !== null)
     return (
@@ -441,6 +484,7 @@ export function EditorCanvas({
   return (
     <div className="grid grid-cols-[14rem_minmax(0,1fr)_16rem] gap-4">
       <div className="mt-6 min-w-0">
+        <FontFaceStyles fonts={fonts} />
         <ToolPalette active={activeTool} onArm={armTool} />
         <LayerList
           document={design}
@@ -454,6 +498,21 @@ export function EditorCanvas({
           }
           onReorder={(path, id, index) =>
             commitInspectorEdit((current) => reorderElement(current, path, id, index), [id])
+          }
+        />
+        <AssetsPanel
+          document={design}
+          fonts={fonts}
+          images={images}
+          workspaceId={workspaceId}
+          mayEdit={mayEdit}
+          onFontAdded={rememberFont}
+          onImageAdded={rememberImage}
+          onFontRemoved={(fontId) =>
+            setFonts((current) => current.filter((font) => font.id !== fontId))
+          }
+          onImageRemoved={(imageId) =>
+            setImages((current) => current.filter((image) => image.id !== imageId))
           }
         />
         {isTemplate && (
@@ -672,6 +731,7 @@ export function EditorCanvas({
             library: library.current,
             createElement,
             setPlaceholders,
+            onImageAdded: rememberImage,
           });
         }}
         onPointerMove={(event) => {
@@ -1001,6 +1061,11 @@ export function EditorCanvas({
         document={design}
         selected={selected}
         isTemplate={isTemplate}
+        fonts={fonts}
+        workspaceId={workspaceId}
+        mayUpload={mayEdit}
+        onFontAdded={rememberFont}
+        onHoldFont={holdFont}
         onPreview={replaceDocument}
         onCommit={commitInspectorEdit}
         onAlign={(action) => {
@@ -1077,6 +1142,7 @@ async function acceptImageDrop({
   library,
   createElement,
   setPlaceholders,
+  onImageAdded,
 }: {
   data: {
     files?: FileList | readonly File[];
@@ -1089,6 +1155,7 @@ async function acceptImageDrop({
   library: AssetLibrary;
   createElement: (element: DocumentElement) => void;
   setPlaceholders: (change: (current: ImagePlaceholder[]) => ImagePlaceholder[]) => void;
+  onImageAdded: (image: ImageAssetView) => void;
 }) {
   for (const source of imageSourcesFromDrop(data)) {
     if (source.kind === "asset") {
@@ -1118,6 +1185,7 @@ async function acceptImageDrop({
         width: asset.width,
         height: asset.height,
       });
+      onImageAdded(asset);
       createElement(finished.element);
       setPlaceholders((current) => current.filter((item) => item.id !== placeholder.id));
     } else if (finished.kind === "rejected") {

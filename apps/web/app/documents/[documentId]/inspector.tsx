@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef } from "react";
+import type { FontAssetView } from "@media-canvas/api-client";
 import type {
   Border,
   DesignDocument,
@@ -30,6 +31,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { Button } from "../../../components/ui/button";
 import { BindControl } from "./bind-control";
+import { FontPicker } from "./font-picker";
 import { Checkbox } from "../../../components/ui/checkbox";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -65,10 +67,15 @@ type InspectorProps = {
   document: DesignDocument;
   selected: readonly string[];
   isTemplate?: boolean;
+  fonts?: readonly FontAssetView[];
+  workspaceId?: string | null;
+  mayUpload?: boolean;
   onPreview: (change: Change) => void;
   onCommit: (change: Change, touched: readonly string[], start?: DesignDocument) => void;
   onAlign: (action: AlignAction) => void;
   onDistribute: (action: DistributeAction) => void;
+  onFontAdded?: (font: FontAssetView) => void;
+  onHoldFont?: (font: FontAssetView) => Promise<boolean>;
 };
 
 /** The single property surface for the Design Document. Text controls are
@@ -77,10 +84,15 @@ export function Inspector({
   document,
   selected,
   isTemplate = false,
+  fonts = [],
+  workspaceId = null,
+  mayUpload = false,
   onPreview,
   onCommit,
   onAlign,
   onDistribute,
+  onFontAdded,
+  onHoldFont,
 }: InspectorProps) {
   const elements = selectedElements(document, selected);
   const bind = (site: BindSite["site"], name: string) =>
@@ -416,16 +428,20 @@ export function Inspector({
         <section className={SECTION}>
           <h3 className={cn(HEADING, "mb-2")}>Typography</h3>
           <p className={NOTE}>Applies to the whole text Element.</p>
-          <TextField
-            label="Font Asset"
+          <FontPicker
+            fonts={fonts}
             value={commonValue(elements, (element) =>
               element.type === "text" ? element.fontAssetId : undefined,
             )}
+            workspaceId={workspaceId}
+            mayUpload={mayUpload}
             onCommit={(fontAssetId) =>
               commitElements((element) =>
                 element.type === "text" ? { ...element, fontAssetId } : element,
               )
             }
+            onFontAdded={onFontAdded ?? (() => undefined)}
+            onHoldFont={onHoldFont ?? (async () => true)}
           />
           <div className={PAIR}>
             {number("Size", textNumber("fontSize"), setTextNumber("fontSize"), { min: 1 })}
