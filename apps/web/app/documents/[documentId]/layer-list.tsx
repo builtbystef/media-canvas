@@ -3,6 +3,7 @@
 import type { DesignDocument, Element } from "@media-canvas/core";
 import type { DragEvent } from "react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { unknownTokens } from "../../../lib/variable-operations";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 
@@ -21,6 +22,7 @@ export function LayerList({
   onVisibility: (id: string, visible: boolean) => void;
   onReorder: (parentPath: string[], id: string, index: number) => void;
 }) {
+  const unknownIds = new Set(unknownTokens(document).flatMap((token) => token.elementIds));
   return (
     <aside
       className="mt-3 min-w-0 rounded-lg bg-card p-3 ring-1 ring-foreground/10"
@@ -32,6 +34,7 @@ export function LayerList({
           elements={document.elements}
           parentPath={[]}
           selected={selected}
+          unknownIds={unknownIds}
           onSelect={onSelect}
           onRename={onRename}
           onVisibility={onVisibility}
@@ -45,6 +48,7 @@ export function LayerList({
 type RowsProps = Omit<Parameters<typeof LayerList>[0], "document"> & {
   elements: Element[];
   parentPath: string[];
+  unknownIds: ReadonlySet<string>;
 };
 
 function Rows(props: RowsProps) {
@@ -70,6 +74,7 @@ function Rows(props: RowsProps) {
             aria-label={`${element.visible === false ? "Show" : "Hide"} ${element.name ?? element.type}`}
             onClick={(event) => {
               event.stopPropagation();
+              if (typeof element.visible === "object") return;
               props.onVisibility(element.id, element.visible === false);
             }}
           >
@@ -83,6 +88,11 @@ function Rows(props: RowsProps) {
             onClick={(event) => event.stopPropagation()}
             onChange={(event) => props.onRename(element.id, event.target.value)}
           />
+          {props.unknownIds.has(element.id) && (
+            <span className="shrink-0 rounded-sm bg-destructive/15 px-1 text-[0.65rem] text-destructive">
+              Unknown Token
+            </span>
+          )}
         </div>
         {element.type === "group" && (
           <ol className="pl-3">

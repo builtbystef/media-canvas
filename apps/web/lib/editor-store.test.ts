@@ -2,7 +2,14 @@ import type { DesignDocument, RectElement, TextElement } from "@media-canvas/cor
 import { describe, expect, it } from "vitest";
 import { moveElements } from "./document-operations";
 import { createEditorStore } from "./editor-store";
-import { renameVariable } from "./variable-operations";
+import {
+  bindNewVariable,
+  bindProperty,
+  createVariableFromToken,
+  renameToken,
+  renameVariable,
+  unbindProperty,
+} from "./variable-operations";
 
 const base = {
   type: "rect" as const,
@@ -230,6 +237,76 @@ describe("undo and redo", () => {
     expect(undoUntilStable(store)).toBe(1);
     expect(store.getState().document).toBe(start);
     expect(store.getState().selected).toEqual(["box", "headline"]);
+  });
+
+  it("records creating, binding, unbinding and fixing a token as one Undo Entry each", () => {
+    const start: DesignDocument = {
+      schemaVersion: 1,
+      canvas: { width: 100, height: 100, background: "#FFFFFF" },
+      variables: [{ name: "price", type: "text" }],
+      elements: [{ ...rect("box", 0), fill: "#0055FF" }, headline("Now {{prce}}")],
+    };
+    const store = createEditorStore(start);
+
+    store.getState().commitInspectorEdit(
+      (document) => {
+        const bound = bindNewVariable(document, { site: "fill", elementId: "box" }, "brand");
+        return bound.ok ? bound.document : document;
+      },
+      ["box"],
+    );
+    const created = store.getState().document;
+    expect(created?.variables).toEqual([
+      { name: "price", type: "text" },
+      { name: "brand", type: "color", default: "#0055FF" },
+    ]);
+    expect(undoUntilStable(store)).toBe(1);
+    expect(store.getState().document).toBe(start);
+
+    store
+      .getState()
+      .commitInspectorEdit(
+        (document) => bindProperty(document, { site: "fill", elementId: "box" }, "brand"),
+        ["box"],
+      );
+    store.getState().undo();
+    expect(store.getState().document).toBe(start);
+
+    const boundStart: DesignDocument = {
+      ...start,
+      variables: [
+        { name: "price", type: "text" },
+        { name: "brand", type: "color", default: "#0055FF" },
+      ],
+      elements: [{ ...rect("box", 0), fill: { $var: "brand" } }, headline("Now {{prce}}")],
+    };
+    const boundStore = createEditorStore(boundStart);
+    boundStore
+      .getState()
+      .commitInspectorEdit(
+        (document) => unbindProperty(document, { site: "fill", elementId: "box" }),
+        ["box"],
+      );
+    expect(boundStore.getState().document?.elements[0]).toMatchObject({ fill: "#0055FF" });
+    expect(undoUntilStable(boundStore)).toBe(1);
+    expect(boundStore.getState().document).toBe(boundStart);
+
+    store.getState().commitInspectorEdit(
+      (document) => {
+        const createdToken = createVariableFromToken(document, "prce");
+        return createdToken.ok ? createdToken.document : document;
+      },
+      ["headline"],
+    );
+    expect(undoUntilStable(store)).toBe(1);
+    expect(store.getState().document).toBe(start);
+
+    store
+      .getState()
+      .commitInspectorEdit((document) => renameToken(document, "prce", "price"), ["headline"]);
+    expect(store.getState().document?.elements[1]).toMatchObject({ content: "Now {{price}}" });
+    expect(undoUntilStable(store)).toBe(1);
+    expect(store.getState().document).toBe(start);
   });
 });
 

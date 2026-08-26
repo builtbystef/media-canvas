@@ -5,7 +5,9 @@ import type {
   Fill,
   VarRef,
   VariableDecl,
+  VariableType,
 } from "@media-canvas/core";
+import { interpolationTokens } from "@media-canvas/core";
 
 /** The name grammar 8h50hu pinned: one token, no escaping, case-sensitive. */
 const VARIABLE_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
@@ -152,6 +154,224 @@ export function setVariableConstraints(
     const { constraints: _previous, ...rest } = declaration;
     return next === undefined ? rest : { ...rest, constraints: next };
   });
+}
+
+/** A bindable inspector site. Text and numbers bind as tokens, not here. */
+export type BindSite =
+  | { site: "fill" | "borderColor" | "textColor" | "imageSrc" | "visible"; elementId: string }
+  | { site: "background" };
+
+export function matchingVariables(document: DesignDocument, type: VariableType): VariableDecl[] {
+  return (document.variables ?? []).filter((variable) => variable.type === type);
+}
+
+export function siteType(site: BindSite["site"]): VariableType {
+  if (site === "imageSrc") return "image";
+  if (site === "visible") return "boolean";
+  return "color";
+}
+
+export function bindNewVariable(
+  document: DesignDocument,
+  site: BindSite,
+  name: string,
+): VariableChange {
+  const created = createVariable(document, {
+    name,
+    type: siteType(site.site),
+    ...seededDefault(document, site),
+  });
+  if (!created.ok) return created;
+  return { ok: true, document: bindProperty(created.document, site, name) };
+}
+
+export function bindProperty(
+  document: DesignDocument,
+  site: BindSite,
+  name: string,
+): DesignDocument {
+  return writeSite(document, site, () => ({ $var: name }));
+}
+
+export function unbindProperty(document: DesignDocument, site: BindSite): DesignDocument {
+  return writeSite(document, site, (current) => {
+    if (!isVarRef(current)) return current;
+    const declaration = (document.variables ?? []).find(
+      (variable) => variable.name === current.$var,
+    );
+    return declaration === undefined ? current : writtenBack(declaration, current);
+  });
+}
+
+export type UnknownToken = { name: string; elementIds: string[] };
+
+export function unknownTokens(document: DesignDocument): UnknownToken[] {
+  const declared = new Set((document.variables ?? []).map((variable) => variable.name));
+  const byName = new Map<string, string[]>();
+  const visit = (elements: readonly Element[]) => {
+    for (const element of elements) {
+      if (element.type === "group") {
+        visit(element.children);
+        continue;
+      }
+      if (element.type !== "text") continue;
+      for (const name of interpolationTokens(element.content)) {
+        if (declared.has(name)) continue;
+        const ids = byName.get(name) ?? [];
+        if (!ids.includes(element.id)) ids.push(element.id);
+        byName.set(name, ids);
+      }
+    }
+  };
+  visit(document.elements);
+  return [...byName].map(([name, elementIds]) => ({ name, elementIds }));
+}
+
+export function createVariableFromToken(document: DesignDocument, name: string): VariableChange {
+  return createVariable(document, { name, type: "text" });
+}
+
+export type TokenQuery = { start: number; query: string };
+
+/** The open `{{query` at the caret, if the user is inside a token. */
+export function openTokenQuery(content: string, cursor: number): TokenQuery | null {
+  const before = content.slice(0, cursor);
+  const start = before.lastIndexOf("{{");
+  if (start === -1) return null;
+  const afterOpen = before.slice(start + 2);
+  if (afterOpen.includes("}}")) return null;
+  if (/[{}]/.test(afterOpen)) return null;
+  return { start, query: afterOpen };
+}
+
+export function insertTokenName(
+  content: string,
+  cursor: number,
+  name: string,
+): { content: string; cursor: number } {
+  const query = openTokenQuery(content, cursor);
+  const start = query?.start ?? cursor;
+  const rest = content.slice(cursor);
+  const consumed = rest.match(/^[A-Za-z0-9_]*(\}\})?/)?.[0].length ?? 0;
+  const next = `${content.slice(0, start)}{{${name}}}${content.slice(cursor + consumed)}`;
+  return { content: next, cursor: start + name.length + 4 };
+}
+
+export function tokenSuggestions(query: string, variables: readonly VariableDecl[]): string[] {
+  return variables
+    .filter(
+      (variable) =>
+        (variable.type === "text" || variable.type === "number") && variable.name.startsWith(query),
+    )
+    .map((variable) => variable.name);
+}
+
+export function renameToken(document: DesignDocument, from: string, to: string): DesignDocument {
+  if (from === to) return document;
+  return rewriteBindings(document, {
+    bind: (ref) => ref,
+    content: (text) => text.replaceAll(`{{${from}}}`, `{{${to}}}`),
+  });
+}
+
+function seededDefault(
+  document: DesignDocument,
+  site: BindSite,
+): { default: string | boolean } | Record<string, never> {
+  const current = readSite(document, site);
+  if (typeof current === "string" || typeof current === "boolean") return { default: current };
+  if (isVarRef(current)) {
+    const declaration = (document.variables ?? []).find(
+      (variable) => variable.name === current.$var,
+    );
+    const written = declaration === undefined ? current : writtenBack(declaration, current);
+    if (typeof written === "string" || typeof written === "boolean") return { default: written };
+  }
+  return {};
+}
+
+function readSite(document: DesignDocument, site: BindSite): unknown {
+  if (site.site === "background") return document.canvas.background;
+  const element = findElement(document.elements, site.elementId);
+  if (element === null) return undefined;
+  if (site.site === "visible") return element.visible;
+  if (site.site === "fill") return "fill" in element ? element.fill : undefined;
+  if (site.site === "borderColor") {
+    return "border" in element ? element.border?.color : undefined;
+  }
+  if (site.site === "textColor") return element.type === "text" ? element.color : undefined;
+  return element.type === "image" ? element.src : undefined;
+}
+
+function writeSite(
+  document: DesignDocument,
+  site: BindSite,
+  write: (current: unknown) => unknown,
+): DesignDocument {
+  if (site.site === "background") {
+    const next = write(document.canvas.background);
+    if (next === document.canvas.background) return document;
+    return { ...document, canvas: { ...document.canvas, background: next as Fill | VarRef } };
+  }
+  return updateElement(document, site.elementId, (element) => {
+    if (site.site === "visible") {
+      const next = write(element.visible);
+      return next === element.visible ? element : { ...element, visible: next as boolean | VarRef };
+    }
+    if (site.site === "fill" && "fill" in element) {
+      const next = write(element.fill);
+      return next === element.fill ? element : { ...element, fill: next as Fill | VarRef };
+    }
+    if (site.site === "borderColor" && "border" in element && element.border) {
+      const next = write(element.border.color);
+      return next === element.border.color
+        ? element
+        : { ...element, border: { ...element.border, color: next as string | VarRef } };
+    }
+    if (site.site === "textColor" && element.type === "text") {
+      const next = write(element.color);
+      return next === element.color ? element : { ...element, color: next as string | VarRef };
+    }
+    if (site.site === "imageSrc" && element.type === "image") {
+      const next = write(element.src);
+      return next === element.src ? element : { ...element, src: next as string | VarRef };
+    }
+    return element;
+  });
+}
+
+function findElement(elements: readonly Element[], id: string): Element | null {
+  for (const element of elements) {
+    if (element.id === id) return element;
+    if (element.type === "group") {
+      const found = findElement(element.children, id);
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
+
+function updateElement(
+  document: DesignDocument,
+  id: string,
+  edit: (element: Element) => Element,
+): DesignDocument {
+  const visit = (elements: Element[]): Element[] => {
+    let changed = false;
+    const next = elements.map((element) => {
+      let candidate = element;
+      if (element.type === "group") {
+        const children = visit(element.children);
+        if (children !== element.children) candidate = { ...element, children };
+      }
+      if (element.id === id) candidate = edit(candidate);
+      if (candidate !== element) changed = true;
+      return candidate;
+    });
+    return changed ? next : elements;
+  };
+  const elements = visit(document.elements);
+  return elements === document.elements ? document : { ...document, elements };
 }
 
 function updateDeclaration(

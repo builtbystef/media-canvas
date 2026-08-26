@@ -5,6 +5,7 @@ import type {
   Element as DocumentElement,
   Preview,
   TextLayout,
+  VariableDecl,
 } from "@media-canvas/core";
 import { caretRect, createPreview, hitIndex, layoutText } from "@media-canvas/core";
 import {
@@ -76,6 +77,13 @@ import {
   selectWord,
   selectionRects,
 } from "../../../lib/text-editing";
+import { previewDocument } from "../../../lib/preview-document";
+import {
+  insertTokenName,
+  openTokenQuery,
+  tokenSuggestions,
+  unknownTokens,
+} from "../../../lib/variable-operations";
 import { cn } from "../../../lib/utils";
 import { Problem } from "../../../components/problem";
 import { ToggleGroup, ToggleGroupItem } from "../../../components/ui/toggle-group";
@@ -221,7 +229,7 @@ export function EditorCanvas({
       const opened = createPreview(resolverFor(assets));
       preview.current = opened;
       if (host.current && currentDesign.current) {
-        applyUpdate(host.current, opened.update(currentDesign.current));
+        applyUpdate(host.current, opened.update(previewDocument(currentDesign.current)));
       }
       const remembered = readView(window.localStorage, documentId);
       const view = remembered ?? firstView(document!.canvas, viewport.current);
@@ -237,8 +245,8 @@ export function EditorCanvas({
   // Later snapshots patch only what their identities say changed.
   useLayoutEffect(() => {
     if (design === null || preview.current === null || host.current === null) return;
-    applyUpdate(host.current, preview.current.update(design));
-  }, [design]);
+    applyUpdate(host.current, preview.current.update(previewDocument(design, editingTextId)));
+  }, [design, editingTextId]);
 
   // The overlay reads the mounted markup's real bounds; it never duplicates
   // compiler geometry. Those bounds continue to exist when SVG clipping hides
@@ -786,13 +794,58 @@ export function EditorCanvas({
                   style={boxStyle(marquee)}
                 />
               )}
+              {isTemplate &&
+                [...new Set(unknownTokens(design).flatMap((token) => token.elementIds))].map(
+                  (id) => {
+                    const bounds = elementBounds(id, host.current, canvasSpace.current, scale)[0];
+                    if (bounds === undefined) return null;
+                    return (
+                      <span
+                        className="absolute rounded-sm bg-destructive px-1 text-[0.65rem] leading-4 text-destructive-foreground"
+                        key={id}
+                        style={{
+                          left: bounds.right,
+                          top: bounds.top,
+                          transform: "translate(-100%, -110%)",
+                        }}
+                      >
+                        Unknown Token
+                      </span>
+                    );
+                  },
+                )}
             </div>
+            {isTemplate && editingTextId !== null && (
+              <TokenAutocomplete
+                content={textContentOf(design, editingTextId)}
+                cursor={textSelection.focus}
+                variables={design.variables ?? []}
+                position={caretOverlayPoint(
+                  findElement(design.elements, editingTextId),
+                  textSelection.focus,
+                  library.current,
+                  host.current,
+                  canvasSpace.current,
+                  scale,
+                )}
+                onPick={(name) => {
+                  const inserted = insertTokenName(
+                    textContentOf(design, editingTextId),
+                    textSelection.focus,
+                    name,
+                  );
+                  updateTextContent(inserted.content);
+                  setTextSelection({ anchor: inserted.cursor, focus: inserted.cursor });
+                }}
+              />
+            )}
           </div>
         </div>
       </main>
       <Inspector
         document={design}
         selected={selected}
+        isTemplate={isTemplate}
         onPreview={replaceDocument}
         onCommit={commitInspectorEdit}
         onAlign={(action) => {
@@ -859,6 +912,63 @@ export function EditorCanvas({
       )}
     </div>
   );
+}
+
+function TokenAutocomplete({
+  content,
+  cursor,
+  variables,
+  position,
+  onPick,
+}: {
+  content: string;
+  cursor: number;
+  variables: readonly VariableDecl[];
+  position: Point | null;
+  onPick: (name: string) => void;
+}) {
+  const query = openTokenQuery(content, cursor);
+  if (query === null || position === null) return null;
+  const names = tokenSuggestions(query.query, variables);
+  if (names.length === 0) return null;
+  return (
+    <ul
+      className="absolute z-20 min-w-28 rounded-md bg-popover p-1 text-xs shadow-md ring-1 ring-foreground/10"
+      role="listbox"
+      aria-label="Variables"
+      style={{ left: position.x, top: position.y + 4 }}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      {names.map((name) => (
+        <li key={name}>
+          <button
+            type="button"
+            className="block w-full rounded-sm px-2 py-1 text-left hover:bg-accent"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              onPick(name);
+            }}
+          >
+            {name}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function caretOverlayPoint(
+  element: DocumentElement | null,
+  cursor: number,
+  assets: AssetLibrary | null,
+  host: globalThis.Element | null,
+  space: globalThis.Element | null,
+  zoom: number,
+): Point | null {
+  const layout = layoutOf(element, assets);
+  if (element?.type !== "text" || layout === null) return null;
+  const caret = caretRect(layout, cursor);
+  return overlayFromSvg(caret.x, caret.y + caret.height, host, element.id, space, zoom);
 }
 
 function ToolPalette({ active, onArm }: { active: Tool; onArm: (tool: Tool) => void }) {

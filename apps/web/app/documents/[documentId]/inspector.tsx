@@ -8,6 +8,7 @@ import type {
   Fill,
   GradientStop,
   Shadow,
+  VariableType,
 } from "@media-canvas/core";
 import type { AlignAction, DistributeAction } from "../../../lib/placement";
 import { normalizeRotation } from "../../../lib/placement";
@@ -20,8 +21,15 @@ import {
   updateGradientStop,
   updateSelectedElements,
 } from "../../../lib/inspector-operations";
+import {
+  type BindSite,
+  bindNewVariable,
+  bindProperty,
+  unbindProperty,
+} from "../../../lib/variable-operations";
 import { cn } from "../../../lib/utils";
 import { Button } from "../../../components/ui/button";
+import { BindControl } from "./bind-control";
 import { Checkbox } from "../../../components/ui/checkbox";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -56,6 +64,7 @@ type Common<T> = ReturnType<typeof commonValue<T>>;
 type InspectorProps = {
   document: DesignDocument;
   selected: readonly string[];
+  isTemplate?: boolean;
   onPreview: (change: Change) => void;
   onCommit: (change: Change, touched: readonly string[], start?: DesignDocument) => void;
   onAlign: (action: AlignAction) => void;
@@ -67,12 +76,44 @@ type InspectorProps = {
 export function Inspector({
   document,
   selected,
+  isTemplate = false,
   onPreview,
   onCommit,
   onAlign,
   onDistribute,
 }: InspectorProps) {
   const elements = selectedElements(document, selected);
+  const bind = (site: BindSite["site"], name: string) =>
+    onCommit((current) => bindSites(current, selected, site, name), selected);
+  const unbind = (site: BindSite["site"]) =>
+    onCommit((current) => unbindSites(current, selected, site), selected);
+  const createBind = (site: BindSite["site"], name: string) =>
+    onCommit((current) => {
+      const created = createBindSites(current, selected, site, name);
+      return created.ok ? created.document : current;
+    }, selected);
+  const bindable = (
+    type: VariableType,
+    value: unknown,
+    site: BindSite["site"],
+    child: React.ReactNode,
+    label?: string,
+  ) =>
+    isTemplate ? (
+      <Bindable
+        document={document}
+        type={type}
+        bound={boundName(value)}
+        label={label}
+        onBind={(name) => bind(site, name)}
+        onUnbind={() => unbind(site)}
+        onCreate={(name) => createBind(site, name)}
+      >
+        {child}
+      </Bindable>
+    ) : (
+      child
+    );
   const commitElements = (edit: EditElement) =>
     onCommit((current) => updateSelectedElements(current, selected, edit), selected);
   const number = (
@@ -124,14 +165,35 @@ export function Inspector({
             onCommit(() => updateCanvas(start, { height: value }), [], start)
           }
         />
-        <FillEditor
-          document={document}
-          fill={document.canvas.background}
-          label="Background"
-          onChange={(background) =>
-            onCommit((current) => updateCanvas(current, { background }), [])
-          }
-        />
+        {boundName(document.canvas.background) !== undefined ? (
+          <section className={SECTION}>
+            <h3 className={cn(HEADING, "mb-2")}>Background</h3>
+            {bindable("color", document.canvas.background, "background", null)}
+          </section>
+        ) : isSolidColorSite(document.canvas.background) ? (
+          bindable(
+            "color",
+            document.canvas.background,
+            "background",
+            <FillEditor
+              document={document}
+              fill={document.canvas.background}
+              label="Background"
+              onChange={(background) =>
+                onCommit((current) => updateCanvas(current, { background }), [])
+              }
+            />,
+          )
+        ) : (
+          <FillEditor
+            document={document}
+            fill={document.canvas.background}
+            label="Background"
+            onChange={(background) =>
+              onCommit((current) => updateCanvas(current, { background }), [])
+            }
+          />
+        )}
       </aside>
     );
   }
@@ -159,19 +221,25 @@ export function Inspector({
             commitElements((element) => ({ ...element, name: name || undefined }))
           }
         />
-        <SelectField
-          label="Visible"
-          value={commonValue(elements, (element) =>
-            typeof element.visible === "boolean" ? String(element.visible) : undefined,
-          )}
-          options={[
-            ["true", "Visible"],
-            ["false", "Hidden"],
-          ]}
-          onCommit={(visible) =>
-            commitElements((element) => ({ ...element, visible: visible === "true" }))
-          }
-        />
+        {bindable(
+          "boolean",
+          commonBound(elements, (element) => element.visible),
+          "visible",
+          <SelectField
+            label="Visible"
+            value={commonValue(elements, (element) =>
+              typeof element.visible === "boolean" ? String(element.visible) : undefined,
+            )}
+            options={[
+              ["true", "Visible"],
+              ["false", "Hidden"],
+            ]}
+            onCommit={(visible) =>
+              commitElements((element) => ({ ...element, visible: visible === "true" }))
+            }
+          />,
+          "Visible",
+        )}
         <div className={PAIR}>
           {number(
             "X",
@@ -203,30 +271,46 @@ export function Inspector({
         </div>
       </section>
 
-      {fill.kind !== "none" && (
-        <FillEditor
-          document={document}
-          fill={fill}
-          label="Fill"
-          onPreview={(start, next) =>
-            onPreview(() =>
-              updateSelectedElements(start, selected, (element) =>
-                hasFill(element) ? { ...element, fill: next } : element,
-              ),
-            )
-          }
-          onChange={(next, start) =>
-            onCommit(
-              (current) =>
-                updateSelectedElements(start ?? current, selected, (element) =>
+      {(() => {
+        const fillBound = commonBound(elements, fillOfBound);
+        const fillEditor = (
+          <FillEditor
+            document={document}
+            fill={fill}
+            label="Fill"
+            onPreview={(start, next) =>
+              onPreview(() =>
+                updateSelectedElements(start, selected, (element) =>
                   hasFill(element) ? { ...element, fill: next } : element,
                 ),
-              selected,
-              start,
-            )
-          }
-        />
-      )}
+              )
+            }
+            onChange={(next, start) =>
+              onCommit(
+                (current) =>
+                  updateSelectedElements(start ?? current, selected, (element) =>
+                    hasFill(element) ? { ...element, fill: next } : element,
+                  ),
+                selected,
+                start,
+              )
+            }
+          />
+        );
+        if (boundName(fillBound) !== undefined) {
+          return (
+            <section className={SECTION}>
+              <h3 className={cn(HEADING, "mb-2")}>Fill</h3>
+              {bindable("color", fillBound, "fill", null)}
+            </section>
+          );
+        }
+        if (fill.kind === "none") return null;
+        if (fill.kind === "same" && typeof fill.value === "string") {
+          return bindable("color", fill.value, "fill", fillEditor);
+        }
+        return fillEditor;
+      })()}
 
       {elements.every(supportsBorder) && (
         <OptionalPaint
@@ -242,17 +326,23 @@ export function Inspector({
         >
           {border.kind === "same" && border.value !== undefined && (
             <>
-              <ColorField
-                label="Color"
-                value={colorValue(border.value.color)}
-                onCommit={(color) =>
-                  commitElements((element) =>
-                    supportsBorder(element) && element.border
-                      ? { ...element, border: { ...element.border, color } }
-                      : element,
-                  )
-                }
-              />
+              {bindable(
+                "color",
+                border.value.color,
+                "borderColor",
+                <ColorField
+                  label="Color"
+                  value={colorValue(border.value.color)}
+                  onCommit={(color) =>
+                    commitElements((element) =>
+                      supportsBorder(element) && element.border
+                        ? { ...element, border: { ...element.border, color } }
+                        : element,
+                    )
+                  }
+                />,
+                "Color",
+              )}
               {number(
                 "Width",
                 (element) => borderOf(element)?.width,
@@ -345,21 +435,29 @@ export function Inspector({
             })}
             {number("Spacing", textNumber("letterSpacing"), setTextNumber("letterSpacing"))}
           </div>
-          <ColorField
-            label="Color"
-            value={commonValue(elements, (element) =>
-              element.type === "text"
-                ? colorValue(element.color).kind === "same"
-                  ? (element.color as string)
-                  : undefined
-                : undefined,
-            )}
-            onCommit={(color) =>
-              commitElements((element) =>
-                element.type === "text" ? { ...element, color } : element,
-              )
-            }
-          />
+          {bindable(
+            "color",
+            commonBound(elements, (element) =>
+              element.type === "text" ? element.color : undefined,
+            ),
+            "textColor",
+            <ColorField
+              label="Color"
+              value={commonValue(elements, (element) =>
+                element.type === "text"
+                  ? colorValue(element.color).kind === "same"
+                    ? (element.color as string)
+                    : undefined
+                  : undefined,
+              )}
+              onCommit={(color) =>
+                commitElements((element) =>
+                  element.type === "text" ? { ...element, color } : element,
+                )
+              }
+            />,
+            "Color",
+          )}
           <SelectField
             label="Alignment"
             value={commonValue(elements, (element) =>
@@ -402,17 +500,27 @@ export function Inspector({
       {allImages && (
         <section className={SECTION}>
           <h3 className={cn(HEADING, "mb-2")}>Image</h3>
-          <TextField
-            label="Image Asset"
-            value={commonValue(elements, (element) =>
-              element.type === "image" && typeof element.src === "string" ? element.src : undefined,
-            )}
-            onCommit={(src) =>
-              commitElements((element) =>
-                element.type === "image" ? { ...element, src } : element,
-              )
-            }
-          />
+          {bindable(
+            "image",
+            commonBound(elements, (element) =>
+              element.type === "image" ? element.src : undefined,
+            ),
+            "imageSrc",
+            <TextField
+              label="Image Asset"
+              value={commonValue(elements, (element) =>
+                element.type === "image" && typeof element.src === "string"
+                  ? element.src
+                  : undefined,
+              )}
+              onCommit={(src) =>
+                commitElements((element) =>
+                  element.type === "image" ? { ...element, src } : element,
+                )
+              }
+            />,
+            "Image Asset",
+          )}
           <SelectField
             label="Fit mode"
             value={commonValue(elements, (element) =>
@@ -984,6 +1092,123 @@ function CornerEditor({
 
 const defaultBorder: Border = { color: "#000000", width: 1 };
 const defaultShadow: Shadow = { dx: 0, dy: 4, blur: 8, color: "#000000", opacity: 0.25 };
+
+function Bindable({
+  document,
+  type,
+  bound,
+  label,
+  onBind,
+  onUnbind,
+  onCreate,
+  children,
+}: {
+  document: DesignDocument;
+  type: VariableType;
+  bound: string | undefined;
+  label?: string;
+  onBind: (name: string) => void;
+  onUnbind: () => void;
+  onCreate: (name: string) => void;
+  children: React.ReactNode;
+}) {
+  const control = (
+    <BindControl
+      document={document}
+      type={type}
+      bound={bound}
+      onBind={onBind}
+      onUnbind={onUnbind}
+      onCreate={onCreate}
+    />
+  );
+  if (bound !== undefined) {
+    return (
+      <div className="mb-2 grid gap-1">
+        {label !== undefined && <span className="text-xs">{label}</span>}
+        {control}
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-1">
+      <div className="min-w-0">{children}</div>
+      {control}
+    </div>
+  );
+}
+
+function bindSites(
+  document: DesignDocument,
+  ids: readonly string[],
+  site: BindSite["site"],
+  name: string,
+): DesignDocument {
+  if (site === "background" || ids.length === 0) {
+    return bindProperty(document, { site: "background" }, name);
+  }
+  return ids.reduce(
+    (current, elementId) => bindProperty(current, { site, elementId } as BindSite, name),
+    document,
+  );
+}
+
+function unbindSites(
+  document: DesignDocument,
+  ids: readonly string[],
+  site: BindSite["site"],
+): DesignDocument {
+  if (site === "background" || ids.length === 0) {
+    return unbindProperty(document, { site: "background" });
+  }
+  return ids.reduce(
+    (current, elementId) => unbindProperty(current, { site, elementId } as BindSite),
+    document,
+  );
+}
+
+function createBindSites(
+  document: DesignDocument,
+  ids: readonly string[],
+  site: BindSite["site"],
+  name: string,
+) {
+  const first: BindSite =
+    site === "background" || ids[0] === undefined
+      ? { site: "background" }
+      : ({ site, elementId: ids[0] } as BindSite);
+  const created = bindNewVariable(document, first, name);
+  if (!created.ok || site === "background" || ids.length <= 1) return created;
+  return {
+    ok: true as const,
+    document: ids
+      .slice(1)
+      .reduce(
+        (current, elementId) => bindProperty(current, { site, elementId } as BindSite, name),
+        created.document,
+      ),
+  };
+}
+
+function commonBound(elements: readonly Element[], read: (element: Element) => unknown): unknown {
+  if (elements.length === 0) return undefined;
+  const first = read(elements[0]!);
+  return elements.every((element) => JSON.stringify(read(element)) === JSON.stringify(first))
+    ? first
+    : undefined;
+}
+
+function boundName(value: unknown): string | undefined {
+  return isBound(value) ? value.$var : undefined;
+}
+
+function fillOfBound(element: Element): unknown {
+  return hasFill(element) ? element.fill : undefined;
+}
+
+function isSolidColorSite(value: unknown): boolean {
+  return typeof value === "string" || isBound(value);
+}
 
 function hasFill(
   element: Element,

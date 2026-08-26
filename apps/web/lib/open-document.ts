@@ -24,7 +24,13 @@ const NOT_A_DOCUMENT = "This document is not a v1 Design Document, so there is n
 export function openStoredDocument(stored: unknown): OpenDocumentResult {
   const migrated = migrateDocument(stored);
   if (!migrated.ok) return migrated;
-  if (validateDocument(migrated.document).length > 0) {
+  const errors = validateDocument(migrated.document);
+  const declared = new Set(
+    (migrated.document as DesignDocument).variables?.map((variable) => variable.name) ?? [],
+  );
+  // Unknown Tokens (and unknown $var refs) are editor warnings, not a reason to
+  // refuse the document — generation is the hard gate (0y2iw3 / 8h50hu).
+  if (errors.some((error) => error.variable === undefined || declared.has(error.variable))) {
     return { ok: false, error: { code: "invalid_document", message: NOT_A_DOCUMENT } };
   }
   return { ok: true, document: migrated.document as DesignDocument };

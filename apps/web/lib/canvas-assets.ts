@@ -2,6 +2,18 @@ import { listFonts, listImages } from "@media-canvas/api-client";
 import type { AssetResolver, DesignDocument } from "@media-canvas/core";
 import { referencedAssets } from "@media-canvas/core";
 
+/** The assets the compiled preview will ask for: authored references plus
+ *  Image Variable defaults that resolve will paint. */
+function previewReferencedAssets(document: DesignDocument) {
+  const wanted = referencedAssets(document);
+  const defaults = (document.variables ?? []).flatMap((variable) =>
+    variable.type === "image" && typeof variable.default === "string" ? [variable.default] : [],
+  );
+  return defaults.length === 0
+    ? wanted
+    : { ...wanted, images: [...new Set([...wanted.images, ...defaults])] };
+}
+
 /**
  * The assets a document is compiled with, held in the browser.
  *
@@ -41,7 +53,7 @@ export function resolverFor(library: AssetLibrary): AssetResolver {
  *  deleted asset, or one belonging to another Workspace. There is no partial
  *  compile: without every one of them, nothing is drawn (issue ljzbq7). */
 export function missingAssets(document: DesignDocument, library: AssetLibrary): string[] {
-  const wanted = referencedAssets(document);
+  const wanted = previewReferencedAssets(document);
   return [
     ...wanted.fonts.filter((fontAssetId) => !library.fonts.has(fontAssetId)),
     ...wanted.images.filter((src) => !library.images.has(src)),
@@ -63,7 +75,7 @@ export async function loadAssets(
   document: DesignDocument,
   additionalFonts: readonly string[] = [],
 ): Promise<AssetLibrary> {
-  const wanted = referencedAssets(document);
+  const wanted = previewReferencedAssets(document);
   const wantedFonts = [...new Set([...wanted.fonts, ...additionalFonts])];
   const [fonts, images] = await Promise.all([
     wantedFonts.length === 0 ? undefined : listFonts({ path: { workspaceId } }),

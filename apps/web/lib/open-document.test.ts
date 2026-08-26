@@ -36,3 +36,33 @@ test("invalid current-version JSON is not opened as a document", () => {
   if (opened.ok) throw new Error("expected a refusal");
   expect(opened.error.code).toBe("invalid_document");
 });
+
+test("an Unknown Token does not block opening", () => {
+  const stored: DesignDocument = {
+    schemaVersion: 1,
+    canvas: { width: 100, height: 100, background: "#FFFFFF" },
+    variables: [{ name: "price", type: "text" }],
+    elements: [
+      {
+        id: "headline",
+        type: "text",
+        x: 0,
+        y: 0,
+        width: 200,
+        rotation: 0,
+        opacity: 1,
+        visible: true,
+        content: "Now {{prce}}",
+        fontAssetId: "font",
+        fontSize: 16,
+        lineHeight: 1.2,
+        letterSpacing: 0,
+        align: "left",
+        anchor: "top",
+        color: "#000000",
+      },
+    ],
+  };
+
+  expect(openStoredDocument(stored)).toEqual({ ok: true, document: stored });
+});

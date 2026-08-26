@@ -36,6 +36,38 @@ function documentWith(x: number): DesignDocument {
   };
 }
 
+test("an Unknown Token does not block scheduling a save", () => {
+  const loaded: DesignDocument = {
+    schemaVersion: 1,
+    canvas: { width: 100, height: 100, background: "#FFFFFF" },
+    variables: [{ name: "price", type: "text" }],
+    elements: [
+      {
+        id: "headline",
+        type: "text",
+        x: 0,
+        y: 0,
+        width: 200,
+        rotation: 0,
+        opacity: 1,
+        visible: true,
+        content: "Now {{prce}}",
+        fontAssetId: "font",
+        fontSize: 16,
+        lineHeight: 1.2,
+        letterSpacing: 0,
+        align: "left",
+        anchor: "top",
+        color: "#000000",
+      },
+    ],
+  };
+  const pending = noteChange(startAutosave(1, loaded, "Untitled"), loaded, 2_000);
+
+  expect(pending.scheduledAt).toBe(2_000 + AUTOSAVE_DELAY_MS);
+  expect(pending.indicator).toBe("saved");
+});
+
 test("a change is due about a second later, and another change resets that wait", () => {
   const loaded = documentWith(0);
   const idle = startAutosave(4, loaded, "Untitled");

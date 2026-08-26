@@ -91,3 +91,14 @@ test("a document whose assets are all in hand is missing nothing", () => {
 
   expect(missingAssets(doc, library())).toEqual([]);
 });
+
+test("an Image Variable default is wanted for the preview even when src is bound", () => {
+  const photo = image("image-a");
+  if (photo.type !== "image") throw new Error("expected an image");
+  const doc: DesignDocument = {
+    ...document([{ ...photo, src: { $var: "hero" } }]),
+    variables: [{ name: "hero", type: "image", default: "image-b" }],
+  };
+
+  expect(missingAssets(doc, library())).toEqual(["image-b"]);
+});

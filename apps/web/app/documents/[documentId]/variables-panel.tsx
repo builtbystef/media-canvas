@@ -4,12 +4,16 @@ import { useState } from "react";
 import type { DesignDocument, VariableDecl, VariableType } from "@media-canvas/core";
 import {
   createVariable,
+  createVariableFromToken,
   deleteVariable,
   describeVariableUsage,
   elementsUsingVariable,
+  matchingVariables,
+  renameToken,
   renameVariable,
   setVariableConstraints,
   setVariableDefault,
+  unknownTokens,
   variableUsage,
 } from "../../../lib/variable-operations";
 import { Button } from "../../../components/ui/button";
@@ -72,6 +76,7 @@ export function VariablesPanel({
       aria-label="Variables"
     >
       <h2 className="font-heading mb-2 text-sm font-medium">Variables</h2>
+      <UnknownTokenWarnings document={document} mayEdit={mayEdit} onCommit={onCommit} />
       {mayEdit && <CreateVariable document={document} onCommit={onCommit} />}
       {variables.length === 0 ? (
         <p className="text-xs text-muted-foreground">
@@ -120,6 +125,78 @@ export function VariablesPanel({
         </AlertDialogContent>
       </AlertDialog>
     </aside>
+  );
+}
+
+function UnknownTokenWarnings({
+  document,
+  mayEdit,
+  onCommit,
+}: {
+  document: DesignDocument;
+  mayEdit: boolean;
+  onCommit: (change: Change, touched: readonly string[]) => void;
+}) {
+  const unknowns = unknownTokens(document);
+  if (unknowns.length === 0) return null;
+  const renameTargets = [
+    ...matchingVariables(document, "text"),
+    ...matchingVariables(document, "number"),
+  ];
+  return (
+    <div className="mb-3 grid gap-2" role="status">
+      {unknowns.map((token) => (
+        <div className="grid gap-1.5 rounded-md bg-destructive/10 p-2 text-xs" key={token.name}>
+          <p>
+            Unknown Token <span className="font-medium">{`{{${token.name}}}`}</span>
+          </p>
+          {mayEdit && (
+            <div className="flex flex-wrap gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={() => {
+                  onCommit((current) => {
+                    const created = createVariableFromToken(current, token.name);
+                    return created.ok ? created.document : current;
+                  }, token.elementIds);
+                }}
+              >
+                Create Variable
+              </Button>
+              {renameTargets.length > 0 && (
+                <Select
+                  items={Object.fromEntries(
+                    renameTargets.map((variable) => [variable.name, variable.name]),
+                  )}
+                  value={null}
+                  onValueChange={(next) => {
+                    if (next === null) return;
+                    onCommit((current) => renameToken(current, token.name, next), token.elementIds);
+                  }}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className={CONTROL}
+                    aria-label={`Rename {{${token.name}}} to`}
+                  >
+                    <SelectValue placeholder="Rename to…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {renameTargets.map((variable) => (
+                      <SelectItem value={variable.name} key={variable.name}>
+                        {variable.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
