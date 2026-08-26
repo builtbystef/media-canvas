@@ -123,6 +123,30 @@ class Membership(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class Invite(Base):
+    """An Owner's emailed, single-use offer of Membership in one Workspace.
+
+    The cookie-like token lives only in the mail; this row keeps its hash.
+    Re-inviting the same address replaces the row, so there is never more
+    than one pending invite per email in a Workspace.
+    """
+
+    __tablename__ = "invites"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "email", name="uq_invites_workspace_email"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    email: Mapped[str] = mapped_column(String(320))
+    role: Mapped[Role] = mapped_column(Enum(Role, name="role", create_type=False))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class DocumentKind(StrEnum):
     """Which of the two things a stored document is.
 

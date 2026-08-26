@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CancelJobData, CancelJobErrors, CancelJobResponses, ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateJobData, CreateJobErrors, CreateJobResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteFontData, DeleteFontErrors, DeleteFontResponses, DeleteImageData, DeleteImageErrors, DeleteImageResponses, DeleteJobData, DeleteJobErrors, DeleteJobResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetJobArchiveData, GetJobArchiveErrors, GetJobArchiveResponses, GetJobData, GetJobErrors, GetJobOutputData, GetJobOutputErrors, GetJobOutputResponses, GetJobResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListFontsData, ListFontsErrors, ListFontsResponses, ListImagesData, ListImagesErrors, ListImagesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RenderDocumentData, RenderDocumentErrors, RenderDocumentResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, ServeFontData, ServeFontErrors, ServeFontResponses, ServeImageData, ServeImageErrors, ServeImageResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
+import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, CancelJobData, CancelJobErrors, CancelJobResponses, ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateJobData, CreateJobErrors, CreateJobResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceInviteData, CreateWorkspaceInviteErrors, CreateWorkspaceInviteResponses, CreateWorkspaceResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteFontData, DeleteFontErrors, DeleteFontResponses, DeleteImageData, DeleteImageErrors, DeleteImageResponses, DeleteJobData, DeleteJobErrors, DeleteJobResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, GetCurrentUserData, GetCurrentUserResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetInviteData, GetInviteErrors, GetInviteResponses, GetJobArchiveData, GetJobArchiveErrors, GetJobArchiveResponses, GetJobData, GetJobErrors, GetJobOutputData, GetJobOutputErrors, GetJobOutputResponses, GetJobResponses, LeaveWorkspaceData, LeaveWorkspaceErrors, LeaveWorkspaceResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListFontsData, ListFontsErrors, ListFontsResponses, ListImagesData, ListImagesErrors, ListImagesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListWorkspaceInvitesData, ListWorkspaceInvitesErrors, ListWorkspaceInvitesResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, PromoteDocumentData, PromoteDocumentErrors, PromoteDocumentResponses, RemoveWorkspaceMemberData, RemoveWorkspaceMemberErrors, RemoveWorkspaceMemberResponses, RenameWorkspaceData, RenameWorkspaceErrors, RenameWorkspaceResponses, RenderDocumentData, RenderDocumentErrors, RenderDocumentResponses, RequestSignInCodeData, RequestSignInCodeErrors, RequestSignInCodeResponses, RevokeWorkspaceInviteData, RevokeWorkspaceInviteErrors, RevokeWorkspaceInviteResponses, SaveDocumentData, SaveDocumentErrors, SaveDocumentResponses, ServeFontData, ServeFontErrors, ServeFontResponses, ServeImageData, ServeImageErrors, ServeImageResponses, SignOutData, SignOutResponses, UploadFontData, UploadFontErrors, UploadFontResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VerifySignInCodeData, VerifySignInCodeErrors, VerifySignInCodeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -138,6 +138,56 @@ export const changeMemberRole = <ThrowOnError extends boolean = false>(options: 
  * Give up your own Membership. Every member may, the last Owner aside.
  */
 export const leaveWorkspace = <ThrowOnError extends boolean = false>(options: Options<LeaveWorkspaceData, ThrowOnError>): RequestResult<LeaveWorkspaceResponses, LeaveWorkspaceErrors, ThrowOnError> => (options.client ?? client).post<LeaveWorkspaceResponses, LeaveWorkspaceErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/leave', ...options });
+
+/**
+ * List Workspace Invites
+ *
+ * The pending invites. Only an Owner may see them.
+ */
+export const listWorkspaceInvites = <ThrowOnError extends boolean = false>(options: Options<ListWorkspaceInvitesData, ThrowOnError>): RequestResult<ListWorkspaceInvitesResponses, ListWorkspaceInvitesErrors, ThrowOnError> => (options.client ?? client).get<ListWorkspaceInvitesResponses, ListWorkspaceInvitesErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/invites', ...options });
+
+/**
+ * Create Workspace Invite
+ *
+ * Mail an offer of Membership. Only an Owner may, and a second invite
+ * to the same address replaces the first.
+ */
+export const createWorkspaceInvite = <ThrowOnError extends boolean = false>(options: Options<CreateWorkspaceInviteData, ThrowOnError>): RequestResult<CreateWorkspaceInviteResponses, CreateWorkspaceInviteErrors, ThrowOnError> => (options.client ?? client).post<CreateWorkspaceInviteResponses, CreateWorkspaceInviteErrors, ThrowOnError>({
+    url: '/api/v1/workspaces/{workspaceId}/invites',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Revoke Workspace Invite
+ *
+ * Take back a pending invite. Only an Owner may.
+ */
+export const revokeWorkspaceInvite = <ThrowOnError extends boolean = false>(options: Options<RevokeWorkspaceInviteData, ThrowOnError>): RequestResult<RevokeWorkspaceInviteResponses, RevokeWorkspaceInviteErrors, ThrowOnError> => (options.client ?? client).delete<RevokeWorkspaceInviteResponses, RevokeWorkspaceInviteErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}/invites/{inviteId}', ...options });
+
+/**
+ * Get Invite
+ *
+ * What the acceptance page shows before anyone accepts.
+ *
+ * No session: the token is the credential, and the answer names only this
+ * invite — the Workspace's name, the Role on offer, and the address it
+ * was sent to.
+ */
+export const getInvite = <ThrowOnError extends boolean = false>(options: Options<GetInviteData, ThrowOnError>): RequestResult<GetInviteResponses, GetInviteErrors, ThrowOnError> => (options.client ?? client).get<GetInviteResponses, GetInviteErrors, ThrowOnError>({ url: '/api/v1/invites/{token}', ...options });
+
+/**
+ * Accept Invite
+ *
+ * Spend the invite: join the Workspace, and sign in as its User.
+ *
+ * No session is required. Any session the caller already holds is replaced,
+ * so the browser ends signed in as the invited account.
+ */
+export const acceptInvite = <ThrowOnError extends boolean = false>(options: Options<AcceptInviteData, ThrowOnError>): RequestResult<AcceptInviteResponses, AcceptInviteErrors, ThrowOnError> => (options.client ?? client).post<AcceptInviteResponses, AcceptInviteErrors, ThrowOnError>({ url: '/api/v1/invites/{token}/accept', ...options });
 
 /**
  * List Documents

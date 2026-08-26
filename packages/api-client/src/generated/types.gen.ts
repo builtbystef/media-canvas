@@ -321,6 +321,51 @@ export type ImageAssetView = {
 };
 
 /**
+ * InvitePreview
+ */
+export type InvitePreview = {
+    /**
+     * Workspace Name
+     */
+    workspace_name: string;
+    role: Role;
+    /**
+     * Email
+     */
+    email: string;
+};
+
+/**
+ * InviteRequest
+ */
+export type InviteRequest = {
+    /**
+     * Email
+     */
+    email: string;
+    role: Role;
+};
+
+/**
+ * InviteView
+ */
+export type InviteView = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Email
+     */
+    email: string;
+    role: Role;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+};
+
+/**
  * JobState
  *
  * Where a Generation Job is, as a whole.
@@ -1059,6 +1104,162 @@ export type LeaveWorkspaceResponses = {
 };
 
 export type LeaveWorkspaceResponse = LeaveWorkspaceResponses[keyof LeaveWorkspaceResponses];
+
+export type ListWorkspaceInvitesData = {
+    body?: never;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/invites';
+};
+
+export type ListWorkspaceInvitesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListWorkspaceInvitesError = ListWorkspaceInvitesErrors[keyof ListWorkspaceInvitesErrors];
+
+export type ListWorkspaceInvitesResponses = {
+    /**
+     * Response Listworkspaceinvites
+     *
+     * Successful Response
+     */
+    200: Array<InviteView>;
+};
+
+export type ListWorkspaceInvitesResponse = ListWorkspaceInvitesResponses[keyof ListWorkspaceInvitesResponses];
+
+export type CreateWorkspaceInviteData = {
+    body: InviteRequest;
+    path: {
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/invites';
+};
+
+export type CreateWorkspaceInviteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateWorkspaceInviteError = CreateWorkspaceInviteErrors[keyof CreateWorkspaceInviteErrors];
+
+export type CreateWorkspaceInviteResponses = {
+    /**
+     * Successful Response
+     */
+    201: InviteView;
+};
+
+export type CreateWorkspaceInviteResponse = CreateWorkspaceInviteResponses[keyof CreateWorkspaceInviteResponses];
+
+export type RevokeWorkspaceInviteData = {
+    body?: never;
+    path: {
+        /**
+         * Inviteid
+         */
+        inviteId: string;
+        /**
+         * Workspaceid
+         */
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/api/v1/workspaces/{workspaceId}/invites/{inviteId}';
+};
+
+export type RevokeWorkspaceInviteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RevokeWorkspaceInviteError = RevokeWorkspaceInviteErrors[keyof RevokeWorkspaceInviteErrors];
+
+export type RevokeWorkspaceInviteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RevokeWorkspaceInviteResponse = RevokeWorkspaceInviteResponses[keyof RevokeWorkspaceInviteResponses];
+
+export type GetInviteData = {
+    body?: never;
+    path: {
+        /**
+         * Token
+         */
+        token: string;
+    };
+    query?: never;
+    url: '/api/v1/invites/{token}';
+};
+
+export type GetInviteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetInviteError = GetInviteErrors[keyof GetInviteErrors];
+
+export type GetInviteResponses = {
+    /**
+     * Successful Response
+     */
+    200: InvitePreview;
+};
+
+export type GetInviteResponse = GetInviteResponses[keyof GetInviteResponses];
+
+export type AcceptInviteData = {
+    body?: never;
+    path: {
+        /**
+         * Token
+         */
+        token: string;
+    };
+    query?: never;
+    url: '/api/v1/invites/{token}/accept';
+};
+
+export type AcceptInviteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AcceptInviteError = AcceptInviteErrors[keyof AcceptInviteErrors];
+
+export type AcceptInviteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type AcceptInviteResponse = AcceptInviteResponses[keyof AcceptInviteResponses];
 
 export type ListDocumentsData = {
     body?: never;

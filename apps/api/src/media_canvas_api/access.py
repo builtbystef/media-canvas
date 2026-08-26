@@ -51,10 +51,18 @@ PUBLIC_PATHS = frozenset(
     }
 )
 
+# Preview and accept live at /api/v1/invites/{token} and .../accept; the
+# token is the path, so they cannot sit in the set above.
+PUBLIC_INVITE_PREFIX = "/api/v1/invites/"
+
 # Where the other service's half of the product lives. Nothing under it is
 # reachable with a session, and nothing outside it with the credential: the
 # worker is not a member of anything, and a browser never holds this secret.
 INTERNAL_PREFIX = "/internal/"
+
+
+def is_public(path: str) -> bool:
+    return path in PUBLIC_PATHS or path.startswith(PUBLIC_INVITE_PREFIX)
 
 
 class AccessMiddleware:
@@ -79,7 +87,7 @@ class AccessMiddleware:
                 if not carries_internal_credential(request, settings):
                     await unauthenticated(scope, receive, send)
                     return
-            elif request.url.path not in PUBLIC_PATHS:
+            elif not is_public(request.url.path):
                 token = request.cookies.get(COOKIE_NAME, "")
                 signed_in = await authenticate(
                     database, token, scope["app"].state.clock()

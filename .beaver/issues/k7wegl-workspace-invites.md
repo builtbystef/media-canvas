@@ -1,13 +1,14 @@
 ---
 id: k7wegl
 title: Workspace Invites
-state: todo
+state: done
+assignee: agent
 priority: medium
 depends_on:
     - sazdn4
 parent: 88v6vg
 created: 2026-08-15T06:22:12Z
-updated: 2026-08-17T04:00:39Z
+updated: 2026-08-26T18:42:20Z
 ---
 
 ## What to build
@@ -29,3 +30,31 @@ An Owner types an email address, picks a Role, and the person named receives a l
 **claude** — 2026-08-17T04:00:39Z
 
 Amended: adds the unauthenticated invite preview call GET /api/v1/invites/{token} (workspace name, role, invited email; 404/410 exactly as accept), and states that accepting signs the caller in as the invite's User, replacing any existing session. Decided together with the acceptance page 50gsoy; the parent spec's endpoint surface gains the same route.
+
+**agent** — 2026-08-26T18:29:02Z
+
+Seam: the spec's public HTTP API against a real Postgres and the recording Mailer. Criteria are the seven on the issue; no invention.
+
+**agent** — 2026-08-26T18:42:20Z
+
+Done. Workspace Invites are in the api. The acceptance page is 50gsoy; the settings panels are hddsdp.
+
+What landed. models.py gains Invite with migration 0008_invites (reuses the role enum). invites.py is the domain and the router: send, list pending, revoke, preview, accept. Preview and accept join the session-exemption list as a /api/v1/invites/ prefix. OpenAPI and the generated client are regenerated.
+
+Decisions a reviewer should know.
+
+Used and revoked are gone rows, not a status column. The spec's table has no consumed_at. Accept and revoke delete the row, so a second accept, a revoked token, and an unknown token are all 404 by construction. Expired rows stay and return 410.
+
+One pending invite per (workspace, email) is a unique constraint. Re-inviting deletes the existing row (pending or expired) and inserts a new token. Addresses are stored lowercased, same as User.
+
+The accept link is public_base_url + /invites/{token}. That property already implements the spec's derivation (https://{DOMAIN}, else PUBLIC_URL, else the editor origin).
+
+Preview names only this invite: workspace_name, role, email — no workspace id.
+
+Accept replaces any session the caller holds. The presented cookie's row is deleted, a new session is opened for the invite's User, and Set-Cookie overwrites the browser. An existing User is found by email; a new one is created. A Membership that already exists is left as it is.
+
+List and create return id, email, role, expires_at so the settings panel (hddsdp) can revoke by id and show expiry.
+
+Testing. The spec's seam — the public HTTP API against a real Postgres and the recording Mailer. tests/test_invites.py carries the seven criteria from their worked examples. The public-route inventory and the workspace-delete cascade pick the new routes up from the schema.
+
+Checks. pnpm check green. Api tests 175 passed. openapi.json and the generated client regenerated.

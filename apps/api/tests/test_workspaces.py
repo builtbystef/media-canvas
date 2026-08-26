@@ -165,7 +165,9 @@ def workspace_scoped_answers(
     return {
         client.request(
             method,
-            path.replace("{workspaceId}", workspace).replace("{userId}", someone.id),
+            path.replace("{workspaceId}", workspace)
+            .replace("{userId}", someone.id)
+            .replace("{inviteId}", someone.id),
             json={"name": "Anything", "role": "viewer"},
         ).status_code
         for path, operations in client.app.openapi()["paths"].items()

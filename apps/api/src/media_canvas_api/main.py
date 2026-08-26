@@ -15,6 +15,7 @@ from media_canvas_api import (
     images,
     internal,
     internal_jobs,
+    invites,
     jobs,
     render,
     workspaces,
@@ -120,6 +121,7 @@ async def migrate(engine: AsyncEngine) -> None:
 app = FastAPI(title="media-canvas-api", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(workspaces.router)
+app.include_router(invites.router)
 app.include_router(documents.router)
 app.include_router(render.router)
 app.include_router(fonts.router)

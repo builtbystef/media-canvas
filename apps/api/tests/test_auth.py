@@ -233,6 +233,8 @@ def test_no_route_answers_without_a_session_but_the_public_ones(
         ("get", "/api/health"),
         ("post", "/api/v1/auth/otp/request"),
         ("post", "/api/v1/auth/otp/verify"),
+        ("get", "/api/v1/invites/{token}"),
+        ("post", "/api/v1/invites/{token}/accept"),
     }
 
 
