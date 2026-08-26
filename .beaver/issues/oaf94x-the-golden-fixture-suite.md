@@ -1,15 +1,13 @@
 ---
 id: oaf94x
 title: The golden fixture suite
-state: in-progress
+state: done
 priority: medium
-labels:
-    - needs-review
 depends_on:
     - 6bqdxe
 parent: 1qoccb
 created: 2026-08-15T05:49:46Z
-updated: 2026-08-26T16:23:51Z
+updated: 2026-08-26T16:24:35Z
 ---
 
 ## What to build
@@ -57,3 +55,7 @@ Not done in this session — needs the reviewer
 **agent** — 2026-08-26T16:23:51Z
 
 Bake ran inside the pinned image. composite.png is byte-identical to the committed baseline. 16 new PNGs written: 9 font families (faces + .notdef), anchors 3×3 wrap, fills, groups (no hidden green/yellow), fit-modes (cover/contain/stretch × transparent and photo), nonsquare 640×360, scale-2x at 480×240, template row (defaults, wrap 290/120, all bindable kinds). Pictures look correct. Close to approve, or note requested changes and remove needs-review.
+
+**agent** — 2026-08-26T16:24:32Z
+
+User approved the baked baselines. Closing.
