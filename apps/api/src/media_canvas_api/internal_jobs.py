@@ -7,8 +7,11 @@ one; `AccessMiddleware` has already checked it.
 
 Fetching a Row is also the queued-to-rendering transition: the Row is marked
 rendering and stamped with its start time in the same request, and the first
-such flip moves the Job. Reporting a result records the Row and, in the same
-transaction, completes the Job when no Row of it remains queued or rendering.
+such flip moves the Job. A canceled Job withdraws work that has not started:
+the fetch answers as if the Row were gone, so the worker does not render it.
+Reporting a result records the Row and, in the same transaction, completes
+the Job when no Row of it remains queued or rendering. A result for a canceled
+Job, or for a Row already finished or skipped, is ignored.
 """
 
 from typing import Annotated, Any, Literal
@@ -73,6 +76,10 @@ async def fetch_row(
 ) -> InternalRow:
     """One Row's values. Fetching a queued Row starts it rendering."""
     job, row = await loaded(database, job_id, row_id)
+    if row.status == RowStatus.queued and job.state in TERMINAL_JOB:
+        raise HTTPException(404, UNREACHABLE_ROW)
+    if row.status == RowStatus.skipped:
+        raise HTTPException(404, UNREACHABLE_ROW)
     if row.status == RowStatus.queued and job.state not in TERMINAL_JOB:
         now = clock()
         row.status = RowStatus.rendering
@@ -120,10 +127,10 @@ async def report_result(
 async def loaded(
     database: Database, job_id: UUID, row_id: UUID
 ) -> tuple[GenerationJob, GenerationRow]:
-    job = await database.get(GenerationJob, job_id)
+    job = await database.get(GenerationJob, job_id, with_for_update=True)
     if job is None:
         raise HTTPException(404, UNREACHABLE_JOB)
-    row = await database.get(GenerationRow, row_id)
+    row = await database.get(GenerationRow, row_id, with_for_update=True)
     if row is None or row.job_id != job.id:
         raise HTTPException(404, UNREACHABLE_ROW)
     return job, row

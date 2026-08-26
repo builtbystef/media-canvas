@@ -5,6 +5,8 @@ batch is refused and nothing exists. Validation is the worker's (ADR-0003);
 this module copies the Template, records the Rows, answers with the Job, and
 enqueues one identifiers-only task per Row (ADR-0004). Finished files leave
 through here too: the api streams them from its own storage, never a URL.
+Cancel stops work that has not started; delete is the only way a Job and its
+outputs leave.
 """
 
 import csv
@@ -23,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from pydantic.alias_generators import to_camel
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
+from starlette.concurrency import run_in_threadpool
 
 from media_canvas_api.access import (
     CurrentSession,
@@ -213,6 +216,7 @@ def holding_job(role: Role) -> params.Depends:
 
 EditableTemplate = Annotated[Document, holding_template(Role.editor)]
 ReadableJob = Annotated[GenerationJob, holding_job(Role.viewer)]
+EditableJob = Annotated[GenerationJob, holding_job(Role.editor)]
 
 
 @router.post(
@@ -490,6 +494,47 @@ def rows_from_csv(
 async def get_job(job: ReadableJob, database: Database) -> JobView:
     """One Job, with every Row and the counts taken from those Rows."""
     return await view_of(database, job)
+
+
+@router.post(
+    "/jobs/{jobId}/cancel",
+    operation_id="cancelJob",
+    response_model_exclude_none=True,
+)
+async def cancel_job(job: EditableJob, database: Database, clock: Now) -> JobView:
+    """Stop work that has not started. Finished files stay; unstarted Rows skip."""
+    locked = await database.get(GenerationJob, job.id, with_for_update=True)
+    if locked is None:
+        raise HTTPException(404, UNREACHABLE_JOB)
+    if locked.state not in {JobState.queued, JobState.rendering}:
+        return await view_of(database, locked)
+    now = clock()
+    locked.state = JobState.canceled
+    locked.canceled_at = now
+    locked.updated_at = now
+    rows = (
+        await database.scalars(
+            select(GenerationRow)
+            .where(GenerationRow.job_id == locked.id)
+            .order_by(GenerationRow.row_index)
+            .with_for_update()
+        )
+    ).all()
+    for row in rows:
+        if row.status in {RowStatus.queued, RowStatus.rendering}:
+            row.status = RowStatus.skipped
+            row.finished_at = now
+    await database.commit()
+    return view_of_rows(locked, rows)
+
+
+@router.delete("/jobs/{jobId}", status_code=204, operation_id="deleteJob")
+async def delete_job(job: EditableJob, database: Database, storage: Storage) -> None:
+    """Remove the Job, its Rows, and every stored object under its prefix."""
+    prefix = f"{job.workspace_id}/jobs/{job.id}/"
+    await database.delete(job)
+    await database.commit()
+    await run_in_threadpool(storage.outputs.delete_prefix, prefix)
 
 
 @router.get(

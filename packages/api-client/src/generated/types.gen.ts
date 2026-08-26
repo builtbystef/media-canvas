@@ -1575,6 +1575,36 @@ export type CreateJobResponses = {
 
 export type CreateJobResponse = CreateJobResponses[keyof CreateJobResponses];
 
+export type DeleteJobData = {
+    body?: never;
+    path: {
+        /**
+         * Jobid
+         */
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{jobId}';
+};
+
+export type DeleteJobErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteJobError = DeleteJobErrors[keyof DeleteJobErrors];
+
+export type DeleteJobResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteJobResponse = DeleteJobResponses[keyof DeleteJobResponses];
+
 export type GetJobData = {
     body?: never;
     path: {
@@ -1604,6 +1634,36 @@ export type GetJobResponses = {
 };
 
 export type GetJobResponse = GetJobResponses[keyof GetJobResponses];
+
+export type CancelJobData = {
+    body?: never;
+    path: {
+        /**
+         * Jobid
+         */
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{jobId}/cancel';
+};
+
+export type CancelJobErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelJobError = CancelJobErrors[keyof CancelJobErrors];
+
+export type CancelJobResponses = {
+    /**
+     * Successful Response
+     */
+    200: JobView;
+};
+
+export type CancelJobResponse = CancelJobResponses[keyof CancelJobResponses];
 
 export type GetJobOutputData = {
     body?: never;
