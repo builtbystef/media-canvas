@@ -10,6 +10,7 @@ import type { Tab } from "./documents";
 export const HOME = "/";
 export const SIGN_IN = "/sign-in";
 export const NEW_WORKSPACE = "/workspaces/new";
+export const JOBS = "/jobs";
 
 /** The editor, at the document's own url — one page for both kinds. */
 export const editorPath = (documentId: string) => `/documents/${documentId}`;

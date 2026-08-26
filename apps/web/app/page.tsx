@@ -9,6 +9,7 @@ import { WORKSPACE_COOKIE, chosenMembership, mayChangeDocuments } from "../lib/w
 import { Problem } from "../components/problem";
 import { buttonVariants } from "../components/ui/button";
 import { DocumentActions } from "./document-actions";
+import { ListNav } from "./list-nav";
 import { NewDesign } from "./new-design";
 import { Shell } from "./shell";
 
@@ -43,7 +44,8 @@ export default async function Home({
   return (
     <Shell memberships={identity.memberships} current={chosen}>
       <main className="mt-6">
-        <div className="flex items-center justify-between gap-4">
+        <ListNav current="documents" />
+        <div className="mt-4 flex items-center justify-between gap-4">
           <h1 className="font-heading text-xl font-semibold">Documents</h1>
           {mayChange && <NewDesign workspaceId={chosen.workspace.id} />}
         </div>
