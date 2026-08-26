@@ -1,8 +1,7 @@
 import { getDocument } from "@media-canvas/api-client";
-import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { asThisCaller, signedInOrSignIn } from "../../../lib/identity";
-import { WORKSPACE_COOKIE, chosenMembership, mayChangeDocuments } from "../../../lib/workspaces";
+import { mayChangeDocuments, membershipIn } from "../../../lib/workspaces";
 import { EditorSession } from "./editor-session";
 
 export const metadata = { title: "Editor — Media Canvas" };
@@ -11,7 +10,9 @@ export const metadata = { title: "Editor — Media Canvas" };
  * The editor, at the document's own url — one page for both kinds.
  *
  * The page fetches the stored document. The session migrates it, holds undo,
- * and autosaves against the Revision the fetch loaded.
+ * and autosaves against the Revision the fetch loaded. What the editor offers
+ * is decided by the Role in the Workspace the document belongs to, not by
+ * whichever Workspace the shell is switched to.
  */
 export default async function EditorPage({ params }: { params: Promise<{ documentId: string }> }) {
   const identity = await signedInOrSignIn();
@@ -24,14 +25,14 @@ export default async function EditorPage({ params }: { params: Promise<{ documen
   // this caller is not in, so that ids cannot be probed. So does this page.
   if (document === undefined) notFound();
 
-  const chosen = chosenMembership(identity, (await cookies()).get(WORKSPACE_COOKIE)?.value);
-  const mayEdit = chosen !== null && mayChangeDocuments(chosen.role);
+  const membership = membershipIn(identity, document.workspaceId);
+  const mayEdit = membership !== null && mayChangeDocuments(membership.role);
   const promotedFrom = await loadPromotedFrom(document.promotedFromId);
 
   return (
     <EditorSession
       loaded={document}
-      workspaceId={chosen?.workspace.id ?? null}
+      workspaceId={document.workspaceId}
       mayEdit={mayEdit}
       promotedFrom={promotedFrom}
     />

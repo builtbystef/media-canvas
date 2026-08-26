@@ -1,11 +1,12 @@
 ---
 id: mg5asi
 title: DocumentView does not name the Workspace it belongs to
-state: todo
+state: done
+assignee: agent
 priority: medium
 parent: ek7pq1
 created: 2026-08-19T11:28:20Z
-updated: 2026-08-19T12:16:02Z
+updated: 2026-08-26T19:44:44Z
 ---
 
 ## What to build
@@ -27,3 +28,15 @@ The slices after it need the answer for more than a Role: the Assets panel (qbbl
 **claude** — 2026-08-19T12:16:02Z
 
 The canvas (n5csrl) now reads the shell's chosen Workspace too: it builds every asset URL from it, so a document deep-linked from another Workspace cannot fetch its fonts or images and shows the missing-asset message instead of drawing. That makes this issue worth more than the rename gate it was raised for.
+
+**agent** — 2026-08-26T19:44:43Z
+
+Done.
+
+DocumentView now carries workspaceId (create, GET, promote). DocumentSummary does not — a list is already read through one Workspace. openapi.json and the generated client are regenerated.
+
+The editor page no longer reads the shell cookie. It takes workspaceId from the loaded DocumentView and the Role from membershipIn(identity, that id): a Viewer in the document's Workspace is not offered rename / save / promote / generate / asset writes, even when the shell is switched to a Workspace they own. Passing the document's workspaceId also means the canvas, Assets panel, and font picker speak to that Workspace, so a deep-link no longer fetches another Workspace's fonts and images.
+
+Seams (AFK, spec-named plus the existing Role helper): FastAPI HTTP in test_documents.py; membershipIn / mayChangeDocuments in workspaces.test.ts.
+
+No new decisions. No leftover work inside this issue.

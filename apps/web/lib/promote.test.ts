@@ -14,6 +14,7 @@ function template(id: string): DocumentView {
     promotedFromId: "design-1",
     createdAt: "2026-08-25T00:00:00Z",
     updatedAt: "2026-08-25T00:00:00Z",
+    workspaceId: "workspace-1",
     document: { schemaVersion: 1 },
   };
 }

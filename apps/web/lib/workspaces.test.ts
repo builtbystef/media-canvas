@@ -1,7 +1,12 @@
 import type { Identity, MembershipView } from "@media-canvas/api-client";
 import { expect, test } from "vitest";
 
-import { chosenMembership, mayChangeDocuments, rememberedWorkspace } from "./workspaces.ts";
+import {
+  chosenMembership,
+  mayChangeDocuments,
+  membershipIn,
+  rememberedWorkspace,
+} from "./workspaces.ts";
 
 /**
  * Which Workspace the shell is showing.
@@ -53,4 +58,17 @@ test("a Viewer is offered nothing that changes a document", () => {
   expect(mayChangeDocuments("viewer")).toBe(false);
   expect(mayChangeDocuments("editor")).toBe(true);
   expect(mayChangeDocuments("owner")).toBe(true);
+});
+
+test("the editor reads the Role in the document's Workspace, not the shell's", () => {
+  const signedIn = identity([studio, agency]);
+  const inDocument = membershipIn(signedIn, agency.workspace.id);
+  const inShell = chosenMembership(signedIn, studio.workspace.id);
+
+  expect(inDocument).toBe(agency);
+  expect(inShell).toBe(studio);
+  if (inDocument === null || inShell === null) throw new Error("expected memberships");
+  expect(mayChangeDocuments(inDocument.role)).toBe(false);
+  expect(mayChangeDocuments(inShell.role)).toBe(true);
+  expect(membershipIn(signedIn, "33333333-3333-4333-8333-333333333333")).toBeNull();
 });

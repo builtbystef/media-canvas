@@ -56,8 +56,33 @@ def test_a_created_design_comes_back_whole_at_its_own_address(
         "schemaVersion": 1,
         "revision": 1,
         "promotedFromId": None,
+        "workspaceId": workspace,
         "document": a_design(),
     }
+
+
+def test_a_document_names_the_workspace_it_belongs_to_and_a_list_row_does_not(
+    client: TestClient, accounts: Accounts
+) -> None:
+    accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client)
+    other = a_workspace(client)
+
+    created = client.post(
+        f"/api/v1/workspaces/{workspace}/documents",
+        json={"kind": "design", "name": "Untitled", "document": a_design()},
+    )
+    fetched = client.get(f"/api/v1/documents/{created.json()['id']}")
+    listed = client.get(f"/api/v1/workspaces/{workspace}/documents")
+    promoted = client.post(f"/api/v1/documents/{created.json()['id']}/promote")
+
+    assert created.status_code == 201
+    assert fetched.status_code == 200
+    assert created.json()["workspaceId"] == workspace
+    assert fetched.json()["workspaceId"] == workspace
+    assert fetched.json()["workspaceId"] != other
+    assert promoted.json()["workspaceId"] == workspace
+    assert "workspaceId" not in listed.json()[0]
 
 
 def test_a_save_states_the_revision_it_loaded_and_a_stale_one_changes_nothing(

@@ -68,8 +68,15 @@ class DocumentSummary(DocumentPayload):
 
 
 class DocumentView(DocumentSummary):
-    """A stored document, whole."""
+    """A stored document, whole — and the Workspace that owns it.
 
+    The id is on the view and not the summary: a list is already read through
+    one Workspace, so repeating it on every row would say nothing a caller
+    does not already know. The editor is reached at the document's own url,
+    and that page has only this answer for which Workspace to speak for.
+    """
+
+    workspace_id: UUID
     document: dict[str, Any]
 
 

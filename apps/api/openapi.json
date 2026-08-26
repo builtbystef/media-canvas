@@ -2291,6 +2291,11 @@
             "format": "date-time",
             "title": "Updatedat"
           },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workspaceid"
+          },
           "document": {
             "additionalProperties": true,
             "type": "object",
@@ -2307,10 +2312,11 @@
           "promotedFromId",
           "createdAt",
           "updatedAt",
+          "workspaceId",
           "document"
         ],
         "title": "DocumentView",
-        "description": "A stored document, whole."
+        "description": "A stored document, whole \u2014 and the Workspace that owns it.\n\nThe id is on the view and not the summary: a list is already read through\none Workspace, so repeating it on every row would say nothing a caller\ndoes not already know. The editor is reached at the document's own url,\nand that page has only this answer for which Workspace to speak for."
       },
       "FontAssetView": {
         "properties": {
