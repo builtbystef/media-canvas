@@ -1,4 +1,8 @@
 import type { JobState, Progress, RowStatus, RowView } from "@media-canvas/api-client";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, expect, test, vi } from "vitest";
 
 import {
@@ -146,4 +150,15 @@ test("the output format is named the way the job asked for it", () => {
   expect(outputFormatLabel({ format: "png", scale: 2 })).toBe("PNG ×2");
   expect(outputFormatLabel({ format: "jpeg", quality: 90 })).toBe("JPEG 90");
   expect(outputFormatLabel({ format: "pdf" })).toBe("PDF");
+});
+
+test("the Row list virtualizes through the registry package", () => {
+  expect(typeof useVirtualizer).toBe("function");
+  const webRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const pkg = JSON.parse(readFileSync(join(webRoot, "package.json"), "utf8")) as {
+    dependencies: Record<string, string>;
+  };
+  expect(pkg.dependencies["@tanstack/react-virtual"]).toMatch(/^(?:\d|\^|~)/);
+  expect(pkg.dependencies["@tanstack/react-virtual"]).not.toMatch(/^file:/);
+  expect(existsSync(join(webRoot, "vendor"))).toBe(false);
 });
