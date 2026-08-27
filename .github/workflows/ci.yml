@@ -117,3 +117,34 @@ jobs:
       # `--profile "*"` validates the services of every profile, not only the
       # default one.
       - run: docker compose --env-file "$RUNNER_TEMP/.env" --profile "*" config --quiet
+
+  # The pinned render worker image: CI builds it and runs the checks that live
+  # inside it, so a change that breaks the environment tuple — Dockerfile,
+  # Playwright, bundled fonts, compiler — fails on the pull request instead of
+  # on the machine of whoever next bakes a golden baseline. The runner keeps a
+  # BuildKit cache (type=gha, mode=max) between runs so the 2.1 GB image is not
+  # paid in full on every push; a Dockerfile or lockfile change still rebuilds
+  # the layers it invalidates. The golden suite is among those checks.
+  worker-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
+
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: apps/worker/Dockerfile
+          load: true
+          tags: media-canvas-worker:pinned
+          cache-from: type=gha,scope=worker-image
+          cache-to: type=gha,mode=max,scope=worker-image
+          provenance: false
+
+      # Same command `pnpm --filter worker run image:check` runs after it
+      # builds. A tuple mismatch fails here the same way it fails locally.
+      - run: docker run --rm media-canvas-worker:pinned bash -c 'node --test apps/worker/src/checks/*.check.ts'
