@@ -1,16 +1,24 @@
 """The one seam between the api and email (ADR-0009).
 
 The product sends exactly two messages, and that is what keeps a mail seam
-worth having: the interface below is the whole of it. `ConsoleMailer` is the
-default, so a self-hosted stack signs people in with no external service and
-no configuration at all — the code is in the api log. `RecordingMailer` is the
-fake the tests assert against; it lives here, beside the interface it
-implements, so that every driver of this seam is in one file.
+worth having: the interface below is the whole of it. The driver is selected
+by `MAILER` at startup: `console` (the default) prints both to the api log,
+`resend` uses the official Resend Python SDK, and `smtp` uses stdlib
+`smtplib`. A missing setting or an unknown name fails startup naming the
+variable, so a misconfiguration is caught before anyone tries to sign in.
+`RecordingMailer` is the fake the tests assert against; it lives here, beside
+the interface it implements, so that every driver of this seam is in one file.
 """
 
 import logging
+import smtplib
 from dataclasses import dataclass, field
+from email.message import EmailMessage
 from typing import Protocol
+
+import resend
+
+from media_canvas_api.settings import Settings, SettingsError
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +56,77 @@ class ConsoleMailer:
 
 
 @dataclass(frozen=True)
+class ResendMailer:
+    """Sends both messages through Resend's official client."""
+
+    api_key: str
+    sender: str
+
+    def send_otp(self, to: str, code: str) -> None:
+        self._send(to, "Your sign-in code", f"<p>Your sign-in code is {code}.</p>")
+
+    def send_invite(
+        self, to: str, workspace_name: str, role: str, accept_url: str
+    ) -> None:
+        self._send(
+            to,
+            f"Invitation to {workspace_name}",
+            (
+                f"<p>You've been invited to {workspace_name} as {role}.</p>"
+                f'<p><a href="{accept_url}">{accept_url}</a></p>'
+            ),
+        )
+
+    def _send(self, to: str, subject: str, html: str) -> None:
+        resend.api_key = self.api_key
+        resend.Emails.send(
+            {
+                "from": self.sender,
+                "to": [to],
+                "subject": subject,
+                "html": html,
+            }
+        )
+
+
+@dataclass(frozen=True)
+class SmtpMailer:
+    """Sends both messages over SMTP with the configured host and credentials."""
+
+    host: str
+    port: int
+    user: str
+    password: str
+    sender: str
+
+    def send_otp(self, to: str, code: str) -> None:
+        self._send(to, "Your sign-in code", f"Your sign-in code is {code}.")
+
+    def send_invite(
+        self, to: str, workspace_name: str, role: str, accept_url: str
+    ) -> None:
+        self._send(
+            to,
+            f"Invitation to {workspace_name}",
+            (
+                f"You've been invited to {workspace_name} as {role}.\n"
+                f"Accept: {accept_url}"
+            ),
+        )
+
+    def _send(self, to: str, subject: str, body: str) -> None:
+        message = EmailMessage()
+        message["From"] = self.sender
+        message["To"] = to
+        message["Subject"] = subject
+        message.set_content(body)
+        with smtplib.SMTP(self.host, self.port) as smtp:
+            smtp.starttls()
+            smtp.login(self.user, self.password)
+            smtp.send_message(message)
+
+
+@dataclass(frozen=True)
 class OtpMessage:
     to: str
     code: str
@@ -79,3 +158,45 @@ class RecordingMailer:
                 to=to, workspace_name=workspace_name, role=role, accept_url=accept_url
             )
         )
+
+
+def build_mailer(settings: Settings) -> Mailer:
+    """The driver the environment asked for, or a reason the process cannot start."""
+    driver = settings.mailer.strip().lower() or "console"
+    if driver == "console":
+        return ConsoleMailer()
+    if driver == "resend":
+        if not settings.resend_api_key:
+            raise _missing("RESEND_API_KEY", driver)
+        if not settings.email_from:
+            raise _missing("EMAIL_FROM", driver)
+        return ResendMailer(api_key=settings.resend_api_key, sender=settings.email_from)
+    if driver == "smtp":
+        if not settings.smtp_host:
+            raise _missing("SMTP_HOST", driver)
+        if not settings.smtp_user:
+            raise _missing("SMTP_USER", driver)
+        if not settings.smtp_password:
+            raise _missing("SMTP_PASSWORD", driver)
+        if not settings.email_from:
+            raise _missing("EMAIL_FROM", driver)
+        return SmtpMailer(
+            host=settings.smtp_host,
+            port=settings.smtp_port,
+            user=settings.smtp_user,
+            password=settings.smtp_password,
+            sender=settings.email_from,
+        )
+    raise SettingsError(
+        "The environment does not describe a runnable api — "
+        f"MAILER={settings.mailer!r} is not one of console, resend, smtp. "
+        "Copy .env.example to .env and fill in the values it marks required."
+    )
+
+
+def _missing(name: str, driver: str) -> SettingsError:
+    return SettingsError(
+        "The environment does not describe a runnable api — "
+        f"{name} is required when MAILER={driver}. "
+        "Copy .env.example to .env and fill in the values it marks required."
+    )

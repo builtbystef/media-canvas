@@ -17,6 +17,9 @@ os.environ["ASSETS_BUCKET"] = "media-canvas-test-assets"
 os.environ["OUTPUTS_BUCKET"] = "media-canvas-test-outputs"
 # A database of its own, so a test never drains the development queue.
 os.environ["REDIS_DB"] = "1"
+# Startup builds the Mailer before the recording fake is swapped in. Force
+# the console driver so a developer's .env cannot send real mail from tests.
+os.environ["MAILER"] = "console"
 
 import boto3
 import pytest

@@ -15,6 +15,13 @@ DEFAULTED = (
     "REDIS_HOST",
     "REDIS_PORT",
     "REDIS_DB",
+    "MAILER",
+    "RESEND_API_KEY",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_USER",
+    "SMTP_PASSWORD",
+    "EMAIL_FROM",
 )
 
 

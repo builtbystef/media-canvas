@@ -26,7 +26,7 @@ from media_canvas_api.assets import AssetRefused, refusal_response
 from media_canvas_api.clock import utc_now
 from media_canvas_api.db import create_database_engine, create_session_factory
 from media_canvas_api.health import DatabaseHealth, check_database
-from media_canvas_api.mailer import ConsoleMailer
+from media_canvas_api.mailer import build_mailer
 from media_canvas_api.migrator import upgrade_to_head
 from media_canvas_api.queue import RowQueue
 from media_canvas_api.settings import get_settings
@@ -79,14 +79,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     configure_logging()
     settings = get_settings()
-    engine = create_database_engine(settings)
     app.state.settings = settings
+    app.state.mailer = build_mailer(settings)
+    engine = create_database_engine(settings)
     app.state.engine = engine
     app.state.sessions = create_session_factory(engine)
     app.state.clock = utc_now
-    # The default driver, and the only one this issue ships: sign-in works
-    # offline, with the code in the api log.
-    app.state.mailer = ConsoleMailer()
     storage = ObjectStore(settings)
     # Unlike the database, an object store that cannot be reached stops
     # startup: there is nowhere for the api to report the problem afterwards,

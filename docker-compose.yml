@@ -96,6 +96,13 @@ services:
       REDIS_HOST: redis
       DOMAIN: "${DOMAIN:-}"
       PUBLIC_URL: "${PUBLIC_URL:-}"
+      MAILER: "${MAILER:-console}"
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      EMAIL_FROM: "${EMAIL_FROM:-}"
     depends_on:
       postgres:
         condition: service_healthy

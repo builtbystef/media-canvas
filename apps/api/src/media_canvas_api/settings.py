@@ -68,6 +68,17 @@ class Settings(BaseSettings):
     domain: str | None = None
     public_url: str | None = None
 
+    # The Mailer driver. Unset means the console, so a machine that configures
+    # nothing still signs people in from the api log. The real drivers share
+    # EMAIL_FROM; each then needs its own credential.
+    mailer: str = "console"
+    resend_api_key: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    email_from: str | None = None
+
     @property
     def worker_internal_url(self) -> str:
         """The base the worker's internal service answers on."""
