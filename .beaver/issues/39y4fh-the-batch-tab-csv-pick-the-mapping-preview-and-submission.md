@@ -1,7 +1,8 @@
 ---
 id: 39y4fh
 title: 'The Batch tab: CSV pick, the mapping preview, and submission'
-state: todo
+state: done
+assignee: agent
 priority: high
 depends_on:
     - p45jd2
@@ -9,7 +10,7 @@ depends_on:
     - 4t1ze9
 parent: wz3ev2
 created: 2026-08-15T07:29:16Z
-updated: 2026-08-15T07:29:16Z
+updated: 2026-08-27T06:26:52Z
 ---
 
 ## What to build
@@ -29,3 +30,31 @@ A batch starts where the design already is. The Generate dialog grows a second t
 - [ ] A Viewer never reaches the tab, because the editor is read-only for them.
 - [ ] The mapping summary and the key's lifecycle are tested as pure logic, without a browser.
 - [ ] The CSV parser named in the spec is the only dependency this slice adds.
+
+## Notes
+
+**agent** — 2026-08-27T05:20:37Z
+
+Seams for this AFK session (spec Testing Decisions, seam 1 — client pure logic, Vitest, no browser):
+
+1. Header mapping — five outcomes against Variable declarations: matched, missing-but-defaulted, missing-required, unknown column, _name recognized. Worked examples from the issue. Shape only; cell types are not read. Submission is not gated on the summary.
+2. Prepared-batch lifecycle — an idempotency key is minted on parse; retry of the same prepared batch reuses it; re-parse or a new file mints a new one. The key is never a UI field.
+3. The submit call — POST /templates/{id}/jobs with the file's own bytes as text/csv, format and idempotencyKey as query parameters (injected, like generate.ts). 201 and 200 both resolve to the job path.
+
+422 merge into the preview is aw1dup. UI (the tab, the file picker, the virtualized table, navigation) sits on these. A Viewer never reaches Generate because the editor is already read-only (mayEdit).
+
+**agent** — 2026-08-27T06:26:46Z
+
+Built the Batch tab on the Generate dialog.
+
+**What landed.** `lib/batch.ts` maps CSV headers onto Variable declarations (five outcomes, shape only), parses with papaparse, mints an idempotency key per parse, and POSTs the file's own bytes as `text/csv` with format and key as query parameters. 201 and 200 both navigate to `/jobs/{id}`. The dialog grows One-off / Batch tabs for templates only; a design stays the format picker. Submit stays enabled whenever a file is prepared. A Viewer never reaches Generate (`mayEdit`).
+
+**Seam.** Spec seam 1 (Vitest, no browser). Worked examples are literal: `title,price,_name` against title/price/accent; notes unknown; title missing-required; retry reuses key K; re-parse mints K2.
+
+**Decisions a reviewer should know.**
+- papaparse 5.5.3 is the only new dependency. `@tanstack/react-virtual` was already in the tree (p45jd2). Types for papaparse are a local `papaparse.d.ts` so `@types/papaparse` is not added.
+- The lockfile entries for papaparse were written to match the published 5.5.3 integrity (`sha512-5QvjGxYVjxO59MGU2lHVYpRWBBtKHnlIAcSe1uNFCkkptUh63NFRj0FJQm7nR67puEruUci/ZkjmEFrjCAyP4A==`). The sandbox could not reach the npm registry, so `pnpm add` did not generate them.
+- 422 merge into the preview is aw1dup. A refused or failed submit keeps the prepared batch (and its key) so retry reuses it.
+- No review gate on this slice.
+
+Tests: `apps/web/lib/batch.test.ts`. `vp check` green. 412 TS tests green.

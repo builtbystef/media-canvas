@@ -1,8 +1,17 @@
 "use client";
 
 import type { DesignDocument, VariableDecl } from "@media-canvas/core";
-import { useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import { useStore } from "zustand";
+import {
+  mapHeaders,
+  prepareBatch,
+  submitBatch,
+  type HeaderMapping,
+  type PreparedBatch,
+} from "../../../lib/batch";
 import {
   DEFAULT_GENERATE_FORMAT,
   fieldErrors,
@@ -32,8 +41,8 @@ const FIELD = "grid gap-1 text-xs";
 const CONTROL = "h-7 w-full min-w-0 text-xs";
 
 /**
- * One click from the canvas to a file. A template fills its Variables; a
- * design is the format picker alone. The bytes come back as a download.
+ * One click from the canvas to a file. A template fills its Variables or
+ * submits a CSV batch; a design is the format picker alone.
  */
 export function GenerateAction({
   documentId,
@@ -62,9 +71,12 @@ function GenerateDialog({
   kind: "design" | "template";
   document: DesignDocument;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"one-off" | "batch">("one-off");
   const [values, setValues] = useState(() => initialValues(document));
   const [format, setFormat] = useState<GenerateFormat>(DEFAULT_GENERATE_FORMAT);
+  const [prepared, setPrepared] = useState<PreparedBatch | null>(null);
   const [remoteErrors, setRemoteErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -73,13 +85,22 @@ function GenerateDialog({
   const errors = { ...remoteErrors, ...localErrors };
   const blocked = Object.keys(localErrors).length > 0;
   const variables = document.variables ?? [];
+  const batchOpen = kind === "template" && tab === "batch";
 
   function openChange(next: boolean) {
     setOpen(next);
     if (!next) return;
+    setTab("one-off");
     setValues(initialValues(document));
     setFormat(DEFAULT_GENERATE_FORMAT);
+    setPrepared(null);
     setRemoteErrors({});
+    setMessage(null);
+  }
+
+  async function pickCsv(file: File) {
+    const text = await file.text();
+    setPrepared(prepareBatch(text));
     setMessage(null);
   }
 
@@ -114,38 +135,98 @@ function GenerateDialog({
     setOpen(false);
   }
 
+  async function submit() {
+    if (prepared === null || busy) return;
+    setBusy(true);
+    setMessage(null);
+    const result = await submitBatch({
+      templateId: documentId,
+      bytes: prepared.bytes,
+      format,
+      idempotencyKey: prepared.idempotencyKey,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setMessage(result.message);
+      return;
+    }
+    setOpen(false);
+    router.push(result.path);
+  }
+
   return (
     <Dialog open={open} onOpenChange={openChange}>
       <DialogTrigger render={<Button type="button" size="sm" />}>Generate</DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={batchOpen && prepared !== null ? "sm:max-w-3xl" : "sm:max-w-md"}>
         <DialogHeader>
           <DialogTitle>Generate</DialogTitle>
           <DialogDescription>
             {kind === "template"
-              ? "Fill each Variable, pick a format, and download the file."
+              ? batchOpen
+                ? "Pick a CSV, check the columns against the Template, and submit."
+                : "Fill each Variable, pick a format, and download the file."
               : "Pick a format and download the file."}
           </DialogDescription>
         </DialogHeader>
-        {kind === "template" && variables.length > 0 && (
-          <ul className="grid max-h-[min(24rem,50vh)] gap-3 overflow-y-auto">
-            {variables.map((variable) => (
-              <li key={variable.name}>
-                <VariableInput
-                  variable={variable}
-                  value={values[variable.name]}
-                  error={errors[variable.name]}
-                  onChange={(value) => setValue(variable.name, value)}
-                />
-              </li>
-            ))}
-          </ul>
+        {kind === "template" && (
+          <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Generate">
+            <Button
+              type="button"
+              size="sm"
+              variant={tab === "one-off" ? "default" : "outline"}
+              role="tab"
+              aria-selected={tab === "one-off"}
+              onClick={() => setTab("one-off")}
+            >
+              One-off
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={tab === "batch" ? "default" : "outline"}
+              role="tab"
+              aria-selected={tab === "batch"}
+              onClick={() => setTab("batch")}
+            >
+              Batch
+            </Button>
+          </div>
+        )}
+        {batchOpen ? (
+          <BatchPanel variables={variables} prepared={prepared} onPick={pickCsv} />
+        ) : (
+          kind === "template" &&
+          variables.length > 0 && (
+            <ul className="grid max-h-[min(24rem,50vh)] gap-3 overflow-y-auto">
+              {variables.map((variable) => (
+                <li key={variable.name}>
+                  <VariableInput
+                    variable={variable}
+                    value={values[variable.name]}
+                    error={errors[variable.name]}
+                    onChange={(value) => setValue(variable.name, value)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )
         )}
         <FormatPicker value={format} onChange={setFormat} />
         <Problem message={message} />
         <DialogFooter>
-          <Button type="button" disabled={busy || blocked} onClick={() => void generate()}>
-            {busy ? "Generating…" : "Generate"}
-          </Button>
+          {batchOpen ? (
+            <Button
+              type="button"
+              disabled={busy || prepared === null}
+              onClick={() => void submit()}
+            >
+              {busy ? "Submitting…" : "Submit"}
+            </Button>
+          ) : (
+            <Button type="button" disabled={busy || blocked} onClick={() => void generate()}>
+              {busy ? "Generating…" : "Generate"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -324,6 +405,123 @@ function ValueControl({
         </Label>
       );
   }
+}
+
+function BatchPanel({
+  variables,
+  prepared,
+  onPick,
+}: {
+  variables: VariableDecl[];
+  prepared: PreparedBatch | null;
+  onPick: (file: File) => void;
+}) {
+  const mapping = prepared === null ? null : mapHeaders(prepared.headers, variables);
+  return (
+    <div className="grid gap-3">
+      <Label className={FIELD}>
+        CSV file
+        <Input
+          className={CONTROL}
+          type="file"
+          accept=".csv,text/csv"
+          aria-label="CSV file"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            if (file !== undefined) onPick(file);
+          }}
+        />
+      </Label>
+      {mapping !== null && prepared !== null && (
+        <>
+          <MappingSummary mapping={mapping} />
+          <CsvPreview headers={prepared.headers} rows={prepared.rows} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function MappingSummary({ mapping }: { mapping: HeaderMapping }) {
+  return (
+    <section className="grid gap-1 text-xs" aria-label="Column mapping">
+      <p>
+        <span className="font-medium">Matched.</span> {named(mapping.matched)}
+      </p>
+      <p>
+        <span className="font-medium">Missing, using default.</span>{" "}
+        {named(mapping.missingDefaulted)}
+      </p>
+      <p>
+        <span className="font-medium">Missing, required.</span> {named(mapping.missingRequired)}
+      </p>
+      <p>
+        <span className="font-medium">Unknown columns.</span> {named(mapping.unknown)}
+      </p>
+      <p>
+        <span className="font-medium">Row-name column.</span>{" "}
+        {mapping.nameColumn ? "recognized" : "not present"}
+      </p>
+    </section>
+  );
+}
+
+function named(names: readonly string[]): string {
+  return names.length === 0 ? "none" : names.join(", ");
+}
+
+function CsvPreview({ headers, rows }: { headers: string[]; rows: string[][] }) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 32,
+    overscan: 12,
+  });
+
+  return (
+    <div className="overflow-hidden rounded-md border" aria-label="CSV preview">
+      <div className="overflow-x-auto">
+        <table className="w-full caption-bottom text-xs">
+          <thead className="bg-muted/50">
+            <tr>
+              {headers.map((header, index) => (
+                <th key={`${header}-${String(index)}`} className="px-2 py-1 text-left font-medium">
+                  {header === "" ? "\u00a0" : header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        </table>
+      </div>
+      <div ref={parentRef} className="h-64 overflow-auto">
+        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+          {virtualizer.getVirtualItems().map((item) => {
+            const row = rows[item.index] ?? [];
+            return (
+              <div
+                key={item.key}
+                data-index={item.index}
+                ref={virtualizer.measureElement}
+                className="absolute top-0 left-0 grid w-full border-t px-0 text-xs"
+                style={{
+                  transform: `translateY(${String(item.start)}px)`,
+                  gridTemplateColumns: `repeat(${String(Math.max(headers.length, 1))}, minmax(6rem, 1fr))`,
+                }}
+              >
+                {headers.map((header, index) => (
+                  <span key={`${header}-${String(index)}`} className="truncate px-2 py-1">
+                    {row[index] ?? ""}
+                  </span>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function deliverDownload(file: Blob, filename: string) {
