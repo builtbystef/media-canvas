@@ -82,3 +82,51 @@ const JOB_END: Record<number, string> = {
 
 /** Cancel and delete — Editor-level, and a missing job is the same as gone. */
 export const failedToEndJob = (status: number | undefined) => explain(JOB_END, status);
+
+const MEMBERSHIP_CHANGE: Record<number, string> = {
+  401: "You have been signed out. Sign in again to carry on.",
+  403: "Only an Owner of this workspace can change who is in it.",
+  404: "That member is no longer here.",
+  409: "Promote someone else to Owner first. A workspace cannot be left without an owner.",
+};
+
+const WORKSPACE_RENAME: Record<number, string> = {
+  401: "You have been signed out. Sign in again to carry on.",
+  403: "Only an Owner of this workspace can rename it.",
+  422: "A workspace name is between 1 and 100 characters.",
+};
+
+const INVITE_SEND: Record<number, string> = {
+  401: "You have been signed out. Sign in again to carry on.",
+  403: "Only an Owner of this workspace can send invites.",
+  422: "That does not look like an email address.",
+};
+
+/** Changing a Role, removing a member, or leaving — including the last Owner. */
+export const failedToChangeMembership = (status: number | undefined) =>
+  explain(MEMBERSHIP_CHANGE, status);
+
+/** Renaming meets the same name rule creating does. */
+export const failedToRenameWorkspace = (status: number | undefined) =>
+  explain(WORKSPACE_RENAME, status);
+
+/** Sending an invite — a bad address, or a Role that cannot. */
+export const failedToSendInvite = (status: number | undefined) => explain(INVITE_SEND, status);
+
+const WORKSPACE_DELETE: Record<number, string> = {
+  401: "You have been signed out. Sign in again to carry on.",
+  403: "Only an Owner of this workspace can delete it.",
+};
+
+const INVITE_REVOKE: Record<number, string> = {
+  401: "You have been signed out. Sign in again to carry on.",
+  403: "Only an Owner of this workspace can revoke invites.",
+  404: "That invite is no longer pending.",
+};
+
+/** Deleting the Workspace — Owner-only, and there is no last-Owner case. */
+export const failedToDeleteWorkspace = (status: number | undefined) =>
+  explain(WORKSPACE_DELETE, status);
+
+/** Revoking a pending invite. */
+export const failedToRevokeInvite = (status: number | undefined) => explain(INVITE_REVOKE, status);

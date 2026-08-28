@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { HOME, JOBS } from "../lib/routes";
+import { HOME, JOBS, SETTINGS } from "../lib/routes";
 import { buttonVariants } from "../components/ui/button";
 
 /**
- * Documents | Jobs — the navigation the list-level pages share.
+ * Documents | Jobs | Settings — the navigation the list-level pages share.
  *
  * The editor's top bar does not use this. A job view is reached from here,
- * or landed on directly after submission.
+ * or landed on directly after submission. Settings is this Workspace's.
  */
-export function ListNav({ current }: { current: "documents" | "jobs" }) {
+export function ListNav({ current }: { current: "documents" | "jobs" | "settings" }) {
   return (
     <nav className="flex gap-1" aria-label="Pages">
       <Link
@@ -30,6 +30,16 @@ export function ListNav({ current }: { current: "documents" | "jobs" }) {
         })}
       >
         Jobs
+      </Link>
+      <Link
+        href={SETTINGS}
+        aria-current={current === "settings" ? "page" : undefined}
+        className={buttonVariants({
+          variant: current === "settings" ? "secondary" : "ghost",
+          size: "sm",
+        })}
+      >
+        Settings
       </Link>
     </nav>
   );

@@ -75,6 +75,7 @@ test("the editor reads the Role in the document's Workspace, not the shell's", (
 });
 
 test("the Owner is warned that deleting a Workspace removes its files for good", () => {
+  expect(WORKSPACE_DELETE_WARNING).toMatch(/members lose access/i);
   expect(WORKSPACE_DELETE_WARNING).toMatch(/files are removed/i);
   expect(WORKSPACE_DELETE_WARNING).toMatch(/cannot be undone/i);
 });

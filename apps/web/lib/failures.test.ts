@@ -9,7 +9,12 @@ import {
   failedToEndJob,
   failedToPromoteDocument,
   failedToRenameDocument,
+  failedToRenameWorkspace,
+  failedToRevokeInvite,
+  failedToSendInvite,
   failedToVerifyCode,
+  failedToChangeMembership,
+  failedToDeleteWorkspace,
 } from "./failures.ts";
 
 /**
@@ -112,4 +117,37 @@ test("a job cancel or delete refusal says which of the three things went wrong",
   expect(signedOut).toMatch(/Sign in again/);
   expect(failedToEndJob(500)).toContain("could not be reached");
   expect(failedToEndJob(undefined)).toContain("could not be reached");
+});
+
+test("a last-Owner refusal is a reason to promote someone, not a failure", () => {
+  const lastOwner = failedToChangeMembership(409);
+
+  expect(lastOwner).toMatch(/promote/i);
+  expect(lastOwner).toMatch(/owner/i);
+  expect(failedToChangeMembership(403)).toMatch(/Owner/);
+  expect(failedToChangeMembership(404)).toMatch(/no longer/);
+  expect(failedToChangeMembership(500)).toContain("could not be reached");
+});
+
+test("renaming a Workspace reuses the name rule and refuses anyone but an Owner", () => {
+  expect(failedToRenameWorkspace(422)).toBe(failedToCreateWorkspace(422));
+  expect(failedToRenameWorkspace(403)).toMatch(/Owner/);
+});
+
+test("a refused invite names the address or the Role that blocked it", () => {
+  expect(failedToSendInvite(422)).toContain("email address");
+  expect(failedToSendInvite(403)).toMatch(/Owner/);
+  expect(failedToSendInvite(401)).toContain("Sign in again");
+});
+
+test("deleting a Workspace is Owner-only and has no last-Owner case", () => {
+  expect(failedToDeleteWorkspace(403)).toMatch(/Owner/);
+  expect(failedToDeleteWorkspace(409)).toContain("could not be reached");
+  expect(failedToDeleteWorkspace(500)).toContain("could not be reached");
+});
+
+test("revoking an invite that is gone is not a failure of the Role", () => {
+  expect(failedToRevokeInvite(404)).toMatch(/no longer pending/);
+  expect(failedToRevokeInvite(403)).toMatch(/Owner/);
+  expect(failedToRevokeInvite(401)).toContain("Sign in again");
 });

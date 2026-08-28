@@ -66,4 +66,5 @@ export function mayChangeDocuments(role: Role): boolean {
  * the warning is the same contract the purge is: files go, and nothing
  * brings them back.
  */
-export const WORKSPACE_DELETE_WARNING = "Files are removed and the action cannot be undone.";
+export const WORKSPACE_DELETE_WARNING =
+  "Members lose access. Files are removed and the action cannot be undone.";
