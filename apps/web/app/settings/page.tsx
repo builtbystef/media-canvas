@@ -1,7 +1,9 @@
 import {
+  listWorkspaceApiKeys,
   listWorkspaceInvites,
   listWorkspaceMembers,
   type InviteView,
+  type KeyView,
 } from "@media-canvas/api-client";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -12,6 +14,7 @@ import { mayManageWorkspace } from "../../lib/settings";
 import { WORKSPACE_COOKIE, chosenMembership } from "../../lib/workspaces";
 import { ListNav } from "../list-nav";
 import { Shell } from "../shell";
+import { ApiKeysPanel } from "./api-keys-panel";
 import { InvitesPanel } from "./invites-panel";
 import { MembersPanel } from "./members-panel";
 import { WorkspacePanel } from "./workspace-panel";
@@ -19,12 +22,12 @@ import { WorkspacePanel } from "./workspace-panel";
 export const metadata = { title: "Settings — Media Canvas" };
 
 /**
- * This Workspace's settings: the Workspace itself, who is in it, and who
- * has been invited.
+ * This Workspace's settings: the Workspace itself, who is in it, who has
+ * been invited, and the API keys an Owner mints for a script.
  *
  * Any member may open the page. Owner-only actions are inert for everyone
- * else — the api would refuse them — and the invites list is not fetched
- * for a Role that cannot see it.
+ * else — the api would refuse them — and the invites and keys lists are not
+ * fetched for a Role that cannot see them.
  */
 export default async function SettingsPage() {
   const identity = await signedInOrSignIn();
@@ -36,9 +39,12 @@ export default async function SettingsPage() {
   const mayManage = mayManageWorkspace(chosen.role);
   const { data: members } = await listWorkspaceMembers({ ...caller, path });
   let invites: InviteView[] | undefined = [];
+  let keys: KeyView[] | undefined = [];
   if (mayManage) {
-    const listed = await listWorkspaceInvites({ ...caller, path });
-    invites = listed.data;
+    const listedInvites = await listWorkspaceInvites({ ...caller, path });
+    invites = listedInvites.data;
+    const listedKeys = await listWorkspaceApiKeys({ ...caller, path });
+    keys = listedKeys.data;
   }
 
   return (
@@ -60,6 +66,7 @@ export default async function SettingsPage() {
             initial={members}
           />
           <InvitesPanel workspaceId={chosen.workspace.id} mayManage={mayManage} initial={invites} />
+          <ApiKeysPanel workspaceId={chosen.workspace.id} mayManage={mayManage} initial={keys} />
         </Fragment>
       </main>
     </Shell>

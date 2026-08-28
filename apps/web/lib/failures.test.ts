@@ -14,7 +14,9 @@ import {
   failedToSendInvite,
   failedToVerifyCode,
   failedToChangeMembership,
+  failedToCreateApiKey,
   failedToDeleteWorkspace,
+  failedToRevokeApiKey,
 } from "./failures.ts";
 
 /**
@@ -150,4 +152,17 @@ test("revoking an invite that is gone is not a failure of the Role", () => {
   expect(failedToRevokeInvite(404)).toMatch(/no longer pending/);
   expect(failedToRevokeInvite(403)).toMatch(/Owner/);
   expect(failedToRevokeInvite(401)).toContain("Sign in again");
+});
+
+test("creating a key refuses a Role that cannot and a name that is empty", () => {
+  expect(failedToCreateApiKey(403)).toMatch(/Owner/);
+  expect(failedToCreateApiKey(422)).toMatch(/1 and 100/);
+  expect(failedToCreateApiKey(401)).toContain("Sign in again");
+  expect(failedToCreateApiKey(500)).toContain("could not be reached");
+});
+
+test("revoking a key that is gone is not a failure of the Role", () => {
+  expect(failedToRevokeApiKey(404)).toMatch(/no longer/);
+  expect(failedToRevokeApiKey(403)).toMatch(/Owner/);
+  expect(failedToRevokeApiKey(401)).toContain("Sign in again");
 });

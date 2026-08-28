@@ -1,14 +1,15 @@
 ---
 id: y0dxtu
 title: 'Workspace settings: the API keys panel'
-state: todo
+state: done
+assignee: agent
 priority: medium
 depends_on:
     - t3n0fj
     - hddsdp
 parent: 88v6vg
 created: 2026-08-15T06:23:03Z
-updated: 2026-08-15T06:23:03Z
+updated: 2026-08-28T20:56:10Z
 ---
 
 ## What to build
@@ -23,3 +24,21 @@ The panel where an Owner mints a key for a script and copies it — once. Everyt
 - [ ] Revoking a key asks for confirmation and says what breaks — anything using that key stops working immediately.
 - [ ] A key that has never been used shows that plainly rather than an empty column.
 - [ ] The panel is Owner-only, consistent with the rest of the settings area, and shows Editors and Viewers why they cannot act rather than hiding the panel.
+
+## Notes
+
+**agent** — 2026-08-28T20:56:06Z
+
+Built the API keys panel. `/settings` now has a fourth panel: mint a key, copy it once, revoke one. Owner-only, visible but inert for Editors and Viewers. `pnpm check` green. 433 TS tests green. API tests not re-run (web-only slice; sandbox cannot reach loopback Postgres).
+
+**What landed.** `ApiKeysPanel` on the settings page. Create asks only for a name, then an AlertDialog reveals the plaintext with Copy and the statement that it will not be shown again. Escape and overlay do not dismiss it — only Done does. The listed row is name, `mc_`+prefix, created, last used; unused keys say "Never used". Revoke confirms and says anything using the key stops working immediately. Keys are not fetched for a Role the api would refuse.
+
+**Seam.** The web app's pure modules (88v6vg third seam / kjgubg). Behaviour in `lib/settings.ts` (Owner-only wording, listed-after-create without the secret, created/last-used/prefix labels, reveal and revoke warnings) and `lib/failures.ts`. The page stays a gate and a hand-off — no component harness.
+
+**Decisions a reviewer should know.**
+
+- *The reveal is controlled and cancel-on-close.* AlertDialog already refuses overlay clicks; `onOpenChange` also cancels Escape. Done is a button that drops the `CreatedKey` from state. After that, only `KeyView` remains — the same shape a reload fetches.
+- *The list never holds the secret.* `listedAfterCreate` strips `key` as soon as the mint returns, so the new row is already on the page while the reveal is open.
+- *Prefix is shown as `mc_` plus the eight characters.* Enough to recognise the key that was copied, not enough to be it.
+
+**Testing.** `lib/settings.test.ts` (the six key criteria) and `lib/failures.test.ts` (create/revoke refusals).

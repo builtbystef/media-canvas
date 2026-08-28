@@ -1,4 +1,4 @@
-import type { InviteView, MemberView, Role } from "@media-canvas/api-client";
+import type { CreatedKey, InviteView, KeyView, MemberView, Role } from "@media-canvas/api-client";
 
 /**
  * What the settings area offers, and what it says when it will not.
@@ -25,7 +25,7 @@ export function roleLabel(role: Role): string {
 
 /**
  * Whether this Role may rename the Workspace, delete it, change who is in it,
- * or send and revoke invites.
+ * send and revoke invites, or mint and revoke API keys.
  *
  * The api refuses anyone else either way; this is what keeps those actions
  * off their screen, so nothing is offered that cannot be done. Leave is not
@@ -38,6 +38,7 @@ export function mayManageWorkspace(role: Role): boolean {
 export const OWNER_ONLY_MEMBERS = "Only an Owner can change roles or remove members.";
 export const OWNER_ONLY_INVITES = "Only an Owner can send and revoke invites.";
 export const OWNER_ONLY_WORKSPACE = "Only an Owner can rename or delete this workspace.";
+export const OWNER_ONLY_API_KEYS = "Only an Owner can create and revoke API keys.";
 
 /**
  * Why demoting this member is refused, or nothing when it is allowed.
@@ -71,7 +72,7 @@ function isLastOwner(members: readonly MemberView[], userId: string): boolean {
   return members.filter((member) => member.role === "owner").length === 1;
 }
 
-const expiresOn = new Intl.DateTimeFormat("en-GB", {
+const onThatDay = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
   year: "numeric",
@@ -80,7 +81,7 @@ const expiresOn = new Intl.DateTimeFormat("en-GB", {
 
 /** When a pending invite runs out, as the panel writes it. */
 export function inviteExpiryLabel(expiresAt: string): string {
-  return `Expires ${expiresOn.format(new Date(expiresAt))}`;
+  return `Expires ${onThatDay.format(new Date(expiresAt))}`;
 }
 
 /**
@@ -106,3 +107,50 @@ export function invitesAfterIssue(
 ): InviteView[] {
   return [issued, ...pending.filter((invite) => invite.email !== issued.email)];
 }
+
+/**
+ * The listed row after a key is minted: name, prefix, timestamps — never
+ * the secret. The reveal holds the plaintext until the Owner dismisses it;
+ * this is what remains afterwards, and what a reload of the page would show.
+ */
+export function listedAfterCreate(created: CreatedKey, createdAt: string): KeyView {
+  return {
+    id: created.id,
+    name: created.name,
+    prefix: created.prefix,
+    created_at: createdAt,
+    last_used_at: null,
+  };
+}
+
+/** When this key was minted, as the panel writes it. */
+export function createdLabel(createdAt: string): string {
+  return `Created ${onThatDay.format(new Date(createdAt))}`;
+}
+
+/**
+ * When this key was last used, or that it never has been.
+ *
+ * An unused key is a sentence, not a blank: the column would otherwise look
+ * like a missing value rather than a fact.
+ */
+export function lastUsedLabel(lastUsedAt: string | null): string {
+  return lastUsedAt === null ? "Never used" : `Last used ${onThatDay.format(new Date(lastUsedAt))}`;
+}
+
+/** The prefix as the start of the key, enough to recognise it. */
+export function keyPrefixLabel(prefix: string): string {
+  return `mc_${prefix}`;
+}
+
+/**
+ * What the reveal says before the plaintext disappears.
+ *
+ * The copy action sits next to this. Dismissing the reveal is a button, not
+ * a click outside or Escape — once it is gone, the product cannot show the
+ * value again.
+ */
+export const KEY_REVEAL_WARNING = "This key will not be shown again. Copy it now.";
+
+/** What revoking a key breaks: anything still using it, at once. */
+export const KEY_REVOKE_WARNING = "Anything using this key stops working immediately.";

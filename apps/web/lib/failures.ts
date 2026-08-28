@@ -130,3 +130,21 @@ export const failedToDeleteWorkspace = (status: number | undefined) =>
 
 /** Revoking a pending invite. */
 export const failedToRevokeInvite = (status: number | undefined) => explain(INVITE_REVOKE, status);
+
+const API_KEY_CREATE: Record<number, string> = {
+  401: "You have been signed out. Sign in again to carry on.",
+  403: "Only an Owner of this workspace can create API keys.",
+  422: "A key name is between 1 and 100 characters.",
+};
+
+const API_KEY_REVOKE: Record<number, string> = {
+  401: "You have been signed out. Sign in again to carry on.",
+  403: "Only an Owner of this workspace can revoke API keys.",
+  404: "That API key is no longer here.",
+};
+
+/** Minting a key — a Role that cannot, or a name the api will not take. */
+export const failedToCreateApiKey = (status: number | undefined) => explain(API_KEY_CREATE, status);
+
+/** Revoking a key that is gone, or a Role that cannot. */
+export const failedToRevokeApiKey = (status: number | undefined) => explain(API_KEY_REVOKE, status);

@@ -1,15 +1,22 @@
-import type { InviteView, MemberView } from "@media-canvas/api-client";
+import type { CreatedKey, InviteView, MemberView } from "@media-canvas/api-client";
 import { expect, test } from "vitest";
 
 import { SETTINGS } from "./routes.ts";
 import {
   INVITE_SENT,
+  KEY_REVEAL_WARNING,
+  KEY_REVOKE_WARNING,
+  OWNER_ONLY_API_KEYS,
   OWNER_ONLY_INVITES,
   OWNER_ONLY_MEMBERS,
   OWNER_ONLY_WORKSPACE,
+  createdLabel,
   inviteExpiryLabel,
   invitesAfterIssue,
+  keyPrefixLabel,
+  lastUsedLabel,
   leaveRefusal,
+  listedAfterCreate,
   mayManageWorkspace,
   roleChangeRefusal,
   roleLabel,
@@ -41,7 +48,11 @@ test("Owner-only panels stay visible and say why they will not act", () => {
   expect(OWNER_ONLY_MEMBERS).toMatch(/Owner/);
   expect(OWNER_ONLY_INVITES).toMatch(/Owner/);
   expect(OWNER_ONLY_WORKSPACE).toMatch(/Owner/);
-  expect(new Set([OWNER_ONLY_MEMBERS, OWNER_ONLY_INVITES, OWNER_ONLY_WORKSPACE]).size).toBe(3);
+  expect(OWNER_ONLY_API_KEYS).toMatch(/Owner/);
+  expect(
+    new Set([OWNER_ONLY_MEMBERS, OWNER_ONLY_INVITES, OWNER_ONLY_WORKSPACE, OWNER_ONLY_API_KEYS])
+      .size,
+  ).toBe(4);
 });
 
 test("the settings area is a page of the product", () => {
@@ -108,4 +119,41 @@ test("inviting an address that already has a pending invite replaces it", () => 
   };
 
   expect(invitesAfterIssue([pending, other], issued)).toEqual([issued, other]);
+});
+
+test("the listed row after minting never includes the key", () => {
+  const created: CreatedKey = {
+    id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    name: "CI",
+    prefix: "abcdefgh",
+    key: "mc_abcdefghSECRET",
+  };
+  const listed = listedAfterCreate(created, "2026-07-04T12:00:00Z");
+
+  expect(listed).toEqual({
+    id: created.id,
+    name: "CI",
+    prefix: "abcdefgh",
+    created_at: "2026-07-04T12:00:00Z",
+    last_used_at: null,
+  });
+  expect(listed).not.toHaveProperty("key");
+});
+
+test("a key that has never been used says so, rather than leaving the column empty", () => {
+  expect(lastUsedLabel(null)).toMatch(/never used/i);
+  expect(lastUsedLabel("2026-07-04T12:00:00Z")).toBe("Last used 4 Jul 2026");
+});
+
+test("a key says when it was created, and its prefix is how it is recognised", () => {
+  expect(createdLabel("2026-07-04T12:00:00Z")).toBe("Created 4 Jul 2026");
+  expect(keyPrefixLabel("abcdefgh")).toBe("mc_abcdefgh");
+});
+
+test("creating a key states that the plaintext will not be shown again", () => {
+  expect(KEY_REVEAL_WARNING).toMatch(/not be shown again/i);
+});
+
+test("revoking a key says what breaks: anything using it stops immediately", () => {
+  expect(KEY_REVOKE_WARNING).toMatch(/stops working immediately/i);
 });
