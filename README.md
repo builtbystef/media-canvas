@@ -151,13 +151,14 @@ uv run alembic revision --autogenerate -m "add the widgets table"
 
 ## Documentation
 
-| Document                                               | What it holds                                                                         |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| [`docs/GLOSSARY.md`](docs/GLOSSARY.md)                 | The project's vocabulary — Design Document, Element, Template, Variable, and the rest |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)         | The modules and the seams between them                                                |
-| [`docs/adr/`](docs/adr/)                               | Decisions that are hard to reverse, one file each                                     |
-| [`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md) | Conventions beyond the linter                                                         |
-| [`docs/TRACKER.md`](docs/TRACKER.md)                   | How the issue tracker is used                                                         |
+| Document                                               | What it holds                                                                            |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| [`docs/GLOSSARY.md`](docs/GLOSSARY.md)                 | The project's vocabulary — Design Document, Element, Template, Variable, and the rest    |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)         | The modules and the seams between them                                                   |
+| [`docs/adr/`](docs/adr/)                               | Decisions that are hard to reverse, one file each                                        |
+| [`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md) | Conventions beyond the linter                                                            |
+| [`docs/TRACKER.md`](docs/TRACKER.md)                   | How the issue tracker is used                                                            |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)             | First deploy, upgrade, backup, restore, and TLS — every command run against a live stack |
 
 ## License
 

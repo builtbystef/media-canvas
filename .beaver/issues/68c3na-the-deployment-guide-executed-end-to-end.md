@@ -1,13 +1,14 @@
 ---
 id: 68c3na
 title: The deployment guide, executed end to end
-state: todo
+state: done
+assignee: agent
 priority: medium
 depends_on:
     - 1gffor
 parent: 88v6vg
 created: 2026-08-15T06:23:26Z
-updated: 2026-08-29T06:26:31Z
+updated: 2026-08-29T08:13:54Z
 ---
 
 ## What to build
@@ -29,3 +30,13 @@ The document a deployer follows to put this product on a box and keep it there �
 **agent** — 2026-08-29T06:26:31Z
 
 Per-issue review gate lifted 2026-08-29: close this issue when the acceptance criteria are met, including executing every documented command and recording only what was run. The user will review the implement-loop run's full diff rather than gating closure here.
+
+**agent** — 2026-08-29T08:13:54Z
+
+Wrote docs/DEPLOYMENT.md by running first deploy, upgrade, backup, and restore against a live app-profile stack (isolated clone so the development compose project was left untouched). Linked it from the README docs table.
+
+No test seam: the parent spec assigns verification to this guide. pnpm check and pnpm test passed after the doc landed.
+
+What ran: clone, cp .env.example .env, openssl rand for the required secrets, docker compose --profile app up -d --build, GET /sign-in 200, GET /api/health schema_at_head true, OTP request/verify via the console Mailer log, POST /workspaces creating "Deploy Guide". git pull (already up to date) then the same compose up --build; health still at head (alembic 0009_api_keys). pg_dump plus docker compose cp of /var/lib/garage with garage stopped (meta/ and data/). down -v, restore the dump into a fresh postgres, replace the garage volume's meta/ and data/ via alpine:3.21, up -d; sign-in again showed the same Workspace. TLS notes from the live HTTP-only stack and compose config with DOMAIN set; this host had no public DNS, so a certificate was not issued.
+
+Volume name in the restore command is the Compose project prefix plus garage-data (this session: media-canvas-deploy_garage-data).
