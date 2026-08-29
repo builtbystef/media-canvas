@@ -7,10 +7,12 @@ import { useRef, useState } from "react";
 import { useStore } from "zustand";
 import {
   mapHeaders,
+  mergeRefusal,
   prepareBatch,
   submitBatch,
   type HeaderMapping,
   type PreparedBatch,
+  type PreviewRefusal,
 } from "../../../lib/batch";
 import {
   DEFAULT_GENERATE_FORMAT,
@@ -77,6 +79,7 @@ function GenerateDialog({
   const [values, setValues] = useState(() => initialValues(document));
   const [format, setFormat] = useState<GenerateFormat>(DEFAULT_GENERATE_FORMAT);
   const [prepared, setPrepared] = useState<PreparedBatch | null>(null);
+  const [refusal, setRefusal] = useState<PreviewRefusal | null>(null);
   const [remoteErrors, setRemoteErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,14 +97,16 @@ function GenerateDialog({
     setValues(initialValues(document));
     setFormat(DEFAULT_GENERATE_FORMAT);
     setPrepared(null);
+    setRefusal(null);
     setRemoteErrors({});
     setMessage(null);
   }
 
   async function pickCsv(file: File) {
+    setRefusal(null);
+    setMessage(null);
     const text = await file.text();
     setPrepared(prepareBatch(text));
-    setMessage(null);
   }
 
   function setValue(variable: string, value: unknown) {
@@ -139,6 +144,7 @@ function GenerateDialog({
     if (prepared === null || busy) return;
     setBusy(true);
     setMessage(null);
+    setRefusal(null);
     const result = await submitBatch({
       templateId: documentId,
       bytes: prepared.bytes,
@@ -147,6 +153,10 @@ function GenerateDialog({
     });
     setBusy(false);
     if (!result.ok) {
+      if (result.refusal !== null) {
+        setRefusal(mergeRefusal(prepared, result.refusal));
+        return;
+      }
       setMessage(result.message);
       return;
     }
@@ -193,7 +203,12 @@ function GenerateDialog({
           </div>
         )}
         {batchOpen ? (
-          <BatchPanel variables={variables} prepared={prepared} onPick={pickCsv} />
+          <BatchPanel
+            variables={variables}
+            prepared={prepared}
+            refusal={refusal}
+            onPick={pickCsv}
+          />
         ) : (
           kind === "template" &&
           variables.length > 0 && (
@@ -410,12 +425,15 @@ function ValueControl({
 function BatchPanel({
   variables,
   prepared,
+  refusal,
   onPick,
 }: {
   variables: VariableDecl[];
   prepared: PreparedBatch | null;
+  refusal: PreviewRefusal | null;
   onPick: (file: File) => void;
 }) {
+  const jumpRef = useRef<((index: number) => void) | null>(null);
   const mapping = prepared === null ? null : mapHeaders(prepared.headers, variables);
   return (
     <div className="grid gap-3">
@@ -436,10 +454,58 @@ function BatchPanel({
       {mapping !== null && prepared !== null && (
         <>
           <MappingSummary mapping={mapping} />
-          <CsvPreview headers={prepared.headers} rows={prepared.rows} />
+          {refusal !== null && (
+            <RefusalSummary refusal={refusal} onJump={(index) => jumpRef.current?.(index)} />
+          )}
+          <CsvPreview
+            headers={prepared.headers}
+            rows={prepared.rows}
+            refusal={refusal}
+            jumpRef={jumpRef}
+          />
         </>
       )}
     </div>
+  );
+}
+
+function RefusalSummary({
+  refusal,
+  onJump,
+}: {
+  refusal: PreviewRefusal;
+  onJump: (index: number) => void;
+}) {
+  return (
+    <section className="grid gap-2 text-xs" aria-label="Submission refused">
+      <p role="alert" className="text-sm text-destructive">
+        {refusal.countLine}
+      </p>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => onJump(refusal.firstRowIndex)}
+      >
+        Jump to first invalid row
+      </Button>
+      <ol className="grid max-h-32 gap-1 overflow-y-auto">
+        {refusal.groups.map((group) => (
+          <li key={group.rowIndex}>
+            <button
+              type="button"
+              className="text-left hover:underline"
+              onClick={() => onJump(group.rowIndex)}
+            >
+              {group.name === null
+                ? `Row ${String(group.rowIndex)}`
+                : `Row ${String(group.rowIndex)} (${group.name})`}
+            </button>
+            <span className="text-destructive"> {group.messages.join("; ")}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -471,7 +537,17 @@ function named(names: readonly string[]): string {
   return names.length === 0 ? "none" : names.join(", ");
 }
 
-function CsvPreview({ headers, rows }: { headers: string[]; rows: string[][] }) {
+function CsvPreview({
+  headers,
+  rows,
+  refusal,
+  jumpRef,
+}: {
+  headers: string[];
+  rows: string[][];
+  refusal: PreviewRefusal | null;
+  jumpRef: { current: ((index: number) => void) | null };
+}) {
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -479,6 +555,9 @@ function CsvPreview({ headers, rows }: { headers: string[]; rows: string[][] }) 
     estimateSize: () => 32,
     overscan: 12,
   });
+  jumpRef.current = (index) => {
+    virtualizer.scrollToIndex(index, { align: "start" });
+  };
 
   return (
     <div className="overflow-hidden rounded-md border" aria-label="CSV preview">
@@ -499,12 +578,18 @@ function CsvPreview({ headers, rows }: { headers: string[]; rows: string[][] }) 
         <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
           {virtualizer.getVirtualItems().map((item) => {
             const row = rows[item.index] ?? [];
+            const messages = refusal?.messagesByRow.get(item.index);
+            const marked = messages !== undefined;
             return (
               <div
                 key={item.key}
                 data-index={item.index}
                 ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 grid w-full border-t px-0 text-xs"
+                className={
+                  marked
+                    ? "absolute top-0 left-0 grid w-full border-t bg-destructive/10 px-0 text-xs"
+                    : "absolute top-0 left-0 grid w-full border-t px-0 text-xs"
+                }
                 style={{
                   transform: `translateY(${String(item.start)}px)`,
                   gridTemplateColumns: `repeat(${String(Math.max(headers.length, 1))}, minmax(6rem, 1fr))`,
@@ -515,6 +600,11 @@ function CsvPreview({ headers, rows }: { headers: string[]; rows: string[][] }) 
                     {row[index] ?? ""}
                   </span>
                 ))}
+                {marked && (
+                  <span className="px-2 pb-1 text-destructive" style={{ gridColumn: "1 / -1" }}>
+                    {messages.join("; ")}
+                  </span>
+                )}
               </div>
             );
           })}

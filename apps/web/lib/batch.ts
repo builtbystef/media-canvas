@@ -96,6 +96,73 @@ function dropTrailingEmpty(rows: string[][]): string[][] {
   return rows;
 }
 
+export type RefusalError = {
+  rowIndex: number;
+  variable?: string | null;
+  message: string;
+};
+
+/** The 422 body: row-indexed errors keyed to Variable names. */
+export type RefusalBody = {
+  errors: readonly RefusalError[];
+};
+
+export type PreviewErrorGroup = {
+  rowIndex: number;
+  name: string | null;
+  messages: readonly string[];
+};
+
+export type PreviewRefusal = {
+  countLine: string;
+  firstRowIndex: number;
+  groups: readonly PreviewErrorGroup[];
+  messagesByRow: ReadonlyMap<number, readonly string[]>;
+};
+
+/**
+ * Overlay a refusal onto a parsed preview. The file, rows, and mapping stay;
+ * this only names which data rows are wrong.
+ */
+export function mergeRefusal(
+  preview: Pick<PreparedBatch, "headers" | "rows">,
+  body: RefusalBody,
+): PreviewRefusal {
+  const messagesByRow = new Map<number, string[]>();
+  for (const error of body.errors) {
+    const messages = messagesByRow.get(error.rowIndex) ?? [];
+    messages.push(namedMessage(error));
+    messagesByRow.set(error.rowIndex, messages);
+  }
+  const indexes = [...messagesByRow.keys()].sort((a, b) => a - b);
+  const groups = indexes.map((rowIndex) => ({
+    rowIndex,
+    name: nameOf(preview.headers, preview.rows[rowIndex]),
+    messages: messagesByRow.get(rowIndex) ?? [],
+  }));
+  const count = groups.length;
+  return {
+    countLine: `${String(count)} ${count === 1 ? "row" : "rows"} invalid; nothing was submitted`,
+    firstRowIndex: indexes[0] ?? 0,
+    groups,
+    messagesByRow,
+  };
+}
+
+function namedMessage(error: RefusalError): string {
+  const variable = error.variable;
+  if (variable == null || variable === "") return error.message;
+  return `${variable}: ${error.message}`;
+}
+
+function nameOf(headers: readonly string[], row: readonly string[] | undefined): string | null {
+  const column = headers.indexOf(NAME_COLUMN);
+  if (column < 0 || row === undefined) return null;
+  const value = row[column];
+  if (value === undefined || value === "") return null;
+  return value;
+}
+
 export type SubmitBatchRequest = {
   templateId: string;
   bytes: string;
@@ -105,7 +172,8 @@ export type SubmitBatchRequest = {
 
 export type SubmitBatchResult =
   | { ok: true; jobId: string; path: string }
-  | { ok: false; message: string };
+  | { ok: false; message: string; refusal: null }
+  | { ok: false; message: null; refusal: RefusalBody };
 
 export type CreateJobCall = (options: {
   path: { templateId: string };
@@ -132,7 +200,7 @@ export async function submitBatch(
   request: SubmitBatchRequest,
   create: CreateJobCall = createJob as CreateJobCall,
 ): Promise<SubmitBatchResult> {
-  const { data, response } = await create({
+  const { data, error, response } = await create({
     path: { templateId: request.templateId },
     body: request.bytes,
     query: jobQuery(request.format, request.idempotencyKey),
@@ -142,7 +210,18 @@ export async function submitBatch(
   if (data !== undefined && typeof data.id === "string" && data.id !== "") {
     return { ok: true, jobId: data.id, path: jobPath(data.id) };
   }
-  return { ok: false, message: failedToChangeDocument(response?.status) };
+  const refusal = asRefusal(error);
+  if (refusal !== null) {
+    return { ok: false, message: null, refusal };
+  }
+  return { ok: false, message: failedToChangeDocument(response?.status), refusal: null };
+}
+
+function asRefusal(error: unknown): RefusalBody | null {
+  if (typeof error !== "object" || error === null || !("errors" in error)) return null;
+  const { errors } = error;
+  if (!Array.isArray(errors)) return null;
+  return error as RefusalBody;
 }
 
 function jobQuery(

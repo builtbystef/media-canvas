@@ -6,7 +6,13 @@ import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
 
 import { jobPath } from "./routes.ts";
-import { mapHeaders, prepareBatch, submitBatch, type HeaderMapping } from "./batch.ts";
+import {
+  mapHeaders,
+  mergeRefusal,
+  prepareBatch,
+  submitBatch,
+  type HeaderMapping,
+} from "./batch.ts";
 
 const TITLE: VariableDecl = { name: "title", type: "text" };
 const PRICE: VariableDecl = { name: "price", type: "number", default: 0 };
@@ -192,6 +198,113 @@ test("the CSV parser named in the spec is the only dependency this slice adds", 
   expect(pkg.dependencies.papaparse).toMatch(/^(?:\d|\^|~)/);
   expect(pkg.dependencies.papaparse).not.toMatch(/^file:/);
 });
+
+test("a 422 for row index 3 on price marks the fourth data row and counts one invalid row", () => {
+  // Worked example: row indexes count data rows from zero; the header does not
+  // shift them. The preview stays; the overlay names the Variable.
+  const prepared = prepareBatch("title,price,_name\nA,1,a\nB,2,b\nC,3,c\nD,bad,d\n", {
+    mintKey: () => "K",
+  });
+  const overlay = mergeRefusal(prepared, {
+    errors: [{ rowIndex: 3, variable: "price", message: "must be a number" }],
+  });
+
+  expect(prepared.rows).toHaveLength(4);
+  expect(prepared.rows[3]).toEqual(["D", "bad", "d"]);
+  expect(overlay.messagesByRow.get(3)).toEqual(["price: must be a number"]);
+  expect(overlay.messagesByRow.get(0)).toBeUndefined();
+  expect(overlay.countLine).toBe("1 row invalid; nothing was submitted");
+  expect(overlay.firstRowIndex).toBe(3);
+  expect(overlay.groups).toEqual([
+    { rowIndex: 3, name: "d", messages: ["price: must be a number"] },
+  ]);
+});
+
+test("14 offending rows and two errors on one row count distinct rows, not errors", () => {
+  const fourteen = Array.from({ length: 14 }, (_, rowIndex) => ({
+    rowIndex,
+    variable: "price",
+    message: "must be a number",
+  }));
+  expect(
+    mergeRefusal(prepareBatch(csvRows(14), { mintKey: () => "K" }), { errors: fourteen }).countLine,
+  ).toBe("14 rows invalid; nothing was submitted");
+
+  const twoOnOne = [
+    { rowIndex: 2, variable: "price", message: "must be a number" },
+    { rowIndex: 2, variable: "title", message: "is required" },
+  ];
+  const overlay = mergeRefusal(prepareBatch(csvRows(4), { mintKey: () => "K" }), {
+    errors: twoOnOne,
+  });
+  expect(overlay.countLine).toBe("1 row invalid; nothing was submitted");
+  expect(overlay.groups).toEqual([
+    {
+      rowIndex: 2,
+      name: "row-2",
+      messages: ["price: must be a number", "title: is required"],
+    },
+  ]);
+});
+
+test("a refusal merges onto the preview and does not replace its rows or headers", () => {
+  const prepared = prepareBatch(csvRows(4), { mintKey: () => "K" });
+  const headers = [...prepared.headers];
+  const rows = prepared.rows.map((row) => [...row]);
+
+  mergeRefusal(prepared, {
+    errors: [{ rowIndex: 1, variable: "price", message: "must be a number" }],
+  });
+
+  expect(prepared.headers).toEqual(headers);
+  expect(prepared.rows).toEqual(rows);
+});
+
+test("groups name a row from _name when the file supplied one, and omit it otherwise", () => {
+  const named = mergeRefusal(prepareBatch(csvRows(3), { mintKey: () => "K" }), {
+    errors: [{ rowIndex: 1, variable: "price", message: "must be a number" }],
+  });
+  expect(named.groups[0]).toMatchObject({ rowIndex: 1, name: "row-1" });
+
+  const unnamed = mergeRefusal(prepareBatch("title,price\nA,1\nB,bad\n", { mintKey: () => "K" }), {
+    errors: [{ rowIndex: 1, variable: "price", message: "must be a number" }],
+  });
+  expect(unnamed.groups[0]).toMatchObject({ rowIndex: 1, name: null });
+});
+
+test("a 422 refusal body is returned so it can merge into the open preview", async () => {
+  const csv = csvRows(4);
+  const prepared = prepareBatch(csv, { mintKey: () => "K" });
+  const body = {
+    errors: [{ rowIndex: 3, variable: "price", message: "must be a number" }],
+    templateErrors: [],
+  };
+
+  const result = await submitBatch(
+    {
+      templateId: "tpl-1",
+      bytes: prepared.bytes,
+      format: { format: "png", scale: 1 },
+      idempotencyKey: prepared.idempotencyKey,
+    },
+    async () => ({ data: undefined, error: body, response: { status: 422 } }),
+  );
+
+  expect(result.ok).toBe(false);
+  if (result.ok) throw new Error("expected a refusal");
+  expect(result.refusal).toEqual(body);
+  expect(mergeRefusal(prepared, result.refusal ?? { errors: [] }).countLine).toBe(
+    "1 row invalid; nothing was submitted",
+  );
+});
+
+function csvRows(count: number): string {
+  const lines = ["title,price,_name"];
+  for (let index = 0; index < count; index += 1) {
+    lines.push(`t${String(index)},${String(index)},row-${String(index)}`);
+  }
+  return `${lines.join("\n")}\n`;
+}
 
 function aJob(id: string): JobView {
   return {
