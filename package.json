@@ -9,6 +9,7 @@
     "check": "vp check && vp run -r check",
     "check:fix": "vp check --fix && vp run -r check:fix",
     "test": "vp test && vp run -r test",
+    "smoke": "pnpm --filter api smoke",
     "smoke:browser": "pnpm --filter browser-smoke smoke",
     "smoke:browser:install": "pnpm --filter browser-smoke exec playwright install chromium",
     "build": "vp run -r build",

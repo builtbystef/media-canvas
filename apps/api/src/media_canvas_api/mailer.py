@@ -11,6 +11,7 @@ the interface it implements, so that every driver of this seam is in one file.
 """
 
 import logging
+import os
 import smtplib
 from dataclasses import dataclass, field
 from email.message import EmailMessage
@@ -18,7 +19,7 @@ from typing import Protocol
 
 import resend
 
-from media_canvas_api.settings import Settings, SettingsError
+from media_canvas_api.settings import Settings, SettingsError, find_env_file
 
 logger = logging.getLogger(__name__)
 
@@ -37,15 +38,37 @@ class Mailer(Protocol):
         ...
 
 
+def _echo_to_dev_log(line: str) -> None:
+    """Mirror a console Mailer line into `.dev/mailer.log`."""
+
+    # Pytest drives ConsoleMailer in-process; the running api never has this
+    # set. Skip so unit tests do not append to the developer's log.
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return
+    env = find_env_file()
+    if env is None:
+        return
+    path = env.parent / ".dev" / "mailer.log"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf8") as handle:
+            handle.write(line + "\n")
+    except OSError:
+        return
+
+
 class ConsoleMailer:
     """Prints both messages to the api log.
 
     The default driver: development and an offline self-hosted instance both
-    sign in by reading the code out of the log.
+    sign in by reading the code out of the log. The same lines are appended
+    to `.dev/mailer.log` so another process (the generation smoke) can read
+    them without sharing the api's stdout.
     """
 
     def send_otp(self, to: str, code: str) -> None:
         logger.info("sign-in code for %s: %s", to, code)
+        _echo_to_dev_log(f"sign-in code for {to}: {code}")
 
     def send_invite(
         self, to: str, workspace_name: str, role: str, accept_url: str
@@ -53,6 +76,7 @@ class ConsoleMailer:
         logger.info(
             "invite for %s to %s as %s: %s", to, workspace_name, role, accept_url
         )
+        _echo_to_dev_log(f"invite for {to} to {workspace_name} as {role}: {accept_url}")
 
 
 @dataclass(frozen=True)

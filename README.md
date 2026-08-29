@@ -20,24 +20,48 @@ Early build. The monorepo scaffold and checks are in place; the specs, decisions
 Requires Node ≥ 24 (pinned in `.node-version`) and [uv](https://docs.astral.sh/uv) (fetches the pinned Python automatically).
 
 ```sh
-pnpm install        # TS dependencies
-uv sync             # Python venv + dependencies
-vp config           # once after cloning: activates the pre-commit hook
-
 cp .env.example .env  # then fill in the values it marks required
-docker compose up -d  # Postgres + Redis + Garage
+
+docker compose up -d --wait                                    # Postgres, Redis, Garage — until healthy
+uv sync                                                        # Python venv + dependencies
+pnpm install                                                   # TypeScript dependencies
+vp config                                                      # once after cloning: activates the pre-commit hook
+pnpm --filter worker exec playwright-core install chromium     # once: the development worker's browser
+pnpm --filter api migrate                                      # apply migrations
+
 pnpm dev            # FastAPI :8000 + Next.js :3000 + render worker
 pnpm check          # format + lint + typecheck, both languages
 pnpm check:fix
-pnpm test           # Vitest + pytest
+pnpm test           # Vitest + pytest — not the smoke below
 pnpm build          # export schema → generate client → next build
 pnpm run ci         # everything CI runs
 ```
 
-Those containers are the whole setup: the api reads its configuration from
-`.env` and applies its own migrations when it starts, so a fresh database
-never needs a step of its own. `pnpm test` runs the api's tests against that
+The development worker uses that locally installed browser. Its output is never
+valid for golden baselines — the pinned worker image is for baselines, CI, and
+production.
+
+The api also applies migrations when it starts, so `pnpm --filter api migrate`
+is idempotent with a running api. `pnpm test` runs the api's tests against the
 same Postgres, in a database of their own that is recreated for each run.
+
+### Generation smoke
+
+One test drives the real stack the way a user would: it submits a two-row batch,
+polls the Job to completion, and downloads an archive of two entries. The
+Template uses a bundled font and a held image, so the worker's asset path runs
+rather than being skipped. It is not part of `pnpm test`.
+
+With the development stack running (`pnpm dev` above):
+
+```sh
+pnpm smoke
+```
+
+The smoke talks to the api at `http://localhost:8000` (set `SMOKE_API_URL` to
+override). It signs in through the console Mailer and reads the code from
+`.dev/mailer.log`, or from `docker compose logs api` when the api is the compose
+service. Set `SMOKE_API_LOG` to an api process log if neither holds it.
 
 ## Run the whole application with Compose
 

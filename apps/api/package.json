@@ -3,9 +3,11 @@
   "private": true,
   "scripts": {
     "dev": "uv run uvicorn media_canvas_api.main:app --reload --port 8000",
+    "migrate": "uv run alembic upgrade head",
     "check": "uv run ruff format --check . && uv run ruff check . && uv run ty check",
     "check:fix": "uv run ruff format . && uv run ruff check --fix .",
     "test": "uv run pytest tests",
+    "smoke": "uv run pytest smoke/generation_smoke.py",
     "build": "uv run python -m media_canvas_api.export openapi.json"
   }
 }

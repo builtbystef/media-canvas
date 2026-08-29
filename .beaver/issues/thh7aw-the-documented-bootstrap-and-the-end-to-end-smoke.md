@@ -1,7 +1,8 @@
 ---
 id: thh7aw
 title: The documented bootstrap and the end-to-end smoke
-state: todo
+state: done
+assignee: agent
 priority: medium
 depends_on:
     - 211q1b
@@ -10,7 +11,7 @@ depends_on:
     - vn4r07
 parent: 0egsmf
 created: 2026-08-15T06:54:47Z
-updated: 2026-08-29T06:26:31Z
+updated: 2026-08-29T07:06:11Z
 ---
 
 ## What to build
@@ -35,3 +36,30 @@ Retargeted 2026-08-15 (ek7pq1 issue-slicing session): the placeholder edge on th
 **agent** — 2026-08-29T06:26:31Z
 
 Per-issue review gate lifted 2026-08-29: close this issue when the acceptance criteria are met, including executing the smoke and reporting output. The user will review the implement-loop run's full diff rather than gating closure here.
+
+**agent** — 2026-08-29T06:56:10Z
+
+Seam: public HTTP API against the real running stack (compose infra + pnpm dev), not the FastAPI test client or stand-ins. One pytest file at apps/api/smoke/generation_smoke.py — outside tests/ so conftest's fakes and the test database never load. It is not part of pnpm test.
+
+**agent** — 2026-08-29T07:06:08Z
+
+Seam: public HTTP API against the real running stack (compose infra + pnpm dev). Test in apps/api/smoke/generation_smoke.py — outside tests/, so conftest's fakes and the test database never load. Not part of pnpm test.
+
+Built
+- README bootstrap in order: cp .env.example .env → docker compose up -d --wait → uv sync → pnpm install → playwright-core install chromium → pnpm --filter api migrate → pnpm dev.
+- README states the development worker uses a locally installed browser and that its output is never valid for golden baselines; the pinned image is for baselines, CI, and production.
+- pnpm smoke submits a two-row batch (bundled Inter + a held PNG), polls to completed, downloads an archive of two entries (one.png, two.png).
+- ConsoleMailer also appends to .dev/mailer.log so the smoke can read the sign-in code without sharing the api's stdout.
+
+Executed this session (not assumed)
+- docker compose up -d --wait: postgres, redis, garage Healthy
+- uv sync; pnpm install (lockfile up to date)
+- pnpm --filter worker exec playwright-core install chromium
+- pnpm --filter api migrate (already at head)
+- pnpm dev: api :8000 health {"status":"ok","database":{"connected":true,"schema_at_head":true}}; worker internal service on :4000
+- pnpm smoke: 1 passed in 5.10s
+- pnpm check green; pnpm test: 443 TypeScript + 200 api pytest (smoke not among them)
+
+Decisions
+- Smoke lives under apps/api/smoke/ rather than tests/, so pytest tests does not collect it and the TestClient/RecordingWorker never stand in.
+- OTP is read from .dev/mailer.log first (pnpm dev), then docker compose logs api (compose app profile), then SMOKE_API_LOG.
