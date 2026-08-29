@@ -113,6 +113,11 @@ import {
   selectWord,
   selectionRects,
 } from "../../../lib/text-editing";
+import {
+  describeMissingAssets,
+  replaceAssetReferences,
+  type MissingAsset,
+} from "../../../lib/missing-assets";
 import { previewDocument } from "../../../lib/preview-document";
 import {
   insertTokenName,
@@ -126,6 +131,7 @@ import { ToggleGroup, ToggleGroupItem } from "../../../components/ui/toggle-grou
 import { AssetsPanel, FontFaceStyles } from "./assets-panel";
 import { Inspector } from "./inspector";
 import { LayerList } from "./layer-list";
+import { MissingAssetPanel } from "./missing-asset-panel";
 import { ShapesPanel } from "./shapes-panel";
 import { applyUpdate } from "./mounted-preview";
 import { VariablesPanel } from "./variables-panel";
@@ -253,15 +259,20 @@ export function EditorCanvas({
   const spaceHeld = useRef(false);
   const remembering = useRef(false);
   const [zoom, setZoom] = useState<number | null>(null);
+  const zoomReady = useRef(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [placeholders, setPlaceholders] = useState<ImagePlaceholder[]>([]);
   const [fonts, setFonts] = useState<FontAssetView[]>([]);
   const [images, setImages] = useState<ImageAssetView[]>([]);
+  const [missing, setMissing] = useState<MissingAsset[]>([]);
+  const [libraryEpoch, setLibraryEpoch] = useState(0);
   const lastCanvasPoint = useRef<Point | null>(null);
   const clipboard = useRef<Clipboard>({ elements: [] });
   const canvas = design?.canvas;
 
-  // Opening waits for all assets, then mounts the compiler's SVG once.
+  // Opening fetches every asset the document names. The layout effect below
+  // mounts the compiler's SVG once they are in hand, or the missing-asset
+  // panel if they are not.
   useEffect(() => {
     const document = initial.current;
     if (document === null) return;
@@ -274,24 +285,8 @@ export function EditorCanvas({
     async function open() {
       const assets = await loadAssets(workspace!, document!, [DEFAULT_FONT_ASSET_ID]);
       if (left) return;
-      const missing = [
-        ...missingAssets(document!, assets),
-        ...(assets.fonts.has(DEFAULT_FONT_ASSET_ID) ? [] : [DEFAULT_FONT_ASSET_ID]),
-      ];
-      if (missing.length > 0) {
-        setProblem(`This document cannot be drawn: ${missing.join(", ")} could not be fetched.`);
-        return;
-      }
       library.current = assets;
-      const opened = createPreview(resolverFor(assets));
-      preview.current = opened;
-      if (host.current && currentDesign.current) {
-        applyUpdate(host.current, opened.update(previewDocument(currentDesign.current)));
-      }
-      const remembered = readView(window.localStorage, documentId);
-      const view = remembered ?? firstView(document!.canvas, viewport.current);
-      pending.current = { left: view.left, top: view.top };
-      setZoom(view.zoom);
+      setLibraryEpoch((epoch) => epoch + 1);
     }
     open().catch(() => setProblem("This document could not be opened, so nothing is drawn."));
     return () => {
@@ -314,11 +309,33 @@ export function EditorCanvas({
     };
   }, [workspaceId]);
 
-  // Later snapshots patch only what their identities say changed.
+  // Later snapshots patch only what their identities say changed. A missing
+  // asset tears the preview down; filling the library or rewriting references
+  // mounts it again.
   useLayoutEffect(() => {
-    if (design === null || preview.current === null || host.current === null) return;
-    applyUpdate(host.current, preview.current.update(previewDocument(design, editingTextId)));
-  }, [design, editingTextId]);
+    if (design === null || library.current === null) return;
+    const nextMissing = describeMissingAssets(design, missingAssets(design, library.current));
+    setMissing((current) =>
+      JSON.stringify(current) === JSON.stringify(nextMissing) ? current : nextMissing,
+    );
+    if (nextMissing.length > 0) {
+      preview.current = null;
+      host.current?.replaceChildren();
+      return;
+    }
+    if (preview.current === null) {
+      preview.current = createPreview(resolverFor(library.current));
+    }
+    if (host.current !== null) {
+      applyUpdate(host.current, preview.current.update(previewDocument(design, editingTextId)));
+    }
+    if (zoomReady.current) return;
+    const remembered = readView(window.localStorage, documentId);
+    const view = remembered ?? firstView(design.canvas, viewport.current);
+    pending.current = { left: view.left, top: view.top };
+    zoomReady.current = true;
+    setZoom(view.zoom);
+  }, [design, documentId, editingTextId, libraryEpoch]);
 
   // The overlay reads the mounted markup's real bounds; it never duplicates
   // compiler geometry. Those bounds continue to exist when SVG clipping hides
@@ -526,6 +543,17 @@ export function EditorCanvas({
   const rememberImage = useCallback((image: ImageAssetView) => {
     setImages((current) => [image, ...current.filter((item) => item.id !== image.id)]);
   }, []);
+  const adoptImage = useCallback(
+    (image: ImageAssetView) => {
+      rememberImage(image);
+      const held = library.current;
+      if (held === null) return;
+      if (held.images.has(image.id)) return;
+      held.images.set(image.id, { url: image.url, width: image.width, height: image.height });
+      setLibraryEpoch((epoch) => epoch + 1);
+    },
+    [rememberImage],
+  );
 
   useEffect(() => {
     function pasted(event: ClipboardEvent) {
@@ -560,7 +588,18 @@ export function EditorCanvas({
     const response = await fetch(font.url);
     if (!response.ok) return false;
     held.fonts.set(font.id, await response.arrayBuffer());
+    setLibraryEpoch((epoch) => epoch + 1);
     return true;
+  };
+
+  const replaceMissingFont = (fromId: string, toId: string) => {
+    const ids = missing.find((asset) => asset.id === fromId)?.elementIds ?? [];
+    commitInspectorEdit((document) => replaceAssetReferences(document, fromId, toId), ids);
+  };
+  const replaceMissingImage = (fromId: string, image: ImageAssetView) => {
+    adoptImage(image);
+    const ids = missing.find((asset) => asset.id === fromId)?.elementIds ?? [];
+    commitInspectorEdit((document) => replaceAssetReferences(document, fromId, image.id), ids);
   };
 
   if (problem !== null)
@@ -602,8 +641,11 @@ export function EditorCanvas({
           images={images}
           workspaceId={workspaceId}
           mayEdit={mayEdit}
-          onFontAdded={rememberFont}
-          onImageAdded={rememberImage}
+          onFontAdded={(font) => {
+            rememberFont(font);
+            void holdFont(font);
+          }}
+          onImageAdded={adoptImage}
           onFontRemoved={(fontId) =>
             setFonts((current) => current.filter((font) => font.id !== fontId))
           }
@@ -1049,8 +1091,23 @@ export function EditorCanvas({
             event.currentTarget.releasePointerCapture(event.pointerId);
         }}
       >
+        {missing.length > 0 && (
+          <MissingAssetPanel
+            missing={missing}
+            fonts={fonts}
+            images={images}
+            workspaceId={workspaceId}
+            mayEdit={mayEdit}
+            onReplaceFont={replaceMissingFont}
+            onReplaceImage={replaceMissingImage}
+            onHoldFont={holdFont}
+            onFontAdded={rememberFont}
+            onImageAdded={adoptImage}
+          />
+        )}
         <div
           className="mx-auto"
+          hidden={missing.length > 0}
           style={{ width: canvas.width * scale, height: canvas.height * scale }}
         >
           <div
