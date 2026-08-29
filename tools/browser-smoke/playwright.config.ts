@@ -14,11 +14,12 @@ function browserProxy(raw: string | undefined) {
 
 export default defineConfig({
   testDir: ".",
-  testMatch: "browser-smoke.e2e.ts",
+  testMatch: "*.e2e.ts",
   fullyParallel: false,
   workers: 1,
   retries: 0,
   reporter: "line",
+  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
   use: {
     baseURL: process.env.SMOKE_BASE_URL ?? "http://localhost",
     proxy: browserProxy(process.env.SMOKE_PROXY),

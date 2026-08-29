@@ -102,7 +102,8 @@ A small Playwright suite covers only behavior that needs a DOM, browser history,
 or the cookie jar. It runs on demand, not in CI or as part of `pnpm test`,
 because it requires the full Compose stack and reads one-time codes from the
 console Mailer's api log. Its Playwright installation is separate from the
-render worker's fidelity-pinned browser.
+render worker's fidelity-pinned browser. Chromium only, matching the product's
+stated support.
 
 Prepare its Chromium once, start a console-Mailer stack at the default HTTP
 origin, and run it from another terminal:
@@ -118,9 +119,28 @@ Set `SMOKE_BASE_URL` when Caddy is not at `http://localhost`, for example
 can route the `stack.local` alias through its egress proxy with
 `SMOKE_BASE_URL=http://stack.local SMOKE_PROXY="$HTTPS_PROXY"`. The runner must also
 be able to invoke `docker compose logs api`, which is how it observes the code
-and the `/me` request made after a history restore. Keep browser scenarios in
-`tools/browser-smoke/browser-smoke.e2e.ts`; behavior a pure module can answer stays in
+and the `/me` request made after a history restore. Keep cookie, history, and
+list-page gestures in `tools/browser-smoke/browser-smoke.e2e.ts`; the editor's
+closing pass is `editor-smoke.e2e.ts`. Behavior a pure module can answer stays in
 that module's Vitest suite instead.
+
+### Editor end-to-end smoke
+
+One Playwright pass walks the first-time editor path against the real stack:
+create a design from a Canvas Preset, draw a rectangle and a text element, wait
+until the indicator says saved, reload and find the document intact, promote it,
+declare and bind a Variable, generate a PNG and receive the download. A failure
+names the step it failed at. It is not part of `pnpm test`.
+
+With the development stack running (`pnpm dev` above):
+
+```sh
+SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:editor
+```
+
+Against the Compose app profile, `pnpm smoke:browser` includes this pass at the
+default HTTP origin. The smoke reads the sign-in code from `.dev/mailer.log`
+(when the api is `pnpm dev`) or from `docker compose logs api`.
 
 Adding a table is adding a migration:
 

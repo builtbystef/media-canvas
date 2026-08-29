@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "smoke": "playwright test"
+    "smoke": "playwright test",
+    "smoke:editor": "playwright test editor-smoke.e2e.ts"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",
