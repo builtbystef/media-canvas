@@ -257,6 +257,51 @@ def test_a_webp_is_taken_like_any_other_picture(
     assert created.json()["contentType"] == "image/webp"
 
 
+def an_animated_webp() -> bytes:
+    """A two-frame WebP. A still WebP of the same size is accepted."""
+    first = Image.new("RGB", (40, 30), (200, 30, 30))
+    second = Image.new("RGB", (40, 30), (30, 200, 30))
+    written = BytesIO()
+    first.save(
+        written,
+        format="WEBP",
+        save_all=True,
+        append_images=[second],
+        duration=100,
+        loop=0,
+    )
+    return written.getvalue()
+
+
+def test_an_animated_webp_is_refused_rather_than_flattened(
+    client: TestClient, accounts: Accounts, s3: BaseClient
+) -> None:
+    """Animation is out of scope. Flattening the first frame would store
+    bytes that are not what was uploaded, under a content-addressed id."""
+    accounts.sign_in("alice@example.com")
+    workspace = a_workspace(client)
+
+    refused = upload(
+        client,
+        workspace,
+        an_animated_webp(),
+        filename="spinning.webp",
+        content_type="image/webp",
+    )
+
+    assert refused.status_code == 422
+    error = refused.json()["error"]
+    assert error["code"] == "unsupported_image_format"
+    message = error["message"]
+    assert "animated" in message.lower()
+    assert "still frame" in message.lower()
+    assert "PNG" in message
+    assert "JPEG" in message
+    assert "WebP" in message
+    assert "Only PNG, JPEG and WebP" not in message
+    assert nothing_stored(client, s3)
+
+
 def test_a_format_this_product_does_not_take_is_refused_by_name(
     client: TestClient, accounts: Accounts, s3: BaseClient
 ) -> None:
@@ -273,7 +318,7 @@ def test_a_format_this_product_does_not_take_is_refused_by_name(
 
     assert refused.status_code == 422
     assert refused.json()["error"]["code"] == "unsupported_image_format"
-    assert "PNG" in refused.json()["error"]["message"]
+    assert "Only PNG, JPEG and WebP" in refused.json()["error"]["message"]
     assert nothing_stored(client, s3)
 
 

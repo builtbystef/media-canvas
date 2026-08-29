@@ -113,6 +113,10 @@ UNSUPPORTED_IMAGE_FORMAT = (
     "Only PNG, JPEG and WebP images can be used. Convert this file to one of "
     "those — or, if it is an SVG, import it as vector artwork instead.",
 )
+ANIMATED_WEBP = (
+    "unsupported_image_format",
+    "Animated WebP cannot be used. Export a still frame as PNG, JPEG or WebP.",
+)
 
 
 @dataclass(frozen=True)
@@ -310,6 +314,10 @@ def normalized(content: bytes) -> NormalizedImage:
         image_format = opened.format or ""
         if image_format not in FORMATS:
             raise AssetRefused(*UNSUPPORTED_IMAGE_FORMAT)
+        # A still WebP is stored as-is. An animated one would flatten to its
+        # first frame under a content-addressed id — refuse it instead.
+        if image_format == "WEBP" and getattr(opened, "is_animated", False):
+            raise AssetRefused(*ANIMATED_WEBP)
         if opened.width * opened.height > MAX_PIXELS:
             raise AssetRefused(*TOO_MANY_PIXELS)
         suffix, content_type = FORMATS[image_format]
