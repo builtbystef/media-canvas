@@ -9,14 +9,12 @@ depends_on:
     - hjniam
 parent: ek7pq1
 created: 2026-08-15T07:12:59Z
-updated: 2026-08-17T04:00:39Z
+updated: 2026-08-29T06:26:31Z
 ---
 
 ## What to build
 
 One scripted pass over the whole editor, against the real stack, as proof that the pieces are wired to each other and not only to their tests. It walks the path a first-time user walks: make a design, put something on it, watch it save, come back to it, promote it, give it a Variable, and get a file out. Fine-grained behavior is covered by the unit seam; this exists to catch the wiring.
-
-closure waits for user review
 
 ## Acceptance criteria
 
@@ -32,3 +30,7 @@ closure waits for user review
 **claude** — 2026-08-17T04:00:39Z
 
 Confirmed: the review gate on this smoke is intentional and stays. The slicing note authorized two in-editor review gates (n5csrl, glkll2); this one is the corpus-wide closing-smoke pattern every spec except wz3ev2 follows, not a third in-editor gate.
+
+**agent** — 2026-08-29T06:26:31Z
+
+Per-issue review gate lifted 2026-08-29, superseding the 2026-08-17 note that the gate stays: close this issue when the acceptance criteria are met, including executing the smoke and reporting output. The user will review the implement-loop run's full diff rather than gating closure here.

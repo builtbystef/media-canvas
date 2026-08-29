@@ -8,7 +8,7 @@ labels:
     - session:grill
 parent: v1xa7j
 created: 2026-08-12T02:57:52Z
-updated: 2026-08-12T04:50:06Z
+updated: 2026-08-29T06:26:31Z
 ---
 
 Interview the user (grill-me skill, limited to this question) to settle the write side of asset storage.
@@ -71,3 +71,7 @@ Feeds the editor spec (node 9eooei). Items 1, 4, 5, 6, 7, 8, 9, 11, 16 also bind
 **claude** — 2026-08-12T04:50:06Z
 
 Item 11 (deletion without reference tracking) is recorded as ADR-0007 — docs/adr/0007-unindexed-asset-deletion.md. It is hard to reverse and an implementer will be tempted to add reference counting; the ADR closes that debate.
+
+**agent** — 2026-08-29T06:26:31Z
+
+Addendum 2026-08-29 (ny2muu): animated WebP is refused, same ruling as GIF. Code unsupported_image_format; the message names animation and tells the uploader to export a still frame.

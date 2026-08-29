@@ -5,24 +5,29 @@ state: todo
 priority: low
 parent: ek7pq1
 created: 2026-08-19T11:15:16Z
-updated: 2026-08-19T11:15:16Z
+updated: 2026-08-29T06:26:31Z
 ---
 
-## What is wrong
+## What to build
 
-Node 3ko2p7 item 6 refuses GIF because animation is out of scope project-wide and "a silently-dropped-frames rule is a surprise". It accepts WebP without saying anything about animated WebP — and an animated WebP is exactly that surprise.
+Animated WebP is refused at upload, the same way GIF is. Animation is out of scope project-wide; a silently flattened first frame is the surprise node 3ko2p7 item 6 already rejected for GIF.
 
-Verified against the upload built in t60pvx: a three-frame animated WebP passes inspection (Pillow reports `format == "WEBP"`, `is_animated == True`), normalization re-encodes the first frame only, and the upload succeeds. The uploader is told nothing; the Image Asset is a still.
+`normalized()` already opens the file and knows the format before it decides; Pillow's `is_animated` is available on the same object. The refusal lands there. A still WebP is unchanged.
 
-## What has to be decided
+## Acceptance criteria
 
-Which of the two, for animated WebP:
-
-- Refuse it, as GIF is refused — a new machine-readable code, or `unsupported_image_format` with prose naming animation, and a message telling the uploader to export a still frame.
-- Accept it deliberately, flattened to the first frame, and say so in the response the editor renders.
-
-Nothing in the decision record settles this, so it is a user decision, not an implementation choice.
+- [ ] An animated WebP is refused with 422 `{ error: { code, message } }` and nothing is stored.
+- [ ] The code is `unsupported_image_format` — not a new code. The editor already renders that code by showing the server message; a new code would pull this issue into the editor.
+- [ ] The message names animation and tells the uploader to export a still frame as PNG, JPEG or WebP. It is not the generic "Only PNG, JPEG and WebP" sentence, which would claim WebP itself is unsupported.
+- [ ] A still (non-animated) WebP continues to be accepted.
+- [ ] GIF refusal is unchanged: same code, same generic message.
 
 ## Where it lands
 
-`apps/api/src/media_canvas_api/images.py` — `normalized()` already opens the file and knows the format before it decides; `is_animated` is available on the same object. One refusal or one deliberate flatten, plus a test in `apps/api/tests/test_images.py`.
+`apps/api/src/media_canvas_api/images.py` (`normalized()`) and a test in `apps/api/tests/test_images.py`.
+
+## Notes
+
+**agent** — 2026-08-29T06:26:31Z
+
+Decided 2026-08-29: refuse animated WebP, as GIF is refused. Reuse unsupported_image_format (no new code) with prose that names animation and tells the uploader to export a still frame. Flattening — even announced — stores bytes that are not what was uploaded, under a content-addressed id. A new code was rejected because this issue's landing zone is the API; the editor already shows the server message for unsupported_image_format.
