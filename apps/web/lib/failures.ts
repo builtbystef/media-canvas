@@ -148,3 +148,14 @@ export const failedToCreateApiKey = (status: number | undefined) => explain(API_
 
 /** Revoking a key that is gone, or a Role that cannot. */
 export const failedToRevokeApiKey = (status: number | undefined) => explain(API_KEY_REVOKE, status);
+
+const INVITE_USE: Record<number, string> = {
+  404: "This invite has already been used, was revoked, or never existed.",
+  410: "This invite has expired. Ask the Owner to send a new one.",
+};
+
+/** Previewing an invite that is gone or past its seven days. */
+export const failedToLoadInvite = (status: number | undefined) => explain(INVITE_USE, status);
+
+/** Accepting after the invite was spent, revoked, or expired in the meantime. */
+export const failedToAcceptInvite = (status: number | undefined) => explain(INVITE_USE, status);

@@ -17,6 +17,8 @@ import {
   failedToCreateApiKey,
   failedToDeleteWorkspace,
   failedToRevokeApiKey,
+  failedToAcceptInvite,
+  failedToLoadInvite,
 } from "./failures.ts";
 
 /**
@@ -165,4 +167,23 @@ test("revoking a key that is gone is not a failure of the Role", () => {
   expect(failedToRevokeApiKey(404)).toMatch(/no longer/);
   expect(failedToRevokeApiKey(403)).toMatch(/Owner/);
   expect(failedToRevokeApiKey(401)).toContain("Sign in again");
+});
+
+test("a used, revoked, or unknown invite is not an expired one", () => {
+  const gone = failedToLoadInvite(404);
+  const expired = failedToLoadInvite(410);
+
+  expect(new Set([gone, expired]).size).toBe(2);
+  expect(gone).toMatch(/used/);
+  expect(gone).toMatch(/revoked/);
+  expect(expired).toMatch(/expired/i);
+  expect(expired).toMatch(/Owner/);
+  expect(failedToLoadInvite(500)).toContain("could not be reached");
+  expect(failedToLoadInvite(undefined)).toContain("could not be reached");
+});
+
+test("accepting a spent invite uses the same words loading it did", () => {
+  expect(failedToAcceptInvite(404)).toBe(failedToLoadInvite(404));
+  expect(failedToAcceptInvite(410)).toBe(failedToLoadInvite(410));
+  expect(failedToAcceptInvite(500)).toContain("could not be reached");
 });
