@@ -2,6 +2,7 @@ import type { DesignDocument, Element } from "@media-canvas/core";
 import { createStore } from "zustand/vanilla";
 import { addElement, removeElements, setTextContent } from "./document-operations";
 import type { Tool } from "./drawing-tools";
+import { unwindEscape } from "./keyboard-map";
 import { applyHandleDrag, type Handle, type HandleDragOptions, type Point } from "./resize-scale";
 
 /** How many completed gestures the in-memory stack keeps (node 73rm0x). */
@@ -45,6 +46,7 @@ export type EditorState = {
     ids: readonly string[],
     gestureStart?: DesignDocument,
   ) => void;
+  escape: () => void;
   undo: () => void;
   redo: () => void;
 };
@@ -156,6 +158,19 @@ export function createEditorStore(document: DesignDocument | null) {
         set((state) => {
           if (state.document === null) return state;
           return commit(state, change(gestureStart ?? state.document), ids);
+        }),
+      escape: () =>
+        set((state) => {
+          if (state.activeTool !== "select") return { activeTool: "select" as const };
+          if (state.editingTextId !== null) return finishTextEdit(state);
+          if (state.croppingId !== null) return { croppingId: null };
+          const next = unwindEscape({
+            activeTool: state.activeTool,
+            editingTextId: state.editingTextId,
+            enteredPath: state.enteredPath,
+            selected: state.selected,
+          });
+          return { enteredPath: next.enteredPath, selected: next.selected };
         }),
       undo: () =>
         set((state) => {

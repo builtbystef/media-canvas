@@ -39,7 +39,21 @@ import {
   zoomBy,
 } from "../../../lib/canvas-view";
 import {
+  bringForward,
+  bringToFront,
+  copyElements,
+  duplicateElements,
+  groupElements,
+  idsAtLevel,
+  pasteElements,
+  sendBackward,
+  sendToBack,
+  ungroupElements,
+  type Clipboard,
+} from "../../../lib/arrangement";
+import {
   moveElements,
+  removeElements,
   renameElement,
   reorderElement,
   setElementVisibility,
@@ -53,6 +67,7 @@ import {
   drawingBounds,
   toolForKey,
 } from "../../../lib/drawing-tools";
+import { DUPLICATE_OFFSET, commandFromKey } from "../../../lib/keyboard-map";
 import type { EditorStore } from "../../../lib/editor-store";
 import { applyCropPan } from "../../../lib/image-crop";
 import { canAcceptCanvasDrop, canvasDropSources } from "../../../lib/canvas-drop";
@@ -122,6 +137,7 @@ type Gesture =
       clientX: number;
       clientY: number;
       document: DesignDocument;
+      previewBase?: DesignDocument;
       ids: string[];
       bounds: ElementBounds;
       neighbours: ElementBounds[];
@@ -213,10 +229,10 @@ export function EditorCanvas({
   const updateTextContent = useStore(store, (state) => state.updateTextContent);
   const endTextEdit = useStore(store, (state) => state.endTextEdit);
   const enterCrop = useStore(store, (state) => state.enterCrop);
-  const leaveCrop = useStore(store, (state) => state.leaveCrop);
   const commitInspectorEdit = useStore(store, (state) => state.commitInspectorEdit);
   const commitHandleDrag = useStore(store, (state) => state.commitHandleDrag);
   const commitPlacementEdit = useStore(store, (state) => state.commitPlacementEdit);
+  const escape = useStore(store, (state) => state.escape);
   const undo = useStore(store, (state) => state.undo);
   const redo = useStore(store, (state) => state.redo);
   const currentDesign = useRef(design);
@@ -242,6 +258,7 @@ export function EditorCanvas({
   const [fonts, setFonts] = useState<FontAssetView[]>([]);
   const [images, setImages] = useState<ImageAssetView[]>([]);
   const lastCanvasPoint = useRef<Point | null>(null);
+  const clipboard = useRef<Clipboard>({ elements: [] });
   const canvas = design?.canvas;
 
   // Opening waits for all assets, then mounts the compiler's SVG once.
@@ -370,22 +387,100 @@ export function EditorCanvas({
         else undo();
         return;
       }
-      if (event.key === "Escape") {
-        if (activeTool !== "select" || editingTextId !== null) {
-          gesture.current = null;
-          setMarquee(null);
-          if (editingTextId !== null) endTextEdit();
-          else armTool("select");
-        } else if (croppingId !== null) {
-          leaveCrop();
-        } else if (enteredPath.length === 0) select([]);
-        else {
-          const exited = enteredPath.at(-1)!;
-          select([exited], enteredPath.slice(0, -1));
-        }
+      const command = commandFromKey(event);
+      if (command?.type === "escape") {
+        event.preventDefault();
+        gesture.current = null;
+        setMarquee(null);
+        escape();
         return;
       }
-      if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return;
+      if (isTypingTarget(event.target)) return;
+      if (command !== null) {
+        if (command.type === "paste" && clipboard.current.elements.length === 0) return;
+        event.preventDefault();
+        const held = currentDesign.current;
+        if (held === null) return;
+        if (command.type === "select-all") {
+          select(idsAtLevel(held, enteredPath));
+          return;
+        }
+        if (command.type === "copy") {
+          clipboard.current = copyElements(held, selected);
+          return;
+        }
+        if (!mayEdit) return;
+        if (command.type === "nudge") {
+          if (selected.length === 0) return;
+          commitPlacementEdit(
+            (document) => moveElements(document, selected, command.dx, command.dy),
+            selected,
+          );
+          return;
+        }
+        if (command.type === "duplicate") {
+          const duplicated = duplicateElements(
+            held,
+            selected,
+            DUPLICATE_OFFSET,
+            () => crypto.randomUUID(),
+            enteredPath,
+          );
+          if (duplicated.ids.length === 0) return;
+          commitPlacementEdit(() => duplicated.document, duplicated.ids);
+          return;
+        }
+        if (command.type === "cut") {
+          clipboard.current = copyElements(held, selected);
+          if (selected.length === 0) return;
+          commitPlacementEdit((document) => removeElements(document, selected), selected);
+          select([]);
+          return;
+        }
+        if (command.type === "paste") {
+          const point = lastCanvasPoint.current ?? {
+            x: held.canvas.width / 2,
+            y: held.canvas.height / 2,
+          };
+          const pasted = pasteElements(held, clipboard.current, point, enteredPath, () =>
+            crypto.randomUUID(),
+          );
+          if (pasted.ids.length === 0) return;
+          commitPlacementEdit(() => pasted.document, pasted.ids);
+          return;
+        }
+        if (command.type === "delete") {
+          if (selected.length === 0) return;
+          commitPlacementEdit((document) => removeElements(document, selected), selected);
+          select([]);
+          return;
+        }
+        if (command.type === "group") {
+          const grouped = groupElements(held, selected, enteredPath, crypto.randomUUID());
+          if (grouped.document === held) return;
+          commitPlacementEdit(() => grouped.document, [grouped.id]);
+          return;
+        }
+        if (command.type === "ungroup") {
+          const ungrouped = ungroupElements(held, selected, enteredPath);
+          if (ungrouped.document === held) return;
+          commitPlacementEdit(() => ungrouped.document, ungrouped.ids);
+          return;
+        }
+        const arranged =
+          command.type === "bring-forward"
+            ? bringForward(held, selected, enteredPath)
+            : command.type === "send-backward"
+              ? sendBackward(held, selected, enteredPath)
+              : command.type === "bring-to-front"
+                ? bringToFront(held, selected, enteredPath)
+                : command.type === "send-to-back"
+                  ? sendToBack(held, selected, enteredPath)
+                  : held;
+        if (arranged !== held) commitPlacementEdit(() => arranged, selected);
+        return;
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === "Enter" && editingTextId === null && selected.length === 1) {
         const id = selected[0]!;
         const element = findElement(currentDesign.current?.elements ?? [], id);
@@ -412,14 +507,13 @@ export function EditorCanvas({
       window.removeEventListener("keyup", released);
     };
   }, [
-    activeTool,
     armTool,
     beginTextEdit,
-    croppingId,
+    commitPlacementEdit,
     editingTextId,
-    endTextEdit,
     enteredPath,
-    leaveCrop,
+    escape,
+    mayEdit,
     redo,
     select,
     selected,
@@ -693,26 +787,45 @@ export function EditorCanvas({
                 id: next[0],
                 delta: { x: 0, y: 0 },
               };
-            } else if (next.length > 0)
+            } else if (next.length > 0) {
+              let moveIds = next;
+              let previewBase: DesignDocument | undefined;
+              if (event.altKey && mayEdit) {
+                const duplicated = duplicateElements(
+                  design,
+                  next,
+                  { x: 0, y: 0 },
+                  () => crypto.randomUUID(),
+                  enteredPath,
+                );
+                if (duplicated.ids.length > 0) {
+                  previewBase = duplicated.document;
+                  moveIds = duplicated.ids;
+                  select(duplicated.ids);
+                  replaceDocument(() => duplicated.document);
+                }
+              }
               gesture.current = {
                 kind: "move",
                 pointerId: event.pointerId,
                 clientX: event.clientX,
                 clientY: event.clientY,
                 document: design,
-                ids: next,
+                previewBase,
+                ids: moveIds,
                 bounds: {
                   id: "selection",
                   ...selectionBounds(next, host.current, canvasSpace.current, zoom)!,
                 },
                 neighbours: siblingsAt(design.elements, enteredPath)
-                  .filter((element) => !next.includes(element.id))
+                  .filter((element) => !moveIds.includes(element.id))
                   .flatMap((element) =>
                     elementBounds(element.id, host.current, canvasSpace.current, zoom),
                   )
                   .map((bounds) => ({ id: "neighbour", ...bounds })),
                 delta: { x: 0, y: 0 },
               };
+            }
           }
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
@@ -793,7 +906,12 @@ export function EditorCanvas({
             active.delta = { x: raw.x + snapping.dx, y: raw.y + snapping.dy };
             setGuides(snapping.guides);
             replaceDocument(() =>
-              moveElements(active.document, active.ids, active.delta.x, active.delta.y),
+              moveElements(
+                active.previewBase ?? active.document,
+                active.ids,
+                active.delta.x,
+                active.delta.y,
+              ),
             );
           } else if (active.kind === "rotate") {
             const point = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
@@ -868,7 +986,13 @@ export function EditorCanvas({
             );
           } else if (active?.pointerId === event.pointerId && active.kind === "move") {
             commitPlacementEdit(
-              (document) => moveElements(document, active.ids, active.delta.x, active.delta.y),
+              (document) =>
+                moveElements(
+                  active.previewBase ?? document,
+                  active.ids,
+                  active.delta.x,
+                  active.delta.y,
+                ),
               active.ids,
               active.document,
             );

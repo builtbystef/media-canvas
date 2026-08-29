@@ -374,3 +374,38 @@ describe("text editing", () => {
     expect(store.getState().document).toBe(start);
   });
 });
+
+describe("escape", () => {
+  it("unwinds one step per press: tool, then text, then group, then selection", () => {
+    const start: DesignDocument = {
+      schemaVersion: 1,
+      canvas: { width: 100, height: 100, background: "#FFFFFF" },
+      elements: [headline("Hi")],
+    };
+    const store = createEditorStore(start);
+    store.getState().armTool("rect");
+    store.getState().select(["headline"], ["group"]);
+
+    store.getState().escape();
+    expect(store.getState()).toMatchObject({
+      activeTool: "select",
+      enteredPath: ["group"],
+      selected: ["headline"],
+    });
+
+    store.getState().beginTextEdit("headline");
+    store.getState().escape();
+    expect(store.getState().editingTextId).toBeNull();
+    expect(store.getState().enteredPath).toEqual(["group"]);
+
+    store.getState().escape();
+    expect(store.getState()).toMatchObject({
+      enteredPath: [],
+      selected: ["group"],
+    });
+
+    store.getState().select(["headline"]);
+    store.getState().escape();
+    expect(store.getState().selected).toEqual([]);
+  });
+});
