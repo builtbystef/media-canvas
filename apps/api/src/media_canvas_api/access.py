@@ -15,6 +15,7 @@ no account and presents the credential the two services share. A key is never
 a way around the settings pages, and the worker is never a member of anything.
 """
 
+from re import compile as regexp
 from secrets import compare_digest
 from typing import Annotated
 from uuid import UUID
@@ -104,7 +105,7 @@ class AccessMiddleware:
                     except Exception:
                         await database.rollback()
                     allowed = getattr(
-                        scope["app"].state, "generation_surface", no_generation_surface
+                        scope["app"].state, "generation_surface", is_generation_surface
                     )
                     if not allowed(request.url.path):
                         await forbidden(scope, receive, send)
@@ -207,14 +208,22 @@ async def forbidden(scope: Scope, receive: Receive, send: Send) -> None:
     await response(scope, receive, send)
 
 
-def no_generation_surface(_path: str) -> bool:
-    """Nothing is generation surface until those routes declare themselves.
+# One render, the Job a batch becomes, and the files that Job made. A key
+# on any other address is 403, even when the same cookie would be let in.
+_GENERATION_SURFACE = (
+    regexp(r"^/api/v1/documents/[^/]+/render$"),
+    regexp(r"^/api/v1/templates/[^/]+/jobs$"),
+    regexp(r"^/api/v1/jobs/[^/]+(?:/cancel|/outputs\.zip|/outputs/[^/]+)?$"),
+)
 
-    A key is therefore refused on every shipped route. The generation issue
-    replaces this default; tests that need the permitted case mount a probe
-    and put a predicate on `app.state.generation_surface`.
+
+def is_generation_surface(path: str) -> bool:
+    """The addresses a Workspace API key may call.
+
+    Tests that need a different surface (a probe route) put a predicate on
+    `app.state.generation_surface`; everything else uses this default.
     """
-    return False
+    return any(pattern.fullmatch(path) for pattern in _GENERATION_SURFACE)
 
 
 def request_database(request: Request) -> AsyncSession:
@@ -281,21 +290,30 @@ def requiring(role: Role) -> params.Depends:
         database: Database,
         request: Request,
     ) -> Membership:
-        key: ApiKey | None = getattr(request.state, "api_key", None)
-        if key is not None:
-            if key.workspace_id != workspace_id:
-                raise HTTPException(404, UNREACHABLE)
-            granted = key_as_editor(key)
-            refuse_unless(granted, role)
-            return granted
-        signed_in: SignedIn = request.state.signed_in
-        membership = await membership_in(database, workspace_id, signed_in.user.id)
+        membership = await caller_in(request, database, workspace_id)
         if membership is None:
             raise HTTPException(404, UNREACHABLE)
         refuse_unless(membership, role)
         return membership
 
     return Depends(resolve)
+
+
+async def caller_in(
+    request: Request, database: AsyncSession, workspace_id: UUID
+) -> Membership | None:
+    """The caller's place in this Workspace, or none at all.
+
+    A key is an Editor of its own Workspace and of no other. A cookie is
+    the Membership the session's User holds. None is the same answer as a
+    Workspace the caller is not in.
+    """
+    key: ApiKey | None = getattr(request.state, "api_key", None)
+    if key is not None:
+        if key.workspace_id != workspace_id:
+            return None
+        return key_as_editor(key)
+    return await membership_in(database, workspace_id, request.state.signed_in.user.id)
 
 
 def key_as_editor(key: ApiKey) -> Membership:

@@ -16,20 +16,19 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Path, params
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, params
 from pydantic import BaseModel, ConfigDict, StringConstraints
 from pydantic.alias_generators import to_camel
 from sqlalchemy import select, update
 
 from media_canvas_api.access import (
-    CurrentSession,
     Database,
     Editing,
     Now,
     Viewing,
+    caller_in,
     refuse_unless,
 )
-from media_canvas_api.memberships import membership_in
 from media_canvas_api.models import Document, DocumentKind, Role
 
 router = APIRouter(prefix="/api/v1", tags=["documents"])
@@ -115,14 +114,12 @@ def holding(role: Role) -> params.Depends:
     async def resolve(
         document_id: Annotated[UUID, Path(alias="documentId")],
         database: Database,
-        signed_in: CurrentSession,
+        request: Request,
     ) -> Document:
         document = await database.get(Document, document_id)
         if document is None:
             raise HTTPException(404, UNREACHABLE)
-        membership = await membership_in(
-            database, document.workspace_id, signed_in.user.id
-        )
+        membership = await caller_in(request, database, document.workspace_id)
         if membership is None:
             raise HTTPException(404, UNREACHABLE)
         refuse_unless(membership, role)

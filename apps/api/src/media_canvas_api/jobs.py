@@ -28,16 +28,15 @@ from sqlalchemy.exc import IntegrityError
 from starlette.concurrency import run_in_threadpool
 
 from media_canvas_api.access import (
-    CurrentSession,
     Database,
     Now,
     Storage,
     Viewing,
     WorkerService,
     WorkQueue,
+    caller_in,
     refuse_unless,
 )
-from media_canvas_api.memberships import membership_in
 from media_canvas_api.models import (
     Document,
     DocumentKind,
@@ -173,14 +172,12 @@ def holding_template(role: Role) -> params.Depends:
     async def resolve(
         template_id: Annotated[UUID, Path(alias="templateId")],
         database: Database,
-        signed_in: CurrentSession,
+        request: Request,
     ) -> Document:
         document = await database.get(Document, template_id)
         if document is None:
             raise HTTPException(404, UNREACHABLE_TEMPLATE)
-        membership = await membership_in(
-            database, document.workspace_id, signed_in.user.id
-        )
+        membership = await caller_in(request, database, document.workspace_id)
         if membership is None:
             raise HTTPException(404, UNREACHABLE_TEMPLATE)
         refuse_unless(membership, role)
@@ -200,12 +197,12 @@ def holding_job(role: Role) -> params.Depends:
     async def resolve(
         job_id: Annotated[UUID, Path(alias="jobId")],
         database: Database,
-        signed_in: CurrentSession,
+        request: Request,
     ) -> GenerationJob:
         job = await database.get(GenerationJob, job_id)
         if job is None:
             raise HTTPException(404, UNREACHABLE_JOB)
-        membership = await membership_in(database, job.workspace_id, signed_in.user.id)
+        membership = await caller_in(request, database, job.workspace_id)
         if membership is None:
             raise HTTPException(404, UNREACHABLE_JOB)
         refuse_unless(membership, role)
