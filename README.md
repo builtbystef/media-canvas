@@ -121,8 +121,8 @@ can route the `stack.local` alias through its egress proxy with
 be able to invoke `docker compose logs api`, which is how it observes the code
 and the `/me` request made after a history restore. Keep cookie, history, and
 list-page gestures in `tools/browser-smoke/browser-smoke.e2e.ts`; the editor's
-closing pass is `editor-smoke.e2e.ts`. Behavior a pure module can answer stays in
-that module's Vitest suite instead.
+closing pass is `editor-smoke.e2e.ts`; the batch UI's is `batch-smoke.e2e.ts`.
+Behavior a pure module can answer stays in that module's Vitest suite instead.
 
 ### Editor end-to-end smoke
 
@@ -136,6 +136,24 @@ With the development stack running (`pnpm dev` above):
 
 ```sh
 SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:editor
+```
+
+Against the Compose app profile, `pnpm smoke:browser` includes this pass at the
+default HTTP origin. The smoke reads the sign-in code from `.dev/mailer.log`
+(when the api is `pnpm dev`) or from `docker compose logs api`.
+
+### Batch UI end-to-end smoke
+
+One Playwright pass walks the batch path against the real stack: open a
+template, Generate → Batch, upload a two-row CSV, see the mapping summary,
+submit, land on the job, wait until it says completed, download one Row's output
+and the archive of two entries. A failure names the step it failed at. It is not
+part of `pnpm test`.
+
+With the development stack running (`pnpm dev` above):
+
+```sh
+SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:batch
 ```
 
 Against the Compose app profile, `pnpm smoke:browser` includes this pass at the

@@ -13,6 +13,7 @@
     "smoke:browser": "pnpm --filter browser-smoke smoke",
     "smoke:browser:install": "pnpm --filter browser-smoke exec playwright install chromium",
     "smoke:editor": "pnpm --filter browser-smoke smoke:editor",
+    "smoke:batch": "pnpm --filter browser-smoke smoke:batch",
     "build": "vp run -r build",
     "ci": "pnpm check && pnpm test && pnpm build"
   },
