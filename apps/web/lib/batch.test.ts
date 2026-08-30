@@ -27,8 +27,6 @@ const WORKED: HeaderMapping = {
 };
 
 test("headers title,price,_name map onto title and price, default accent, and the name column", () => {
-  // Worked example: title required, price number default 0, accent color with
-  // a default. The name column is recognized and is not a Variable.
   expect(mapHeaders(["title", "price", "_name"], [TITLE, PRICE, ACCENT])).toEqual(WORKED);
 });
 
@@ -66,7 +64,6 @@ test("the summary never reads a cell, so a badly typed price does not change the
 });
 
 test("a missing-required Variable and an unknown column still leave submission available", async () => {
-  // Shape warnings are not a gate. The file goes as it is; the server refuses.
   const csv = "notes,price\nkeep,1\n";
   const prepared = prepareBatch(csv, { mintKey: () => "K" });
   const mapping = mapHeaders(prepared.headers, [TITLE, PRICE, ACCENT]);
@@ -200,8 +197,6 @@ test("the CSV parser named in the spec is the only dependency this slice adds", 
 });
 
 test("a 422 for row index 3 on price marks the fourth data row and counts one invalid row", () => {
-  // Worked example: row indexes count data rows from zero; the header does not
-  // shift them. The preview stays; the overlay names the Variable.
   const prepared = prepareBatch("title,price,_name\nA,1,a\nB,2,b\nC,3,c\nD,bad,d\n", {
     mintKey: () => "K",
   });

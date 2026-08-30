@@ -22,8 +22,6 @@ from media_canvas_api.users import find_or_create_user, normalise_email
 CODE_LIFETIME = timedelta(minutes=10)
 MAX_ATTEMPTS = 5
 
-# One request per 30 seconds stops a typo turning into a second mail; ten per
-# hour bounds what one address can be made to receive in a day of trying.
 BURST_WINDOW = timedelta(seconds=30)
 HOURLY_WINDOW = timedelta(hours=1)
 HOURLY_LIMIT = 10
@@ -63,8 +61,6 @@ async def request_code(
             expires_at=now + CODE_LIFETIME,
         )
     )
-    # Committed before it is sent: a mail that names a code the database does
-    # not hold would be worse than one that never arrives.
     await database.commit()
     mailer.send_otp(address, code)
 

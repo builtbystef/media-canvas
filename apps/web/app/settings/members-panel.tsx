@@ -37,13 +37,6 @@ import {
   roleLabel,
 } from "../../lib/settings";
 
-/**
- * Who is in this Workspace, and how they leave it.
- *
- * Listing is open to every member. Changing a Role or removing someone is
- * Owner-only; leave is not — any member may, the last Owner aside, who is
- * told to promote someone first rather than shown a failure.
- */
 export function MembersPanel({
   workspaceId,
   workspaceName,

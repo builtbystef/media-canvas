@@ -35,8 +35,6 @@ from media_canvas_api.views import MemberView, UserView, WorkspaceView
 
 router = APIRouter(prefix="/api/v1", tags=["workspaces"])
 
-# A name is what people pick their Workspace out of a list by: never empty,
-# and never long enough to be prose.
 WorkspaceName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
 ]
@@ -50,7 +48,6 @@ class RoleChange(BaseModel):
     role: Role
 
 
-# Who a route is about, when that is somebody other than the caller.
 MemberId = Annotated[UUID, Path(alias="userId")]
 
 NOT_A_MEMBER = "No such member of this workspace."

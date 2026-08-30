@@ -1,9 +1,5 @@
 import type { DesignDocument, Element, VariableDecl } from "@media-canvas/core";
 
-/** What the editor does when a document names an asset the library cannot
- *  answer for: name each missing Font Asset or Image Asset, list the Elements
- *  that want it, and rewrite those references in one document operation. */
-
 export type MissingAssetKind = "font" | "image";
 
 export type MissingAsset = {
@@ -13,7 +9,6 @@ export type MissingAsset = {
   elementNames: string[];
 };
 
-/** Each missing asset id with the Elements that name it, in document order. */
 export function describeMissingAssets(
   document: DesignDocument,
   missingIds: readonly string[],
@@ -49,8 +44,6 @@ export function describeMissingAssets(
   });
 }
 
-/** Rewrite every Font Asset or Image Asset reference from one id to another.
- *  Only changed Elements and their ancestor groups are replaced. */
 export function replaceAssetReferences(
   document: DesignDocument,
   fromId: string,

@@ -14,8 +14,6 @@ export type PresetShape = {
   border?: { color: string; width: number };
 };
 
-/** The shipped Preset Shapes. Each is ordinary vector artwork: after
- *  placement nothing distinguishes it from a flattened SVG import. */
 export const PRESET_SHAPES: readonly PresetShape[] = [
   {
     name: "star",
@@ -48,7 +46,6 @@ export const PRESET_SHAPES: readonly PresetShape[] = [
   },
 ];
 
-/** The drag payload the Shapes panel writes and the canvas reads. */
 export function serializePresetShapeDrag(name: PresetShapeName): string {
   return name;
 }

@@ -196,17 +196,9 @@ type Gesture =
     }
   | { kind: "text-select"; pointerId: number; id: string };
 
-/**
- * The stage is what the canvas is looked at through: it scrolls, and scrolling
- * it is how the canvas is panned. There is no pasteboard around the canvas
- * (ADR-0008) — what falls outside it is clipped, here as in an export.
- */
 const STAGE =
   "my-6 h-[min(70vh,42rem)] touch-none overflow-auto overscroll-contain rounded-lg border bg-background p-12";
 
-/** The compiled Design Document, its mounted-markup interactions, overlay, and
- * layer tree. Document edits enter through pure operations so ADR-0006's
- * identity-keyed preview caches remain correct. */
 export function EditorCanvas({
   store,
   documentId,
@@ -270,9 +262,6 @@ export function EditorCanvas({
   const clipboard = useRef<Clipboard>({ elements: [] });
   const canvas = design?.canvas;
 
-  // Opening fetches every asset the document names. The layout effect below
-  // mounts the compiler's SVG once they are in hand, or the missing-asset
-  // panel if they are not.
   useEffect(() => {
     const document = initial.current;
     if (document === null) return;
@@ -309,9 +298,6 @@ export function EditorCanvas({
     };
   }, [workspaceId]);
 
-  // Later snapshots patch only what their identities say changed. A missing
-  // asset tears the preview down; filling the library or rewriting references
-  // mounts it again.
   useLayoutEffect(() => {
     if (design === null || library.current === null) return;
     const nextMissing = describeMissingAssets(design, missingAssets(design, library.current));
@@ -337,9 +323,6 @@ export function EditorCanvas({
     setZoom(view.zoom);
   }, [design, documentId, editingTextId, libraryEpoch]);
 
-  // The overlay reads the mounted markup's real bounds; it never duplicates
-  // compiler geometry. Those bounds continue to exist when SVG clipping hides
-  // an Element beyond the canvas.
   useLayoutEffect(() => {
     if (zoom === null) return;
     setSelectionBox(
@@ -1121,9 +1104,6 @@ export function EditorCanvas({
               visibility: zoom === null ? "hidden" : "visible",
             }}
           >
-            {/* No token from the theme reaches inside this: the canvas is the
-                document's own, and the compiled SVG is the worker's markup.
-                Only the shadow it casts on the stage belongs to the app. */}
             <div
               className="shadow-[0_0.25rem_1.5rem_rgb(0_0_0/15%)] dark:shadow-[0_0.25rem_1.5rem_rgb(0_0_0/45%)] [&>svg]:block"
               ref={host}
@@ -1463,8 +1443,6 @@ function ToolPalette({ active, onArm }: { active: Tool; onArm: (tool: Tool) => v
     { tool: "ellipse", label: "Ellipse", key: "O" },
     { tool: "hand", label: "Hand", key: "H" },
   ];
-  // Exactly one tool is armed at any moment, and arming is what the group
-  // reports — an emptied value is the same tool pressed again, not "no tool".
   return (
     <ToggleGroup
       aria-label="Drawing tools"
@@ -1500,12 +1478,6 @@ function isTypingTarget(target: EventTarget | null): boolean {
   );
 }
 
-/** Where each handle sits on the selection's edge, and the rotation zone just
- * outside the corner it belongs to. Both are placed by their own centre.
- *
- * `data-handle` and `data-rotate` are the hit-test contract: pointer-down
- * reads them with `closest`, so a restyle may move these classes freely but
- * must keep the attributes. */
 const HANDLE_AT: Record<Handle, string> = {
   "top-left": "left-0 top-0 -translate-x-1/2 -translate-y-1/2",
   top: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2",

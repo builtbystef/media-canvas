@@ -13,14 +13,6 @@ import {
 import { jobStateLabel, outputFormatLabel } from "../../lib/job-view";
 import { jobPath } from "../../lib/routes";
 
-/**
- * The current Workspace's jobs, newest first.
- *
- * The page that mounts this has already loaded the list once. This keeps
- * asking every five seconds while any listed job is still moving, and goes
- * quiet the moment every listed job is terminal. An empty Workspace is a
- * plain line, not an error.
- */
 export function JobsList({
   initial,
   workspaceId,

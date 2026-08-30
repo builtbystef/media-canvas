@@ -14,8 +14,6 @@ down_revision: str | None = "0007_generation_jobs"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-# The type already exists: 0003_workspaces created it, and this column
-# names the same three Roles.
 ROLE = sa.Enum("viewer", "editor", "owner", name="role", create_type=False)
 
 

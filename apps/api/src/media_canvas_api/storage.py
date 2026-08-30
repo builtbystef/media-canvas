@@ -21,18 +21,10 @@ from fastapi.responses import StreamingResponse
 
 from media_canvas_api.settings import Settings
 
-# What one read takes off the wire before it is handed on. Large enough that a
-# render output is a handful of reads, small enough that no single object is
-# ever held in memory whole.
 CHUNK_SIZE = 64 * 1024
 
-# What the store answers a repeat CreateBucket with: this one already exists,
-# which is the outcome the call wanted. S3 answers the second name outside
-# us-east-1, and Garage answers the first.
 ALREADY_THERE = ("BucketAlreadyOwnedByYou", "BucketAlreadyExists")
 
-# The one refusal that is an answer rather than a fault: no such key. A missing
-# bucket, a bad credential or a store that is down all still raise.
 MISSING = "NoSuchKey"
 
 

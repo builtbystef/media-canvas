@@ -35,8 +35,6 @@ export function WorkspaceForm({ first }: { first: boolean }) {
       setProblem(failedToCreateWorkspace(response?.status));
       return;
     }
-    // Same reason as signing in: what the product shows is decided on the
-    // server, from a membership that exists as of a moment ago.
     window.location.replace(HOME);
   }
 

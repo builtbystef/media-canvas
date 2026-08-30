@@ -10,10 +10,6 @@ import { Input } from "../../../components/ui/input";
 const CHIP =
   "inline-flex h-7 max-w-full items-center rounded-md bg-violet-600/15 px-2 text-xs font-medium text-violet-800 dark:text-violet-200";
 
-/**
- * The bind affordance for one inspector site: a chip when bound, a menu of
- * matching Variables (and New Variable) otherwise.
- */
 export function BindControl({
   document,
   type,

@@ -13,14 +13,6 @@ import { ListNav } from "./list-nav";
 import { NewDesign } from "./new-design";
 import { Shell } from "./shell";
 
-/**
- * The product's front door: the documents of the Workspace you are in.
- *
- * Designs and templates are one list with one row shape, because opening
- * either is one code path. The tabs filter by asking the api for a kind; the
- * order is the api's too — last update, newest first — so there is one place
- * "newest first" is decided.
- */
 export default async function Home({
   searchParams,
 }: {
@@ -28,7 +20,6 @@ export default async function Home({
 }) {
   const identity = await signedInOrSignIn();
   const chosen = chosenMembership(identity, (await cookies()).get(WORKSPACE_COOKIE)?.value);
-  // Somebody in no Workspace has nothing to list, and one screen changes that.
   if (chosen === null) redirect(NEW_WORKSPACE);
 
   const asked = (await searchParams).tab;

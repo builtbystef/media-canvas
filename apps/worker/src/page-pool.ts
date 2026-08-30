@@ -1,21 +1,13 @@
-// The one browser-page pool this worker renders through: eight pages, reused
-// across every call, so the synchronous path and the queue consumer share the
-// same Chromium rather than launching one per file.
-
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright-core";
 
 import { contextOptions, launchOptions, renderEnvironment } from "./environment.ts";
 import { renderOnPage, type RenderOptions } from "./render.ts";
 
-/** How many pages the worker keeps in flight at once. */
 export const PAGE_POOL_SIZE = 8;
 
-/** The pool every production render goes through. */
 export type PagePool = {
   render(svg: string, options: RenderOptions): Promise<Uint8Array>;
   close(): Promise<void>;
-  /** Pages opened since the pool started. Sequential renders reuse, so this
-   *  stays at one until a page dies and another takes its place. */
   readonly opened: number;
 };
 
@@ -25,11 +17,6 @@ type Slot = {
   scale: number;
 };
 
-/**
- * Open a pool. The browser is launched on the first render, so a worker that
- * only validates pays nothing. `size` is how many pages may render at once;
- * production is eight.
- */
 export function createPagePool(options?: {
   size?: number;
   onPage?: (page: Page) => void;
@@ -128,8 +115,6 @@ async function openSlot(browser: Browser, scale: number): Promise<Slot> {
   page.on("crash", () => {
     void context.close().catch(() => undefined);
   });
-  // Production markup is self-contained. Anything the page still tries to
-  // fetch is a pipeline bug; abort it so a dead host cannot paint a hole.
   await page.route("**/*", (route) => {
     const url = route.request().url();
     if (url.startsWith("data:") || url.startsWith("about:")) {

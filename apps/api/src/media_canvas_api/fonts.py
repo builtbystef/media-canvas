@@ -55,13 +55,8 @@ from media_canvas_api.worker import FontFacts, FontInspection, UnreadableFont
 
 router = APIRouter(prefix="/api/v1", tags=["fonts"])
 
-# What a font file may weigh (node 3ko2p7). A face is hundreds of kilobytes;
-# ten megabytes is a CJK family, and anything past it is a mistake.
 MAX_FONT_BYTES = 10 * 1024 * 1024
 
-# One machine-readable code per way a file can fail to be a Font Asset, each
-# with the sentence a person can act on. The editor branches on the code and
-# shows the message; it never matches on prose.
 TOO_LARGE = (
     "file_too_large",
     "A font file may be at most 10 MB. This one is larger — check that it is "
@@ -83,16 +78,10 @@ UNPARSEABLE_FONT = (
     "exporting it from your font tool again.",
 )
 
-# What the store is told the bytes are, and what a client is later served.
 CONTENT_TYPES = {FontFormat.ttf: "font/ttf", FontFormat.otf: "font/otf"}
 
-# The same answer for a font this Workspace does not hold as for one that was
-# never uploaded anywhere: an id is a hash, and a stranger who guesses one
-# learns nothing from asking.
 UNREACHABLE = "No such font."
 
-# The one asset that refuses to go: a face the product came with, which every
-# Workspace is seeded with and none may take apart.
 BUNDLED = (
     "asset_is_bundled",
     "This font came with the product, so it cannot be deleted. A font that "
@@ -188,9 +177,6 @@ async def upload_font(
     facts = readable(await worker.inspect_font(content))
     font_format = FontFormat(facts.format)
     key = f"{editor.workspace_id}/fonts/{font_id}.{font_format}"
-    # The object first and the row second: an interrupted upload leaves bytes
-    # nothing points at, which cost nothing, rather than a record of a font
-    # that cannot be served.
     await run_in_threadpool(
         storage.assets.put, key, content, CONTENT_TYPES[font_format]
     )
@@ -211,8 +197,6 @@ async def upload_font(
             original_filename=(file.filename or "")[:255],
             created_at=clock(),
         )
-        # Two identical uploads racing each other: the loser takes the winner's
-        # record, which is the same answer a re-upload a day later would get.
         .on_conflict_do_nothing()
         .returning(FontAsset.id)
     )

@@ -20,8 +20,6 @@ afterEach(async () => {
   running = undefined;
 });
 
-/** The service under test, listening on a port the OS picks, with a caller
- *  that speaks to it the way the api does. */
 async function serve(): Promise<(path: string, init?: RequestInit) => Promise<Response>> {
   const server = createInternalService({ token: TOKEN });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -55,8 +53,6 @@ test("a request carrying the wrong credential is refused", async () => {
   expect(response.status).toBe(401);
 });
 
-/** A Template over the Variables under test, each bound at a site that takes
- *  its type, so the document authority sees a document worth having. */
 function template(variables: VariableDecl[]): DesignDocument {
   const tokens = variables.filter(
     (variable) => variable.type === "text" || variable.type === "number",
@@ -126,13 +122,11 @@ function template(variables: VariableDecl[]): DesignDocument {
   };
 }
 
-/** The Variables of the issue's worked example: one defaulted, one required. */
 const PRICED: VariableDecl[] = [
   { name: "headline", type: "text", default: "Sale" },
   { name: "price", type: "number" },
 ];
 
-/** A validate call, as the api makes it. */
 async function validateBatch(
   call: (path: string, init?: RequestInit) => Promise<Response>,
   payload: unknown,
@@ -197,7 +191,6 @@ test("Rows count from zero, so a bad first Row is row index 0", async () => {
 test("a broken Template is reported as the document authority reports it, not as bad Rows", async () => {
   const call = await serve();
   const broken = template(PRICED);
-  // A token naming no declared Variable: a Template problem, in every Row at once.
   broken.elements[0] = { ...broken.elements[0], content: "{{nowhere}}" } as never;
 
   const { body } = await validateBatch(call, {
@@ -243,8 +236,6 @@ test("a cell that is not a number is one error naming the Variable", async () =>
   const { body } = await validateBatch(call, {
     workspaceId: "workspace-1",
     template: template(PRICED),
-    // The JSON number grammar and nothing looser: no trailing text, no leading
-    // plus, no bare fraction.
     rows: [{ price: "4.99x" }, { price: "+1" }, { price: ".5" }, { price: "-4.99e2" }],
     cells: true,
   });
@@ -352,8 +343,6 @@ test("an environment describing no runnable service fails naming the variable at
   ).toThrow("WORKER_INTERNAL_PORT");
 });
 
-/** Ask the service what a font file is, the way the api asks: the bytes
- *  themselves as the body, and the shared credential in the header. */
 async function inspectFont(
   call: (path: string, init?: RequestInit) => Promise<Response>,
   bytes: ArrayBuffer,
@@ -369,7 +358,6 @@ async function inspectFont(
   return { status: response.status, body: (await response.json()) as Record<string, unknown> };
 }
 
-/** One vendored file's bytes, by the name of the file. */
 function bundled(file: string): ArrayBuffer {
   const font = bundledFonts.find((candidate) => candidate.file === file);
   if (font === undefined) throw new Error(`no bundled font at ${file}`);
@@ -422,10 +410,6 @@ test("a file of the right shape the parser cannot read is told apart from one of
   expect(body).toEqual({ readable: false, problem: "unparseable_font" });
 });
 
-/** A WOFF2 file wrapping a font: the signature that says which format this
- *  is, the flavor of the font within, and the lengths. Nothing here
- *  compresses the wrapped font — the signature is as far as any reader of a
- *  file this product does not take ever gets. */
 function woff2(font: ArrayBuffer): ArrayBuffer {
   const HEADER = 48;
   const file = new Uint8Array(HEADER + font.byteLength);
@@ -451,11 +435,6 @@ test("a variable font is readable, and reports itself as one", async () => {
   expect(body).toMatchObject({ readable: true, font: { variable: true, family: "Oswald" } });
 });
 
-/** The same font, carrying one variation axis — which is what makes a file a
- *  variable font, and what an uploader is refused for. Written by hand
- *  because no vendored file is one: the sfnt directory is rebuilt with one
- *  more table in it, and the axis is the weight axis a variable text face
- *  would carry. */
 function withVariationAxes(font: ArrayBuffer): ArrayBuffer {
   const source = new DataView(font);
   const count = source.getUint16(4);
@@ -488,7 +467,6 @@ function withVariationAxes(font: ArrayBuffer): ArrayBuffer {
   return file.buffer;
 }
 
-/** An `fvar` table declaring one axis: weight, 100 to 900, default 400. */
 function weightAxis(): Uint8Array {
   const table = new Uint8Array(16 + 20);
   const out = new DataView(table.buffer);

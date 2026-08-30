@@ -9,15 +9,6 @@ import {
   rememberedWorkspace,
 } from "./workspaces.ts";
 
-/**
- * Which Workspace the shell is showing.
- *
- * A Workspace owns the documents, so every page is read through one, and the
- * switcher's choice has to survive a reload — which is why the choice is a
- * cookie: the list is rendered on the server, before anything in the browser
- * could tell it which Workspace to ask for.
- */
-
 function membership(id: string, name: string, role: MembershipView["role"]): MembershipView {
   return { workspace: { id, name }, role };
 }

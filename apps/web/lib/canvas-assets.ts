@@ -2,8 +2,6 @@ import { listFonts, listImages } from "@media-canvas/api-client";
 import type { AssetResolver, DesignDocument } from "@media-canvas/core";
 import { referencedAssets } from "@media-canvas/core";
 
-/** The assets the compiled preview will ask for: authored references plus
- *  Image Variable defaults that resolve will paint. */
 function previewReferencedAssets(document: DesignDocument) {
   const wanted = referencedAssets(document);
   const defaults = (document.variables ?? []).flatMap((variable) =>
@@ -14,21 +12,11 @@ function previewReferencedAssets(document: DesignDocument) {
     : { ...wanted, images: [...new Set([...wanted.images, ...defaults])] };
 }
 
-/**
- * The assets a document is compiled with, held in the browser.
- *
- * The compiler asks for font bytes and image sizes while it draws, and answers
- * synchronously (ADR-0006), so everything a document references is fetched
- * before the first compile and kept for every compile after it. Font bytes are
- * the compiler's own: it parses them for metrics and inlines them into the
- * markup, so the editor injects no font rules of its own.
- */
 export type AssetLibrary = {
   fonts: Map<string, ArrayBuffer>;
   images: Map<string, { url: string; width: number; height: number }>;
 };
 
-/** The resolver the core compiles through, over assets already in hand. */
 export function resolverFor(library: AssetLibrary): AssetResolver {
   return {
     fontBytes(fontAssetId) {
@@ -49,9 +37,6 @@ export function resolverFor(library: AssetLibrary): AssetResolver {
   };
 }
 
-/** The assets the document references that the library cannot answer for — a
- *  deleted asset, or one belonging to another Workspace. There is no partial
- *  compile: without every one of them, nothing is drawn (issue ljzbq7). */
 export function missingAssets(document: DesignDocument, library: AssetLibrary): string[] {
   const wanted = previewReferencedAssets(document);
   return [
@@ -60,16 +45,6 @@ export function missingAssets(document: DesignDocument, library: AssetLibrary): 
   ];
 }
 
-/**
- * Fetch what the document draws with, plus any fonts an editor operation is
- * about to introduce, from the Workspace that holds it.
- *
- * The two list endpoints say what the Workspace has and where each asset is
- * served from; only the fonts requested here are then pulled down, since a face
- * is hundreds of kilobytes and a Workspace may hold many. Anything that cannot
- * be fetched is simply absent from the library, and the caller can refuse a
- * half-drawn canvas while naming what is missing.
- */
 export async function loadAssets(
   workspaceId: string,
   document: DesignDocument,

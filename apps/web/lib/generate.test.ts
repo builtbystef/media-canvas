@@ -34,7 +34,6 @@ test("a text Variable is prefilled with its default, and an empty minLength fiel
   expect(filled).toEqual({ headline: "Sale" });
   expect(fieldErrors(document, filled)).toEqual({});
 
-  // Worked example: left empty, the button is blocked and the input says why.
   const empty = { headline: "" };
   expect(fieldErrors(document, empty)).toEqual({
     headline: 'the Variable "headline" must be at least 1 characters long',

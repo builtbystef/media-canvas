@@ -23,21 +23,11 @@ import {
   snapshotLine,
 } from "./job-view.ts";
 
-/**
- * The job view's numbers and its refresh, as pure functions.
- *
- * Counts come from the payload the server just returned — never from adding
- * this refresh to the last — so a missed or reordered response cannot skew
- * them. The cadence is a delay that is either two seconds or stop-for-good.
- */
-
 function counts(partial: Partial<Progress>): Progress {
   return { queued: 0, rendering: 0, succeeded: 0, failed: 0, skipped: 0, ...partial };
 }
 
 test("progress is the counts this response carried, not a running total", () => {
-  // 1000 Rows: 812 succeeded, 6 failed, 0 skipped → 818 of 1000 finished,
-  // remaining 182. The bar and the four counts are read off this object.
   const shown = progressOf(counts({ succeeded: 812, failed: 6, skipped: 0, queued: 182 }));
 
   expect(shown).toEqual({
@@ -109,8 +99,6 @@ test("the failed chip leaves exactly the failed Rows listed", () => {
     row(8, "failed"),
     row(9, "failed"),
   ];
-  // Six failed among the ten — the chip's count is the server's, the list is
-  // those six in the order they were submitted.
   const failed = rowsShown(rows, "failed");
 
   expect(failed).toHaveLength(6);
@@ -160,8 +148,6 @@ test("the output format is named the way the job asked for it", () => {
 });
 
 test("the zip is enabled only when the job is terminal with at least one success", () => {
-  // Worked examples: rendering with 400 succeeded → disabled; completed with
-  // 0 succeeded → disabled; completed with 1 succeeded → enabled.
   const stillRendering = archiveControl("rendering", 400);
   expect(stillRendering.enabled).toBe(false);
   if (stillRendering.enabled) throw new Error("expected a reason");
@@ -180,7 +166,6 @@ test("the zip is enabled only when the job is terminal with at least one success
 });
 
 test("a succeeded Row links at the address the job carried, and no other Row does", () => {
-  // Worked example: 812 succeeded and 6 failed → 812 links, none on the failed.
   const rows: RowView[] = [
     ...Array.from({ length: 812 }, (_, index) => ({
       index,
@@ -244,7 +229,6 @@ test("neither cancel nor delete is offered when the caller cannot end jobs", () 
 });
 
 test("the cancel confirm names the finished renders that are kept", () => {
-  // Worked example: 812 succeeded at the moment of the confirm → 812 kept.
   const text = cancelConfirmText(812);
   expect(text).toContain("812");
   expect(text).toMatch(/kept/);
@@ -252,7 +236,6 @@ test("the cancel confirm names the finished renders that are kept", () => {
 });
 
 test("the delete confirm names the output files it destroys", () => {
-  // Worked example: a completed job with 812 succeeded Rows → 812 files.
   const text = deleteConfirmText(812);
   expect(text).toContain("812");
   expect(text).toMatch(/files/);

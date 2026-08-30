@@ -11,9 +11,6 @@ export type CanvasDropSource =
   | { kind: "raster-file"; file: File }
   | { kind: "svg-file"; file: File };
 
-/** Drag-over cannot read file bytes or custom payloads; the type list is all
- *  it is allowed to see. One handler serves Preset Shapes, Image Assets,
- *  raster uploads, and SVG import. */
 export function canAcceptCanvasDrop(data: { types?: readonly string[] }): boolean {
   return (
     data.types?.includes(PRESET_SHAPE_DRAG_TYPE) === true ||

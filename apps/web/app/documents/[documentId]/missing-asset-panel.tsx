@@ -15,11 +15,6 @@ import {
 } from "../../../components/ui/dialog";
 import { FontPicker } from "./font-picker";
 
-/**
- * The blocking panel that sits in place of the compiled preview when a
- * document names an asset the library cannot fetch. Chrome around it stays
- * up so Replace — and a re-upload of the same bytes — stay reachable.
- */
 export function MissingAssetPanel({
   missing,
   fonts,

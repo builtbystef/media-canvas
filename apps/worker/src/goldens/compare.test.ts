@@ -7,7 +7,6 @@ import {
   WORKER_MAX_DIFF_RATIO,
 } from "./compare.ts";
 
-/** A solid RGBA buffer, one colour. */
 function solid(
   width: number,
   height: number,
@@ -23,7 +22,6 @@ function solid(
   return data;
 }
 
-/** Paint a rectangle of pixels a different colour, in place. */
 function fill(
   data: Uint8Array,
   width: number,
@@ -68,8 +66,6 @@ test("one differing pixel fails a worker golden, because the ratio is not 0", ()
 });
 
 test("the parity fixture allows a 0.534% glyph-edge drift and rejects a layout shift or a fill change", () => {
-  // 100×100 = 10,000 pixels. 53 differing pixels is 0.530%, under 0.006;
-  // that is the prototype's 0.534% worked example, scaled to this canvas.
   const expected = solid(100, 100, 240, 240, 240);
   const glyphEdge = expected.slice();
   fill(glyphEdge, 100, 0, 0, 53, 1, 16, 16, 16);
@@ -78,14 +74,12 @@ test("the parity fixture allows a 0.534% glyph-edge drift and rejects a layout s
   expect(glyph.diffRatio).toBeCloseTo(0.0053);
   expect(glyph.passed).toBe(true);
 
-  // A one-line layout shift: a whole 100-pixel row moved. 1% > 0.006.
   const shifted = expected.slice();
   fill(shifted, 100, 0, 10, 100, 11, 16, 16, 16);
   const layout = compareRgba(shifted, expected, 100, 100, PARITY_MAX_DIFF_RATIO);
   expect(layout.diffRatio).toBe(0.01);
   expect(layout.passed).toBe(false);
 
-  // A changed fill colour paints every pixel. That is not glyph-edge AA.
   const recolored = solid(100, 100, 0, 80, 255);
   const fillChange = compareRgba(recolored, expected, 100, 100, PARITY_MAX_DIFF_RATIO);
   expect(fillChange.diffRatio).toBe(1);

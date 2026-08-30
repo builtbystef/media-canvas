@@ -12,13 +12,6 @@ export type PromoteCall = (options: { path: { documentId: string } }) => Promise
   response?: { status?: number };
 }>;
 
-/**
- * The one promote: copy the design, then open the template.
- *
- * The list row and the editor top bar both land here, so a naming dialog
- * cannot grow on one side and not the other. The name is the design's; rename
- * happens in the editor afterwards.
- */
 export async function promoteToTemplate(
   documentId: string,
   promote: PromoteCall = promoteDocument,

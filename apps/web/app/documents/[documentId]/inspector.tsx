@@ -44,16 +44,12 @@ import {
 } from "../../../components/ui/select";
 import { Slider } from "../../../components/ui/slider";
 
-/** The inspector's own repeats: the panel, a section inside it, the note under
- * a heading, and the two-up grid its paired numbers sit in. */
 const PANEL =
   "mt-6 max-h-[min(70vh,42rem)] min-w-0 overflow-auto rounded-lg bg-card p-3 ring-1 ring-foreground/10";
 const SECTION = "border-t py-3";
 const HEADING = "font-heading text-sm font-medium";
 const NOTE = "text-xs text-muted-foreground";
 const PAIR = "grid grid-cols-2 gap-x-1.5";
-/** One labelled control, stacked; the label is a scrub target where the value
- * is a number, so it carries the resize cursor and takes no text selection. */
 const FIELD = "mb-2 grid gap-1 text-xs";
 const SCRUB = "cursor-ew-resize select-none";
 const CONTROL = "h-7 w-full min-w-0 text-xs";
@@ -78,8 +74,6 @@ type InspectorProps = {
   onHoldFont?: (font: FontAssetView) => Promise<boolean>;
 };
 
-/** The single property surface for the Design Document. Text controls are
- * explicitly Element properties: v1 has no rich spans. */
 export function Inspector({
   document,
   selected,
@@ -597,11 +591,6 @@ function AlignmentToolbar({
     ["middle-vertical", "Align vertical middles"],
     ["bottom", "Align bottom"],
   ];
-  // One three-column grid for all eight actions, so the two distribute buttons
-  // take the last row. The panel is narrow and these labels are wider than a
-  // cell, so a cell wraps to a second line rather than clipping its label —
-  // shadcn's Button is nowrap and fixed-height by default, which would cut the
-  // wording in half.
   const CELL = "h-auto min-w-0 whitespace-normal py-1 leading-tight";
   return (
     <div
@@ -757,10 +746,6 @@ function SelectField({
   options: readonly (readonly [string, string])[];
   onCommit: (value: string) => void;
 }) {
-  // The trigger is a button, so the label points at it by id rather than
-  // wrapping it — a `<label>` around a button labels nothing. `items` is what
-  // the closed trigger reads its text off; without it Base UI would show the
-  // stored value ("left") where the option's wording belongs ("Left").
   const id = useId();
   if (value.kind === "none") return null;
   const items = Object.fromEntries([...options, ["", "Mixed"] as const]);
@@ -892,9 +877,6 @@ function FillEditor({
                     )
                   }
                 />
-                {/* Dragging a stop is one gesture: every move previews against
-                    the document the drag started from, and the release is what
-                    commits — so the whole drag is one Undo Entry. */}
                 <Slider
                   aria-label={`Stop ${String(index + 1)} offset`}
                   min={0}

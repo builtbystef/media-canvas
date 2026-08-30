@@ -21,15 +21,6 @@ import {
   failedToLoadInvite,
 } from "./failures.ts";
 
-/**
- * The refusals a person can meet, and the next move each one names.
- *
- * The statuses are the api's, from the accounts spec (88v6vg): 401 wrong
- * digits, 410 spent, 429 too fast, 422 malformed. What is asserted here is
- * that each stays its own answer, and that an unrecognised one still says
- * something true rather than nothing.
- */
-
 test("the three sign-in refusals are told apart, and each names its next move", () => {
   const wrongDigits = failedToVerifyCode(401);
   const spent = failedToVerifyCode(410);
@@ -59,8 +50,6 @@ test("a lost session and a rejected name are different workspace refusals", () =
 });
 
 test("nothing recognisable back is reported as the app being unreachable", () => {
-  // No response at all, and a status no route documents, are the same thing
-  // to the person reading it: the app could not be reached.
   for (const explain of [failedToSendCode, failedToVerifyCode, failedToCreateWorkspace]) {
     expect(explain(undefined)).toContain("could not be reached");
     expect(explain(500)).toContain("could not be reached");
@@ -68,20 +57,9 @@ test("nothing recognisable back is reported as the app being unreachable", () =>
 });
 
 test("a refusal one call knows is not carried into another", () => {
-  // 410 is a sign-in code's answer; workspace creation has no such refusal,
-  // and must not borrow its wording.
   expect(failedToCreateWorkspace(410)).toContain("could not be reached");
   expect(failedToSendCode(401)).toContain("could not be reached");
 });
-
-/**
- * The refusals the shell can meet once somebody is inside.
- *
- * The api gates every document write on the Role in the record's Workspace and
- * on the Revision the caller loaded (qqzqhz), so a refusal here is either a
- * Role that changed under somebody, a document that is gone, or a save that
- * would overwrite another one.
- */
 
 test("a document refusal says which of the three things went wrong", () => {
   const notAllowed = failedToChangeDocument(403);

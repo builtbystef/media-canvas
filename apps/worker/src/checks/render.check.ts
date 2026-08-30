@@ -1,9 +1,3 @@
-// The image's render check: run it inside the pinned image and it says whether
-// `render(svg, options)` produces the file a user downloads — PNG, JPEG, or
-// PDF — from compiled markup (issue zycblh).
-//
-//   pnpm --filter worker run image:check
-
 import assert from "node:assert/strict";
 import { inflateSync } from "node:zlib";
 import { test } from "node:test";
@@ -13,8 +7,6 @@ import { compile } from "@media-canvas/core";
 import { render } from "../render.ts";
 import { bundledAssets, pngSize, textDocument } from "./fixture.ts";
 
-/** Handwritten canvas markup: `render` takes SVG, not a Design Document, so
- *  the size and alpha cases do not need the compiler. */
 function canvasSvg(width: number, height: number, inner = ""): string {
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${String(width)}" height="${String(height)}" ` +
@@ -34,7 +26,6 @@ function isPdf(bytes: Uint8Array): boolean {
   return Buffer.from(bytes.subarray(0, 5)).toString("latin1") === "%PDF-";
 }
 
-/** PNG colour type from IHDR: 6 is RGBA, 2 is RGB. */
 function pngColorType(bytes: Uint8Array): number {
   return bytes[25] ?? -1;
 }
@@ -99,8 +90,6 @@ void test("a 1200×630 canvas prints a 12.5 × 6.5625 inch PDF whose text is sel
   assert.equal(isPdf(bytes), true);
   const page = pdfPageInches(bytes);
   assert.equal(page.width, 12.5);
-  // Chromium's printToPDF records 6.5625in as 473.03998pt (~6.57in). The
-  // formula is still 1 canvas pixel = 1/96 inch; this is that measurement.
   assert.ok(
     Math.abs(page.height - 6.5625) < 0.01,
     `page height ${String(page.height)} in is not 630/96 in`,
@@ -142,7 +131,6 @@ void test("an image the page cannot fetch fails naming the cause, not a placehol
   );
 });
 
-/** MediaBox in inches. PDF points are 1/72 inch. */
 function pdfPageInches(bytes: Uint8Array): { width: number; height: number } {
   const source = pdfDecoded(bytes);
   const box = /\/MediaBox\s*\[\s*([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s*\]/.exec(source);
@@ -153,8 +141,6 @@ function pdfPageInches(bytes: Uint8Array): { width: number; height: number } {
   };
 }
 
-/** Visible strings from Tj operators, mapped through ToUnicode so a CID
- *  font still yields the document's characters. */
 function pdfText(bytes: Uint8Array): string {
   const source = pdfDecoded(bytes);
   const cmap = toUnicodeMap(source);
@@ -213,7 +199,6 @@ function unescapePdf(value: string): string {
     .replaceAll("\\\\", "\\");
 }
 
-/** The file with every FlateDecode stream inflated, so operators are readable. */
 function pdfDecoded(bytes: Uint8Array): string {
   const file = Buffer.from(bytes);
   const chunks: Buffer[] = [];

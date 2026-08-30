@@ -5,11 +5,6 @@ import { failedToChangeDocument } from "./failures.ts";
 import { outputFormat, type GenerateFormat } from "./generate.ts";
 import { jobPath } from "./routes.ts";
 
-/**
- * The Batch tab: parse a CSV, map its headers onto the Template's Variables,
- * and submit the file's own bytes. Cell types stay the server's.
- */
-
 const NAME_COLUMN = "_name";
 
 export type HeaderMapping = {
@@ -20,7 +15,6 @@ export type HeaderMapping = {
   nameColumn: boolean;
 };
 
-/** Five outcomes for a header row against the Template's declared Variables. */
 export function mapHeaders(
   headers: readonly string[],
   variables: readonly VariableDecl[],
@@ -58,7 +52,6 @@ export type PreparedBatch = {
   idempotencyKey: string;
 };
 
-/** Parse the file and mint the key that travels with every submit of this parse. */
 export function prepareBatch(
   csvText: string,
   options: { mintKey?: () => string } = {},
@@ -88,7 +81,6 @@ function asTable(data: unknown[]): string[][] {
   });
 }
 
-/** Papa often emits an empty record for a trailing newline; Python csv does not. */
 function dropTrailingEmpty(rows: string[][]): string[][] {
   if (rows.length === 0) return rows;
   const last = rows[rows.length - 1];
@@ -102,7 +94,6 @@ export type RefusalError = {
   message: string;
 };
 
-/** The 422 body: row-indexed errors keyed to Variable names. */
 export type RefusalBody = {
   errors: readonly RefusalError[];
 };
@@ -120,10 +111,6 @@ export type PreviewRefusal = {
   messagesByRow: ReadonlyMap<number, readonly string[]>;
 };
 
-/**
- * Overlay a refusal onto a parsed preview. The file, rows, and mapping stay;
- * this only names which data rows are wrong.
- */
 export function mergeRefusal(
   preview: Pick<PreparedBatch, "headers" | "rows">,
   body: RefusalBody,
@@ -192,10 +179,6 @@ export type CreateJobCall = (options: {
   response?: { status?: number };
 }>;
 
-/**
- * Send the file's own bytes. Format and the idempotency key travel as query
- * parameters. The client never types a cell and never builds JSON rows.
- */
 export async function submitBatch(
   request: SubmitBatchRequest,
   create: CreateJobCall = createJob as CreateJobCall,

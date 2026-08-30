@@ -34,8 +34,6 @@ class AssetRefusalView(BaseModel):
     error: Refusal
 
 
-# What a route declares, so that the generated client types the one 422 an
-# editor actually handles.
 REFUSES: dict[int | str, dict[str, Any]] = {
     422: {
         "model": AssetRefusalView,
@@ -43,7 +41,6 @@ REFUSES: dict[int | str, dict[str, Any]] = {
     }
 }
 
-# And what a delete declares: the one asset that refuses to be deleted.
 PROTECTS: dict[int | str, dict[str, Any]] = {
     409: {
         "model": AssetRefusalView,
@@ -51,11 +48,6 @@ PROTECTS: dict[int | str, dict[str, Any]] = {
     }
 }
 
-# How long a served asset may be kept, and by whom. The id is the hash of the
-# bytes, so the answer at an address can never change — `immutable` is simply
-# true, and the year is the lifetime that gives it something to be immutable
-# for. `private` keeps the bytes in the one browser that was allowed them:
-# every asset belongs to a Workspace, and nothing shared may cache them.
 IMMUTABLE = "private, max-age=31536000, immutable"
 
 

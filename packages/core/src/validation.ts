@@ -1,12 +1,7 @@
-// Document validation: the one authority on whether unknown input is a valid
-// v1 Design Document. The editor, the render worker, and the api all ask this
-// function, so none of them can disagree about what a document is.
-
 import { z } from "zod";
 
 import type { DesignDocument, Element, VarRef, VariableType } from "./document.ts";
 
-/** One problem with a document or a value, naming what it is about. */
 export type ValidationError = {
   variable?: string;
   elementId?: string;
@@ -14,16 +9,10 @@ export type ValidationError = {
   message: string;
 };
 
-/** The one color syntax v1 accepts, wherever a color appears: `#RRGGBB` or
- *  `#RRGGBBAA`. Variable values are held to the same pattern. */
 export const COLOR_PATTERN = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
-/** The interpolation token syntax, `{{name}}`. v1 has no escape syntax for a
- *  literal `{{`, so every match is a token — the one place that is written
- *  down, since validation finds tokens and resolution substitutes them. */
 export const INTERPOLATION_TOKEN = /\{\{([^{}]*)\}\}/g;
 
-/** The `{{name}}` tokens a string holds, in the order they appear. */
 export function interpolationTokens(content: string): string[] {
   return [...content.matchAll(INTERPOLATION_TOKEN)].map((match) => match[1] ?? "");
 }
@@ -36,9 +25,6 @@ function isVarRef(value: unknown): value is VarRef {
   return isRecord(value) && "$var" in value;
 }
 
-/** A property that accepts more than one shape. Dispatching on the value's own
- *  shape — instead of unioning the branches — keeps the reported error the one
- *  from the branch the author meant, not a blanket "invalid union". */
 function oneOf(expected: string, pick: (value: unknown) => z.ZodType | undefined): z.ZodType {
   return z.unknown().superRefine((value, ctx) => {
     const schema = pick(value);
@@ -302,7 +288,6 @@ const documentSchema = z.object({
   elements: z.array(elementSchema),
 });
 
-/** `elements[0].fill.stops[1].offset` — the property an error is about. */
 function formatPath(path: readonly PropertyKey[]): string {
   return path
     .map((step) => (typeof step === "number" ? `[${String(step)}]` : `.${String(step)}`))
@@ -310,8 +295,6 @@ function formatPath(path: readonly PropertyKey[]): string {
     .replace(/^\./, "");
 }
 
-/** The id of the element a failing property belongs to: the innermost value on
- *  the path that carries one. */
 function elementIdAtPath(root: unknown, path: readonly PropertyKey[]): string | undefined {
   let current: unknown = root;
   let elementId: string | undefined;
@@ -325,7 +308,6 @@ function elementIdAtPath(root: unknown, path: readonly PropertyKey[]): string | 
   return elementId;
 }
 
-/** The name of the Variable declaration a failing property belongs to. */
 function variableAtPath(root: unknown, path: readonly PropertyKey[]): string | undefined {
   if (path[0] !== "variables" || typeof path[1] !== "number") return undefined;
   const declarations = isRecord(root) ? root["variables"] : undefined;
@@ -336,7 +318,6 @@ function variableAtPath(root: unknown, path: readonly PropertyKey[]): string | u
     : undefined;
 }
 
-/** The value a failing property holds, so that an error can talk about it. */
 function valueAtPath(root: unknown, path: readonly PropertyKey[]): unknown {
   let current: unknown = root;
   for (const step of path) {
@@ -347,9 +328,6 @@ function valueAtPath(root: unknown, path: readonly PropertyKey[]): unknown {
   return current;
 }
 
-/** v1 binds a Variable to text content tokens, image source, solid color sites,
- *  and visibility — nowhere else. A reference anywhere else fails its property's
- *  own type check, so say what actually went wrong. */
 const VAR_REF_NOT_PERMITTED =
   "a Variable reference is not permitted here — v1 binds a Variable to text content tokens, " +
   "image source, solid colors, and visibility only";
@@ -415,9 +393,6 @@ function duplicateVariableErrors(doc: DesignDocument): ValidationError[] {
   return errors;
 }
 
-/** One place a document names a Variable, and the Variable types that place
- *  can take: v1 binds a Variable to text content tokens, image source, solid
- *  colors, and visibility, and each of those takes one kind of Variable. */
 type Reference = {
   name: string;
   site: string;
@@ -426,8 +401,6 @@ type Reference = {
 };
 
 const SOLID_COLOR: readonly VariableType[] = ["color"];
-/** A token interpolates into a string, which text and numbers are spelled as
- *  and nothing else is (the Out of Scope list: no formatting, no localization). */
 const TOKEN: readonly VariableType[] = ["text", "number"];
 
 function references(doc: DesignDocument): Reference[] {
@@ -468,7 +441,6 @@ function references(doc: DesignDocument): Reference[] {
   return found;
 }
 
-/** "a text", "a color or a number" — the types a site names in its error. */
 function listTypes(types: readonly VariableType[]): string {
   const named = types.map((type) => `a ${type}`);
   return named.length < 2
@@ -476,9 +448,6 @@ function listTypes(types: readonly VariableType[]): string {
     : `${named.slice(0, -1).join(", ")} or ${String(named.at(-1))}`;
 }
 
-/** A site takes the kind of Variable it can paint. Without this, a row of
- *  values could pass validation and still reach the compiler with a number
- *  where a color belongs. */
 function referenceTypeErrors(doc: DesignDocument): ValidationError[] {
   const declared = new Map((doc.variables ?? []).map((decl) => [decl.name, decl.type]));
   const errors: ValidationError[] = [];
@@ -512,12 +481,6 @@ function unknownVariableErrors(doc: DesignDocument): ValidationError[] {
   return errors;
 }
 
-/**
- * Validate unknown input as a v1 Design Document: an empty list means valid.
- * Shape errors are reported alone — the checks that span the document (unique
- * ids, Variable references) run only once the shape holds, so that one mistake
- * yields one error instead of a cascade.
- */
 export function validateDocument(doc: unknown): ValidationError[] {
   const result = documentSchema.safeParse(doc);
   if (!result.success) return shapeErrors(doc, result.error.issues);

@@ -16,8 +16,6 @@ import type {
 } from "./index.ts";
 import { compile } from "./index.ts";
 
-/** The rect, ellipse, and vector elements of this slice consult no asset, so a
- *  resolver that refuses every call proves they never reach for one. */
 function assets(): AssetResolver {
   return {
     fontBytes() {
@@ -469,15 +467,10 @@ test("an authored string cannot break out of the attribute it is written into", 
   expect(compiled).not.toContain('onload="alert');
 });
 
-/** The bundled bold font the spec's worked examples are measured against:
- *  Oswald Bold, the one bundled bold face for which `LIMITED OFFER` at
- *  `fontSize: 30` still fits `LIMITED` on a 120-wide line. */
 const oswaldBold = bundledFonts.find(
   (font) => font.family === "Oswald" && font.weight === 700 && font.style === "normal",
 )!;
 
-/** A resolver that serves the bundled font set, so that the metrics under test
- *  are a real font's own and not a stand-in's. */
 function fontAssets(): AssetResolver {
   return {
     ...assets(),
@@ -511,7 +504,6 @@ function text(overrides: Partial<TextElement> = {}): TextElement {
   };
 }
 
-/** The `x`/`y` of every line the compiled markup positions, in order. */
 function lines(compiled: string): { x: string; y: string; text: string }[] {
   return [...compiled.matchAll(/<tspan x="([^"]*)" y="([^"]*)">([^<]*)<\/tspan>/g)].map(
     ([, x, y, content]) => ({ x: x!, y: y!, text: content! }),
@@ -536,8 +528,6 @@ test("a line is measured with the font's kerning applied", () => {
   const kerned = compile(document([text({ content: "AV", align: "right" })]), fontAssets());
   const apart = compile(document([text({ content: "A V", align: "right" })]), fontAssets());
 
-  // Oswald kerns A against V by -1.02 px at this size: right-aligning the pair
-  // puts it further right than its two unkerned advances would.
   expect(lines(kerned)[0]?.x).toBe("258.71");
   expect(lines(apart)[0]?.x).toBe("250.01");
 });
@@ -548,7 +538,6 @@ test("letter spacing lands in the gaps between glyphs, not after the last one", 
     fontAssets(),
   );
 
-  // Five glyphs, four gaps: 75.03 + 4 × 2 = 83.03 wide inside a 290 wrap width.
   expect(lines(compiled)[0]?.x).toBe("206.97");
 });
 
@@ -567,7 +556,6 @@ test("the line advance is the font size times the line height", () => {
     fontAssets(),
   );
 
-  // A 60 px line box: 15 of half-leading, then the 35.79 ascent, then 60 on.
   expect(lines(compiled).map((line) => line.y)).toEqual(["50.79", "110.79"]);
 });
 
@@ -575,8 +563,6 @@ test("a baseline sits half the leading plus the font's own ascent below its line
   const half = compile(document([text({ content: "OFFER", lineHeight: 1.2 })]), fontAssets());
   const flush = compile(document([text({ content: "OFFER", lineHeight: 1 })]), fontAssets());
 
-  // Oswald Bold's ascender is 1193/1000 em, so 35.79 px at this font size; a
-  // line height of 1.2 adds (36 − 30) / 2 of half-leading above it.
   expect(lines(half)[0]?.y).toBe("38.79");
   expect(lines(flush)[0]?.y).toBe("35.79");
 });
@@ -588,8 +574,6 @@ test("anchor moves the whole block of line boxes, and nothing within it", () => 
       fontAssets(),
     );
 
-  // Three lines of 36 px each: the block is 108 tall, so middle at 400 and
-  // bottom at 454 have to draw exactly what top at 346 draws.
   expect(block("middle", 400)).toBe(block("top", 346));
   expect(block("bottom", 454)).toBe(block("top", 346));
 });
@@ -602,7 +586,6 @@ test("a middle-anchored block is centered on the element's y, first baseline abo
 
   const baselines = lines(compiled).map((line) => Number(line.y));
   expect(baselines).toEqual([384.79, 420.79, 456.79]);
-  // Half-leading plus ascent below the block's top, three 36 px boxes tall.
   expect(baselines[0]! - 3 - 35.79 + 108 / 2).toBe(400);
 });
 
@@ -618,8 +601,6 @@ test("the compiled markup carries the Font Asset's own bytes and asks no host fo
   );
   expect(compiled).toContain('format("truetype")}</style>');
   expect(compiled).toContain(`<text font-family="font-${oswaldBold.id}"`);
-  // The bytes are the only source there is: nothing the markup loads comes
-  // from anywhere but the markup itself.
   expect(compiled).not.toMatch(/url\((?!data:)/);
 });
 
@@ -646,7 +627,6 @@ test("a character the Font Asset has no glyph for is drawn as that font's .notde
 
   expect(lines(compiled).map((line) => line.text)).toEqual(["A"]);
   expect(compiled).not.toContain("☃");
-  // Oswald Bold's own .notdef: the hollow box it draws for glyph 0.
   expect(compiled).toContain(
     '<path d="M34.0500 38.7900L18.9900 38.7900L18.9900 14.4900L34.0500 14.4900L34.0500 38.7900Z' +
       'M22.0800 17.1900L22.0800 36.0900L30.9600 36.0900L30.9600 17.1900L22.0800 17.1900Z" ' +
@@ -696,8 +676,6 @@ test("a text shadow's filter region covers the glyphs, not just the line boxes",
     fontAssets(),
   );
 
-  // The ink runs from the baseline's ascent (38.79 − 35.79) to its descent
-  // (38.79 + 8.67), which is taller than the 36 px line box it sits in.
   expect(compiled).toContain('x="0" y="3" width="75.03" height="44.46"');
 });
 
@@ -711,8 +689,6 @@ test("text growing past the canvas edge is cut by the canvas, not by the compile
     '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100">',
   );
   expect(compiled).not.toContain("overflow");
-  // The compiler drops no line and moves none: the canvas viewport does the
-  // cutting, so the editor's preview and the exported file cut identically.
   expect(lines(compiled).map((line) => line.y)).toEqual(["98.79", "134.79", "170.79"]);
 });
 
@@ -727,16 +703,12 @@ test("a newline in the content is a break the author wrote, kept as one", () => 
   const compiled = compile(document([text({ content: "OFFER\r\nNOW\n\nENDS" })]), fontAssets());
 
   expect(lines(compiled).map((line) => line.text)).toEqual(["OFFER", "NOW", "ENDS"]);
-  // The empty paragraph draws nothing, and still takes its own 36 px line box:
-  // the line after it starts three boxes down, not two.
   expect(lines(compiled).map((line) => line.y)).toEqual(["38.79", "74.79", "146.79"]);
 });
 
 test("the spaces inside a line are the ones the compiler measured", () => {
   const compiled = compile(document([text({ content: "A  B\tC" })]), fontAssets());
 
-  // A tab measures and draws as the space SVG's own whitespace handling turns
-  // it into, rather than as the .notdef of a font that has no tab glyph.
   expect(lines(compiled).map((line) => line.text)).toEqual(["A  B C"]);
   expect(compiled).toContain('xml:space="preserve"');
   expect(compiled).not.toContain("<path");
@@ -748,8 +720,6 @@ test("an unresolved text color is a compile error, never something painted", () 
   );
 });
 
-/** A resolver that serves the Image Assets a test names, and refuses the rest,
- *  so that an image reaching for something it was not given is visible. */
 function imageAssets(
   sizes: Record<string, { width: number; height: number }> = { photo: { width: 800, height: 600 } },
 ): AssetResolver {
@@ -809,16 +779,12 @@ test("an authored image draws at the offset and scale its crop was authored with
     imageAssets(),
   );
 
-  // The crop places the asset's own 800×600 pixels: three quarters of that is
-  // 600×450, drawn 50 left and 20 up from the frame's corner.
   expect(compiled).toContain(
     '<image data-element="i" href="https://assets.test/photo" x="-40" y="0" width="600" height="450"',
   );
 });
 
 test("an image supplied by a Variable is placed by its Fit Mode, against the size the resolver reports", () => {
-  // The element's own naturalWidth/naturalHeight describe the placeholder that
-  // the Variable's image replaced, so the resolver's size is what places it.
   const placed = (fitMode: ImageElement["fitMode"]): string | undefined =>
     /<image [^>]*x="([^"]*)" y="([^"]*)" width="([^"]*)" height="([^"]*)"/
       .exec(
@@ -830,7 +796,6 @@ test("an image supplied by a Variable is placed by its Fit Mode, against the siz
       ?.slice(1)
       .join(" ");
 
-  // An 800×600 asset in a 400×400 frame.
   expect(placed("cover")).toBe("-66.6667 0 533.3333 400");
   expect(placed("contain")).toBe("0 50 400 300");
   expect(placed("stretch")).toBe("0 0 400 400");
@@ -898,8 +863,6 @@ test("a border traces the same shape the clip cuts, and is not cut by it", () =>
     imageAssets(),
   );
 
-  // Centered on the edge, half of the stroke lies outside the clip, so the
-  // border is drawn beside the image rather than inside its clip.
   expect(compiled).toContain(
     '<image href="https://assets.test/photo" x="-66.6667" y="0" width="533.3333" height="400" ' +
       'preserveAspectRatio="none" clip-path="url(#clip-i)"/>' +
@@ -930,8 +893,6 @@ test("corner radius, border, shadow, opacity, and rotation behave on an image as
   ];
 
   expect(shape(asImage)).toEqual(shape(asRect));
-  // The border is inside the wrapper the shadow hangs on, so the shadow is
-  // cast by the shape the clip draws and the border traces — not by the frame.
   expect(asImage).toContain('stroke-width="8"/></g>');
 });
 
@@ -942,8 +903,6 @@ test("an Image Asset the resolver cannot supply fails the compilation, naming it
     image({ id: "logo" }),
   ]);
 
-  // Nothing is drawn in place of it: a batch that shipped a gray box would be
-  // a thousand assets nobody checked.
   expect(() => compile(document_, imageAssets())).toThrow(
     /"missing-image", referenced by "hero", "thumb"/,
   );
@@ -983,8 +942,6 @@ test("a group draws its children in order, at the coordinates its own origin giv
     assets(),
   );
 
-  // The group's own origin is where its children's coordinates are counted
-  // from, so the first child, at (10, 10), is painted at (110, 60).
   expect(compiled).toBe(
     svg(
       '<rect width="200" height="100" fill="#FFFFFF"/>',
@@ -1022,8 +979,6 @@ test("group opacity fades the group as one unit, not each child on its own", () 
     assets(),
   );
 
-  // One `opacity` on the group's own wrapper: the children composite together
-  // first, so their overlap is not painted through twice.
   expect(compiled).toBe(
     svg(
       '<rect width="200" height="100" fill="#FFFFFF"/>',
@@ -1049,7 +1004,6 @@ test("group rotation turns the whole arrangement about the middle of its childre
     assets(),
   );
 
-  // Children spanning local x 0..200 and y 0..100 turn about (100, 50).
   expect(compiled).toContain('<g data-element="g" transform="rotate(30 100 50)">');
 });
 
@@ -1117,8 +1071,6 @@ test("a group's extent is its children's: adding, moving, or hiding one moves th
 });
 
 test("a child's own rotation counts towards the extent, so the group turns about what it reaches", () => {
-  // The tall child turned a quarter turn lies across x 60..160 instead of
-  // standing in x 100..120, which moves the middle of the pair with it.
   const upright = rect({ id: "square", x: 0, y: 0, width: 100, height: 100 });
   const turned = rect({ id: "tall", x: 100, y: 0, width: 20, height: 100, rotation: 90 });
 
@@ -1128,8 +1080,6 @@ test("a child's own rotation counts towards the extent, so the group turns about
 });
 
 test("a text child brings the block of line boxes it laid out to its group's extent", () => {
-  // A text element carries no height: the one 20 px line box it laid out is
-  // what the group takes, so the block is 100×20 and its middle is (50, 10).
   const compiled = compile(
     document([
       group([text({ content: "ONE TWO", width: 100, fontSize: 20, lineHeight: 1 })], {
@@ -1159,8 +1109,6 @@ test("what a child paints with is measured in the coordinates its group gives it
     assets(),
   );
 
-  // Both are user-space definitions, and the user space they are read in is the
-  // one the group's translate establishes — so they run 0..40, not 100..140.
   expect(compiled).toContain('x1="0" y1="10" x2="40" y2="10"');
   expect(compiled).toContain('filterUnits="userSpaceOnUse" x="-6" y="-6" width="52" height="32"');
 });
@@ -1182,11 +1130,6 @@ test("a group's text and image children are drawn from the assets they name, as 
   expect(compiled).toContain('<text font-family="font-' + oswaldBold.id + '"');
   expect(compiled).toContain(`@font-face{font-family:"font-${oswaldBold.id}"`);
 });
-
-/* An element's own node: the one node in the markup that stands for it, and
- * carries its id. The editor patches that node per gesture (ADR-0006) and
- * hit-tests by walking up to it, so an element that named two nodes, or none,
- * would leave both without an answer. */
 
 test("an element names itself on the node it is drawn as", () => {
   const compiled = compile(document([rect({ id: "hero" })]), assets());

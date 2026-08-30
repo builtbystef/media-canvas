@@ -10,14 +10,6 @@ import {
   groupFontsForPicker,
 } from "./assets.ts";
 
-/**
- * The Assets panel and the font picker, as pure decisions.
- *
- * Grouping, the delete warning, and what an upload does to the current face
- * are the rules the surfaces share. The components fetch and hand the result
- * on; they do not invent another grouping or another sentence.
- */
-
 function font(
   partial: Partial<FontAssetView> & Pick<FontAssetView, "id" | "family">,
 ): FontAssetView {
@@ -65,8 +57,6 @@ test("the picker groups faces under their family, with bundled families first", 
     postscriptName: "Montserrat-Regular",
   });
 
-  // Newest-first from the list endpoint is not the picker's order: families
-  // stay together, bundled ones lead, and a family's faces run light to heavy.
   expect(groupFontsForPicker([uploaded, interBold, montserrat, interRegular])).toEqual([
     { family: "Inter", bundled: true, faces: [interRegular, interBold] },
     { family: "Montserrat", bundled: true, faces: [montserrat] },

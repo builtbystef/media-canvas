@@ -21,8 +21,6 @@ afterEach(async () => {
   occupied = undefined;
 });
 
-/** Start the worker the way `pnpm dev` and the image both start it — as its
- *  own process — and wait for it to fail. */
 async function startWorker(env: Record<string, string>): Promise<{
   code: number | null;
   stderr: string;
@@ -38,7 +36,6 @@ async function startWorker(env: Record<string, string>): Promise<{
   return { code, stderr };
 }
 
-/** A port this machine has already given to something else. */
 async function takenPort(): Promise<number> {
   const server = createServer();
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

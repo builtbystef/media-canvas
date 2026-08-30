@@ -28,8 +28,6 @@ from media_canvas_api.views import MembershipView, UserView, WorkspaceView
 
 router = APIRouter(prefix="/api/v1", tags=["auth"])
 
-# Long enough for the shortest real address, and capped at the longest one an
-# SMTP envelope can carry.
 EMAIL = Field(min_length=3, max_length=320)
 
 

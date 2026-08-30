@@ -1,10 +1,6 @@
 import type { DesignDocument, Element } from "@media-canvas/core";
 import { resolve } from "@media-canvas/core";
 
-/**
- * What the canvas compiles: defaults filled in, value-rule neutrals for the
- * rest. Untouched elements keep their identity so ADR-0006's memo still hits.
- */
 export function previewDocument(
   document: DesignDocument,
   editingTextId?: string | null,

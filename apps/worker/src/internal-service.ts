@@ -1,8 +1,3 @@
-// The worker's internal HTTP service: the api's way in, since document
-// interpretation is TypeScript-only (ADR-0003) and the api treats a Design
-// Document as opaque JSON. Everything here is reachable only with the shared
-// internal credential, and nothing here touches the database (ADR-0005).
-
 import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
@@ -13,33 +8,18 @@ import type { PagePool } from "./page-pool.ts";
 import { AssetFetchError, renderDocument, renderErrors, ValueRefusal } from "./render-document.ts";
 import type { RenderOptions } from "./render.ts";
 
-/** What the service needs to run: the credential every caller must present. */
 export type InternalServiceOptions = {
   token: string;
-  /** The page pool `/render` draws with. Unused by the other calls. */
   pool?: PagePool;
-  /** Where the worker reads asset bytes: the api's origin, so
-   *  `GET /internal/workspaces/{workspaceId}/assets/{assetId}` is a real
-   *  path on it. */
   apiBaseUrl?: string;
 };
 
-/** The port the service listens on when the environment names none: the
- *  compose stack and `pnpm dev` both leave it alone. */
 export const DEFAULT_INTERNAL_PORT = 4000;
 
-/** Where the worker reaches the api in development, when the environment
- *  names no origin. */
 export const DEFAULT_API_INTERNAL_URL = "http://localhost:8000";
 
-/** The environment does not describe a runnable service. */
 export class InternalServiceConfigError extends Error {}
 
-/**
- * Read the service's configuration from the environment, at startup, so a
- * missing value fails here — naming the variable that needs attention —
- * rather than at the first call that happens to need it.
- */
 export function internalServiceConfig(env: Record<string, string | undefined>): {
   token: string;
   port: number;
@@ -73,12 +53,6 @@ export function internalServiceConfig(env: Record<string, string | undefined>): 
   return { token, port, apiBaseUrl };
 }
 
-/**
- * The one listen failure worth a sentence of its own: the port the
- * environment named belongs to something else. Everything else a listen can
- * fail with is rarer and not ours to paraphrase, so it has no explanation
- * here and surfaces whole.
- */
 export function explainListenFailure(failure: unknown, port: number): string | undefined {
   if ((failure as NodeJS.ErrnoException | null)?.code !== "EADDRINUSE") return undefined;
   return (
@@ -87,34 +61,21 @@ export function explainListenFailure(failure: unknown, port: number): string | u
   );
 }
 
-/** One problem with one Row: the Variable at fault where the problem is about
- *  a Variable, and the index of the Row it is in. */
 export type RowError = ValidationError & { rowIndex: number };
 
-/** What the api asks about a batch. A Row arrives as typed JSON values, or —
- *  with `cells` — as the string cells a CSV carries. */
 export type ValidateRequest = {
-  /** The Workspace the work belongs to: an asset's identity is its Workspace
-   *  together with its hash, so both internal calls carry it even though
-   *  validation resolves no asset today. */
   workspaceId: string;
   template: DesignDocument;
   rows: Record<string, unknown>[];
   cells?: true;
 };
 
-/** What it answers: the Rows' problems, and the Template's own kept apart, so
- *  a broken Template is never read as a batch of bad Rows. */
 export type ValidateResponse = {
   errors: RowError[];
   templateErrors: ValidationError[];
-  /** The typed Rows, for a request that asked for cell typing: the api stores
-   *  what a JSON submission of the same batch would have stored, without ever
-   *  reading a cell itself. */
   rows?: Record<string, unknown>[];
 };
 
-/** The internal service, listening for nothing until the caller listens. */
 export function createInternalService(options: InternalServiceOptions): Server {
   return createServer((request, response) => {
     if (!isAuthorized(request, options.token)) {
@@ -137,7 +98,6 @@ export function createInternalService(options: InternalServiceOptions): Server {
   });
 }
 
-/** What the api asks to turn one Template plus one row into a file. */
 export type RenderRequest = {
   workspaceId: string;
   template: DesignDocument;
@@ -250,20 +210,10 @@ async function handleValidate(request: IncomingMessage, response: ServerResponse
   try {
     send(response, 200, validateBatch(payload));
   } catch (failure) {
-    // One malformed batch answers for itself. Left to reject, it would take
-    // the worker process down and every render queued behind it.
     send(response, 500, { message: `validation failed: ${String(failure)}` });
   }
 }
 
-/**
- * Read an uploaded font file with the compiler's own parser, so that the
- * parser that decides whether a font may be stored is the one that will later
- * measure every line of text drawn in it.
- *
- * The bytes arrive as the body, because that is all this call takes: the api
- * has not stored them yet, and will not unless the answer here is good.
- */
 async function handleInspectFont(
   request: IncomingMessage,
   response: ServerResponse,
@@ -273,20 +223,12 @@ async function handleInspectFont(
   try {
     inspection = inspectFont(bytes);
   } catch (failure) {
-    // A parser that fails in a way it does not report as a parse failure
-    // would otherwise take the worker process down, and every render queued
-    // behind it, over one bad upload.
     send(response, 500, { message: `font inspection failed: ${String(failure)}` });
     return;
   }
   send(response, 200, inspection);
 }
 
-/**
- * Validate a batch: the Template once, then every Row against it. A Template
- * the document authority rejects short-circuits — its Rows cannot be judged
- * against a document that is not one.
- */
 export function validateBatch(payload: ValidateRequest): ValidateResponse {
   const templateErrors = validateDocument(payload.template);
   if (templateErrors.length > 0) return { errors: [], templateErrors };
@@ -298,9 +240,6 @@ export function validateBatch(payload: ValidateRequest): ValidateResponse {
       ? typeCells(payload.template, row as Record<string, string>)
       : { values: row, errors: [] };
     typedRows.push(values);
-    // A cell that could not be typed carries no value onward, which validation
-    // would then report as an omission — the same problem, told twice. The
-    // cell's own error is the truer one, so it is the only one.
     const reported = new Set(cellErrors.map((error) => error.variable));
     const rowErrors = [
       ...cellErrors,
@@ -311,9 +250,6 @@ export function validateBatch(payload: ValidateRequest): ValidateResponse {
   return { errors, templateErrors: [], ...(payload.cells ? { rows: typedRows } : {}) };
 }
 
-/** The payload's own shape, which is not the Template's: what the document
- *  holds is the document authority's judgment, reported as Template problems,
- *  while a body that is not a batch at all is the caller's mistake. */
 function asValidateRequest(body: unknown): ValidateRequest | undefined {
   if (typeof body !== "object" || body === null) return undefined;
   const { workspaceId, template, rows, cells } = body as Record<string, unknown>;
@@ -343,9 +279,6 @@ async function readBytes(request: IncomingMessage): Promise<ArrayBuffer> {
   return body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer;
 }
 
-/** The one credential check: a bearer token equal to the configured one,
- *  compared in constant time so a wrong token tells nothing about the right
- *  one by how long the answer took. */
 function isAuthorized(request: IncomingMessage, token: string): boolean {
   const header = request.headers.authorization ?? "";
   const presented = header.startsWith("Bearer ") ? header.slice("Bearer ".length) : "";

@@ -1,4 +1,3 @@
-/** pixelmatch 7.2.0. See pixelmatch.js. */
 export default function pixelmatch(
   img1: Uint8Array | Uint8ClampedArray,
   img2: Uint8Array | Uint8ClampedArray,

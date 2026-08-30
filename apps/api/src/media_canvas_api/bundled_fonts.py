@@ -23,8 +23,6 @@ from starlette.concurrency import run_in_threadpool
 from media_canvas_api.models import FontAsset, FontFormat
 from media_canvas_api.storage import Bucket
 
-# packages/fonts is deliberately plain repository data: TypeScript and Python
-# both read this same manifest and these same bytes rather than carrying copies.
 PACKAGE_ROOT = Path(__file__).resolve().parents[4] / "packages" / "fonts"
 MANIFEST = PACKAGE_ROOT / "manifest.json"
 FILES = PACKAGE_ROOT / "files"

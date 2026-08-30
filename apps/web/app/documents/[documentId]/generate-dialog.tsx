@@ -42,10 +42,6 @@ import { Label } from "../../../components/ui/label";
 const FIELD = "grid gap-1 text-xs";
 const CONTROL = "h-7 w-full min-w-0 text-xs";
 
-/**
- * One click from the canvas to a file. A template fills its Variables or
- * submits a CSV batch; a design is the format picker alone.
- */
 export function GenerateAction({
   documentId,
   name,
@@ -248,7 +244,6 @@ function GenerateDialog({
   );
 }
 
-/** The output-format picker: PNG ×1/2/3, JPEG with a quality, or PDF. */
 export function FormatPicker({
   value,
   onChange,

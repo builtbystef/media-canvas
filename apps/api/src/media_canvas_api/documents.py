@@ -33,14 +33,10 @@ from media_canvas_api.models import Document, DocumentKind, Role
 
 router = APIRouter(prefix="/api/v1", tags=["documents"])
 
-# The editor names a document, and the name is what the list is read by:
-# never empty, and never long enough to be prose.
 DocumentName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
 ]
 
-# The same answer for a document that does not exist and for one in a
-# Workspace the caller is not in: a stranger learns nothing from asking.
 UNREACHABLE = "No such document."
 CHANGED_ELSEWHERE = "This document has been saved by somebody else since you loaded it."
 ALREADY_A_TEMPLATE = "Only a design can be promoted."

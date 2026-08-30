@@ -1,9 +1,6 @@
 import type { ImageContent, ImageElement } from "@media-canvas/core";
 import type { Handle, HandleDragOptions, Point } from "./resize-scale";
 
-/** The authored crop, or the Fit Mode placement written as one so a crop
- *  drag has a bitmap to pin. Stretch cannot be stored as a uniform scale, so
- *  it falls back to cover. */
 export function authoredImageContent(element: ImageElement): ImageContent {
   if (element.content) return element.content;
   const naturalWidth = element.naturalWidth;
@@ -18,8 +15,6 @@ export function authoredImageContent(element: ImageElement): ImageContent {
   };
 }
 
-/** Resize the frame in Crop Mode: the opposite edge stays pinned and the
- *  bitmap keeps the same canvas position. */
 export function cropImageFrame(
   element: ImageElement,
   handle: Handle,
@@ -40,8 +35,6 @@ export function cropImageFrame(
   };
 }
 
-/** Slide the bitmap under a still frame. The delta is in the element's local
- *  frame so a rotated photo follows the pointer. */
 export function applyCropPan(element: ImageElement, screenDelta: Point): ImageElement {
   const content = authoredImageContent(element);
   const delta = toLocal(screenDelta, element.rotation);

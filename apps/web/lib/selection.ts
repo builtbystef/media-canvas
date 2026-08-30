@@ -1,7 +1,5 @@
 export type Bounds = { left: number; top: number; right: number; bottom: number };
 
-/** `mountedChain` runs deepest to top-level, exactly as walking from the
- * mounted SVG node toward its root does. */
 export function selectionTarget(
   mountedChain: readonly string[],
   enteredPath: readonly string[],

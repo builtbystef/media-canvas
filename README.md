@@ -1,112 +1,158 @@
 # Media Canvas
 
-A web app for designing static visual assets (Instagram posts, posters, ads, website graphics) and generating them in bulk.
+[![CI](https://github.com/builtbystef/media-canvas/actions/workflows/ci.yml/badge.svg)](https://github.com/builtbystef/media-canvas/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-You design in a visual editor. The design is saved as a versioned JSON **Design Document**. Any design can be promoted to a **Template**, which declares typed **Variables** (text, images, colors, numbers). Assets are then generated from that template — one-off in the web editor, in bulk through the REST API, or from an uploaded CSV.
+Media Canvas is a self-hosted web application for designing static visual assets and generating them at scale. Create a design in the visual editor, promote it to a Template, declare typed Variables, and produce PNG, JPEG, or PDF assets from the UI, REST API, or a CSV file.
 
-## Status
+> [!WARNING]
+> Media Canvas is in early development. Features and APIs may change, and production deployments should be evaluated carefully.
 
-Early build. The monorepo scaffold and checks are in place; the specs, decisions, and tracker drive what lands next. The stack:
+## Features
 
-- **Frontend / editor** — Next.js (`apps/web`), rendering the compiled SVG inline
-- **Backend** — FastAPI (`apps/api`); owns the database schema and is the only Postgres writer
-- **Render worker** — Node + Playwright driving a pinned headless Chromium, in TypeScript (`apps/worker`)
-- **Shared core** — one TypeScript package (`packages/core`) with the Design Document schema, validation, variable substitution, and the JSON→SVG compiler, used by both the editor and the worker
-- **Bundled fonts** — nine SIL OFL families vendored with a hash-verified manifest (`packages/fonts`)
-- **Infrastructure** — Postgres (source of truth), Redis/BullMQ (work signal only), Garage (object storage, S3 API)
+- Visual editor for social posts, posters, ads, and website graphics
+- Versioned JSON Design Documents with a shared validation and SVG compilation pipeline
+- Reusable Templates with typed text, image, color, number, and Boolean Variables
+- One-off generation and multi-row Generation Jobs through the UI or REST API
+- CSV-based batch generation and downloadable output archives
+- PNG, JPEG, and PDF output from a reproducible, Chromium-based render worker
+- Workspace access control with Owner, Editor, and Viewer Roles
+- Image uploads plus bundled and user-uploaded fonts
+- Self-hosted Postgres, Redis, and S3-compatible object storage
+
+## Table of contents
+
+- [How it works](#how-it-works)
+- [Quick start](#quick-start)
+- [Using Media Canvas](#using-media-canvas)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Testing and quality](#testing-and-quality)
+- [Deployment](#deployment)
+- [Documentation](#documentation)
+- [License](#license)
+
+## How it works
+
+1. Create a design with the visual editor.
+2. Promote the design to a Template.
+3. Declare Variables and bind them to Element properties.
+4. Supply one set of values for a single render or many Rows for a Generation Job.
+5. Download an individual asset or the completed Job archive.
+
+The editor and render worker use the same JSON-to-SVG compiler, keeping browser previews and generated output aligned. Final output is produced by a worker image with pinned Chromium, fonts, locale, viewport, and other rendering inputs.
+
+## Quick start
+
+### Prerequisites
+
+- [Git](https://git-scm.com/)
+- [Docker Engine](https://docs.docker.com/engine/) with the Compose plugin
+- [Node.js](https://nodejs.org/) 24.18.0 or compatible Node 24 release
+- [pnpm](https://pnpm.io/) 11.17.0
+- [uv](https://docs.astral.sh/uv/) 0.12.3 (uv installs the pinned Python 3.14 toolchain)
+- OpenSSL, for generating local secrets
+
+### Install and run
+
+```sh
+git clone https://github.com/builtbystef/media-canvas.git
+cd media-canvas
+
+cp .env.example .env
+```
+
+Fill in every value marked `required` in `.env`. Generate secret values with:
+
+```sh
+openssl rand -hex 32
+```
+
+Then install dependencies and start the development infrastructure:
+
+```sh
+docker compose up -d --wait
+uv sync --locked --all-packages
+pnpm install --frozen-lockfile
+pnpm --filter worker exec playwright-core install chromium
+pnpm --filter api migrate
+pnpm dev
+```
+
+Open:
+
+- Web editor: <http://localhost:3000>
+- API health check: <http://localhost:8000/api/health>
+
+The default console Mailer writes one-time sign-in codes to `.dev/mailer.log`. The API also runs migrations when it starts, so the explicit migration command is safe to repeat.
+
+## Using Media Canvas
+
+Use the web editor for interactive work. For programmatic generation, use the REST API with a Workspace API Key. The committed [OpenAPI schema](apps/api/openapi.json) is the source for the generated TypeScript client in [`packages/api-client`](packages/api-client).
+
+Terminology such as Design Document, Template, Variable, Generation Job, and Row has a precise project meaning. See the [glossary](docs/GLOSSARY.md) when integrating with the API.
+
+## Architecture
+
+Media Canvas is a pnpm and uv monorepo:
+
+| Path                                         | Responsibility                                                                   |
+| -------------------------------------------- | -------------------------------------------------------------------------------- |
+| [`apps/web`](apps/web)                       | Next.js visual editor and application UI                                         |
+| [`apps/api`](apps/api)                       | FastAPI service, authentication, access control, persistence, and generation API |
+| [`apps/worker`](apps/worker)                 | Node.js, BullMQ, Playwright, and pinned Chromium rendering                       |
+| [`packages/core`](packages/core)             | Design Document schema, validation, substitution, migrations, and SVG compiler   |
+| [`packages/fonts`](packages/fonts)           | Hash-verified bundled font set                                                   |
+| [`packages/api-client`](packages/api-client) | Generated TypeScript client for the OpenAPI contract                             |
+| [`tools/browser-smoke`](tools/browser-smoke) | On-demand browser smoke tests                                                    |
+
+Postgres is the source of truth, Redis carries work signals, and Garage provides S3-compatible object storage. The API is the only Postgres writer. See [Architecture](docs/ARCHITECTURE.md) and the [architecture decision records](docs/adr/) for the complete module boundaries and rationale.
 
 ## Development
 
-Requires Node ≥ 24 (pinned in `.node-version`) and [uv](https://docs.astral.sh/uv) (fetches the pinned Python automatically).
+Run these commands from the repository root:
 
 ```sh
-cp .env.example .env  # then fill in the values it marks required
-
-docker compose up -d --wait                                    # Postgres, Redis, Garage — until healthy
-uv sync                                                        # Python venv + dependencies
-pnpm install                                                   # TypeScript dependencies
-vp config                                                      # once after cloning: activates the pre-commit hook
-pnpm --filter worker exec playwright-core install chromium     # once: the development worker's browser
-pnpm --filter api migrate                                      # apply migrations
-
-pnpm dev            # FastAPI :8000 + Next.js :3000 + render worker
-pnpm check          # format + lint + typecheck, both languages
-pnpm check:fix
-pnpm test           # Vitest + pytest — not the smoke below
-pnpm build          # export schema → generate client → next build
-pnpm run ci         # everything CI runs
+pnpm dev        # API :8000, web :3000, and render worker
+pnpm check      # formatting, linting, and type checking
+pnpm check:fix  # apply automatic formatting and lint fixes
+pnpm test       # Vitest and pytest suites
+pnpm build      # OpenAPI export, client generation, and application builds
+pnpm run ci     # check, test, and build
 ```
 
-The development worker uses that locally installed browser. Its output is never
-valid for golden baselines — the pinned worker image is for baselines, CI, and
-production.
+Activate the repository's pre-commit hook once after cloning:
 
-The api also applies migrations when it starts, so `pnpm --filter api migrate`
-is idempotent with a running api. `pnpm test` runs the api's tests against the
-same Postgres, in a database of their own that is recreated for each run.
+```sh
+pnpm exec vp config
+```
 
-### Generation smoke
+When an API endpoint changes, run `pnpm build` and commit the regenerated [`apps/api/openapi.json`](apps/api/openapi.json) and [`packages/api-client`](packages/api-client) output. CI rejects contract drift.
 
-One test drives the real stack the way a user would: it submits a two-row batch,
-polls the Job to completion, and downloads an archive of two entries. The
-Template uses a bundled font and a held image, so the worker's asset path runs
-rather than being skipped. It is not part of `pnpm test`.
+To create an Alembic migration after changing the database schema:
 
-With the development stack running (`pnpm dev` above):
+```sh
+cd apps/api
+uv run alembic revision --autogenerate -m "describe the change"
+```
+
+## Testing and quality
+
+The standard validation commands are:
+
+```sh
+pnpm check
+pnpm test
+pnpm build
+```
+
+With the development stack running, exercise the real generation path with:
 
 ```sh
 pnpm smoke
 ```
 
-The smoke talks to the api at `http://localhost:8000` (set `SMOKE_API_URL` to
-override). It signs in through the console Mailer and reads the code from
-`.dev/mailer.log`, or from `docker compose logs api` when the api is the compose
-service. Set `SMOKE_API_LOG` to an api process log if neither holds it.
-
-## Run the whole application with Compose
-
-After copying `.env.example` to `.env` and filling in its required values, one
-command builds and starts the application and its infrastructure:
-
-```sh
-docker compose --profile app up -d --build
-```
-
-With `DOMAIN` empty, open `http://localhost` (or the configured `HTTP_PORT`).
-Set `DOMAIN` and run the same command again to serve that domain over HTTPS;
-Caddy obtains and renews the certificates.
-
-Renders happen in one pinned image and nowhere else (ADR-0002):
-
-```sh
-pnpm --filter worker run image:build        # build the pinned render worker image
-pnpm --filter worker run image:check        # smoke, environment, render, and golden checks, inside it
-pnpm --filter worker run goldens:bake       # write golden baselines, inside the image only
-pnpm --filter worker run environment:write  # rewrite the environment tuple
-```
-
-`apps/worker/environment.json` is that image's environment tuple — the base
-image, the Playwright package with the browser builds paired to it, the font
-set and its configuration, the page's viewport, scale, locale, timezone and
-color scheme, and the compiler and schema versions. Golden baselines are bound
-to it, so a change to the Dockerfile, to Playwright, to the bundled fonts or to
-the compiler is a change of environment: rewrite the tuple with the command
-above and re-bake the baselines it invalidates. The re-bake policy — whole
-suite only after a deliberate tuple change, reviewed with the old and new
-tuples; an intended rendering change updates only the fixtures it affects — is
-in [`apps/worker/goldens/README.md`](apps/worker/goldens/README.md).
-
-## Browser smoke suite
-
-A small Playwright suite covers only behavior that needs a DOM, browser history,
-or the cookie jar. It runs on demand, not in CI or as part of `pnpm test`,
-because it requires the full Compose stack and reads one-time codes from the
-console Mailer's api log. Its Playwright installation is separate from the
-render worker's fidelity-pinned browser. Chromium only, matching the product's
-stated support.
-
-Prepare its Chromium once, start a console-Mailer stack at the default HTTP
-origin, and run it from another terminal:
+The browser smoke suite requires its own Chromium installation and the full Compose application:
 
 ```sh
 pnpm smoke:browser:install
@@ -114,76 +160,44 @@ docker compose --profile app up -d --build --wait
 pnpm smoke:browser
 ```
 
-Set `SMOKE_BASE_URL` when Caddy is not at `http://localhost`, for example
-`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser`. A sandboxed runner
-can route the `stack.local` alias through its egress proxy with
-`SMOKE_BASE_URL=http://stack.local SMOKE_PROXY="$HTTPS_PROXY"`. The runner must also
-be able to invoke `docker compose logs api`, which is how it observes the code
-and the `/me` request made after a history restore. Keep cookie, history, and
-list-page gestures in `tools/browser-smoke/browser-smoke.e2e.ts`; the editor's
-closing pass is `editor-smoke.e2e.ts`; the batch UI's is `batch-smoke.e2e.ts`.
-Behavior a pure module can answer stays in that module's Vitest suite instead.
+Focused editor and batch passes are also available as `pnpm smoke:editor` and `pnpm smoke:batch`. These smoke suites are intentionally separate from `pnpm test`.
 
-### Editor end-to-end smoke
-
-One Playwright pass walks the first-time editor path against the real stack:
-create a design from a Canvas Preset, draw a rectangle and a text element, wait
-until the indicator says saved, reload and find the document intact, promote it,
-declare and bind a Variable, generate a PNG and receive the download. A failure
-names the step it failed at. It is not part of `pnpm test`.
-
-With the development stack running (`pnpm dev` above):
+Rendering fidelity is tested inside the pinned worker image:
 
 ```sh
-SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:editor
+pnpm --filter worker run image:build
+pnpm --filter worker run image:check
 ```
 
-Against the Compose app profile, `pnpm smoke:browser` includes this pass at the
-default HTTP origin. The smoke reads the sign-in code from `.dev/mailer.log`
-(when the api is `pnpm dev`) or from `docker compose logs api`.
+See [`apps/worker/goldens/README.md`](apps/worker/goldens/README.md) before changing the rendering environment or golden baselines.
 
-### Batch UI end-to-end smoke
+## Deployment
 
-One Playwright pass walks the batch path against the real stack: open a
-template, Generate → Batch, upload a two-row CSV, see the mapping summary,
-submit, land on the job, wait until it says completed, download one Row's output
-and the archive of two entries. A failure names the step it failed at. It is not
-part of `pnpm test`.
-
-With the development stack running (`pnpm dev` above):
+Run the complete application and infrastructure stack with:
 
 ```sh
-SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:batch
+cp .env.example .env
+# Fill in all required values.
+docker compose --profile app up -d --build
 ```
 
-Against the Compose app profile, `pnpm smoke:browser` includes this pass at the
-default HTTP origin. The smoke reads the sign-in code from `.dev/mailer.log`
-(when the api is `pnpm dev`) or from `docker compose logs api`.
+With `DOMAIN` empty, open `http://localhost` or the configured `HTTP_PORT`. Setting `DOMAIN` enables automatic HTTPS through Caddy.
 
-Adding a table is adding a migration:
-
-```sh
-cd apps/api
-uv run alembic revision --autogenerate -m "add the widgets table"
-```
+For first deployment, upgrades, backups, restoration, health checks, and TLS configuration, follow the tested [deployment guide](docs/DEPLOYMENT.md).
 
 ## Documentation
 
-| Document                                               | What it holds                                                                            |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| [`docs/GLOSSARY.md`](docs/GLOSSARY.md)                 | The project's vocabulary — Design Document, Element, Template, Variable, and the rest    |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)         | The modules and the seams between them                                                   |
-| [`docs/adr/`](docs/adr/)                               | Decisions that are hard to reverse, one file each                                        |
-| [`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md) | Conventions beyond the linter                                                            |
-| [`docs/TRACKER.md`](docs/TRACKER.md)                   | How the issue tracker is used                                                            |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)             | First deploy, upgrade, backup, restore, and TLS — every command run against a live stack |
+| Document                                     | Contents                                        |
+| -------------------------------------------- | ----------------------------------------------- |
+| [Glossary](docs/GLOSSARY.md)                 | Canonical domain vocabulary                     |
+| [Architecture](docs/ARCHITECTURE.md)         | Modules, ownership, and system seams            |
+| [Architecture decisions](docs/adr/)          | Decisions that are difficult to reverse         |
+| [Coding standards](docs/CODING_STANDARDS.md) | Project conventions beyond automated checks     |
+| [Deployment](docs/DEPLOYMENT.md)             | Operations, backup, restore, and TLS procedures |
+| [Tracker](docs/TRACKER.md)                   | Repository-local issue tracker workflow         |
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Media Canvas is available under the [MIT License](LICENSE).
 
-The bundled fonts in `packages/fonts` are not covered by that license: every
-one of them is licensed under the SIL Open Font License 1.1, and each family
-directory carries the license text it shipped with. A font uploaded to a
-Workspace is the uploader's responsibility — the app does not check whether
-they hold the rights to it.
+Bundled fonts in [`packages/fonts`](packages/fonts) are licensed separately under the SIL Open Font License 1.1; each family directory includes its license text. Users are responsible for ensuring they have the rights to fonts uploaded to a Workspace.

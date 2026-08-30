@@ -13,14 +13,6 @@ export type OpenDocumentResult =
 
 const NOT_A_DOCUMENT = "This document is not a v1 Design Document, so there is nothing to draw.";
 
-/**
- * What the editor does with stored JSON at load: migrate first, then validate.
- *
- * A newer schema is refused by name and never opened. An older one would be
- * brought forward here (the hook lives in core); v1 is the first schema, so
- * today only the refusal is exercised. Invalid current-version JSON is the
- * same refusal the canvas already showed.
- */
 export function openStoredDocument(stored: unknown): OpenDocumentResult {
   const migrated = migrateDocument(stored);
   if (!migrated.ok) return migrated;
@@ -28,8 +20,6 @@ export function openStoredDocument(stored: unknown): OpenDocumentResult {
   const declared = new Set(
     (migrated.document as DesignDocument).variables?.map((variable) => variable.name) ?? [],
   );
-  // Unknown Tokens (and unknown $var refs) are editor warnings, not a reason to
-  // refuse the document — generation is the hard gate (0y2iw3 / 8h50hu).
   if (errors.some((error) => error.variable === undefined || declared.has(error.variable))) {
     return { ok: false, error: { code: "invalid_document", message: NOT_A_DOCUMENT } };
   }

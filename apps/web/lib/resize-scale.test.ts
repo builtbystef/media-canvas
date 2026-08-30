@@ -55,7 +55,6 @@ describe("Resize and Scale handles", () => {
     const changed = applyHandleDrag(documentWith(element), ["rect"], "right", { x: 0, y: 40 });
 
     expect(changed.elements[0]).toMatchObject({ x: 80, y: 120, width: 140, height: 50 });
-    // The local left-edge midpoint remains at the same screen coordinate.
     expect(changed.elements[0]).toMatchObject({ rotation: 90 });
   });
 

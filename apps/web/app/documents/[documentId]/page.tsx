@@ -6,14 +6,6 @@ import { EditorSession } from "./editor-session";
 
 export const metadata = { title: "Editor — Media Canvas" };
 
-/**
- * The editor, at the document's own url — one page for both kinds.
- *
- * The page fetches the stored document. The session migrates it, holds undo,
- * and autosaves against the Revision the fetch loaded. What the editor offers
- * is decided by the Role in the Workspace the document belongs to, not by
- * whichever Workspace the shell is switched to.
- */
 export default async function EditorPage({ params }: { params: Promise<{ documentId: string }> }) {
   const identity = await signedInOrSignIn();
   const { documentId } = await params;
@@ -21,8 +13,6 @@ export default async function EditorPage({ params }: { params: Promise<{ documen
     ...(await asThisCaller()),
     path: { documentId },
   });
-  // The api answers alike for a document that is gone and one in a Workspace
-  // this caller is not in, so that ids cannot be probed. So does this page.
   if (document === undefined) notFound();
 
   const membership = membershipIn(identity, document.workspaceId);

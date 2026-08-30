@@ -32,7 +32,6 @@ export type FinishedImageDrop =
   | { kind: "placed"; element: ImageElement }
   | { kind: "rejected"; message: string };
 
-/** The drag payload the Assets panel writes and the canvas reads. */
 export function serializeImageAssetDrag(asset: ImageAssetRef): string {
   return JSON.stringify(asset);
 }
@@ -90,8 +89,6 @@ export function finishImageDrop(
   };
 }
 
-/** The sentence a refusal carries. The editor shows those words; it does not
- *  invent a substitute when the api already named the problem. */
 export function refusalMessage(error: unknown): string {
   if (error && typeof error === "object" && "error" in error) {
     const inner = (error as { error?: { message?: unknown } }).error;
@@ -102,8 +99,6 @@ export function refusalMessage(error: unknown): string {
   return "The app could not be reached. Check your connection, then try again.";
 }
 
-/** Drag-over cannot read file bytes or custom payloads; the type list is all
- *  it is allowed to see. */
 export function canAcceptImageDrop(data: { types?: readonly string[] }): boolean {
   return (
     data.types?.includes(IMAGE_ASSET_DRAG_TYPE) === true || data.types?.includes("Files") === true

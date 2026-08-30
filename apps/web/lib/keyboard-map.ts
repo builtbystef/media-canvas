@@ -1,6 +1,5 @@
 import type { Tool } from "./drawing-tools";
 
-/** Document-space px. Bound from node ep90f3. */
 export const NUDGE_DISTANCE = 1;
 export const NUDGE_DISTANCE_SHIFTED = 10;
 export const DUPLICATE_OFFSET = { x: 10, y: 10 };
@@ -63,9 +62,6 @@ export function commandFromKey(event: KeyInput): KeyCommand | null {
   return null;
 }
 
-/** One Escape press peels one layer of editor state, in the order node
- * ep90f3 settled: cancel the tool, leave text editing, leave the entered
- * group, then deselect. */
 export function unwindEscape(state: EscapeState): EscapeState {
   if (state.activeTool !== "select") return { ...state, activeTool: "select" };
   if (state.editingTextId !== null) return { ...state, editingTextId: null };

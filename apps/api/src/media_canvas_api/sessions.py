@@ -20,9 +20,6 @@ from media_canvas_api.models import Session, User
 COOKIE_NAME = "media_canvas_session"
 LIFETIME = timedelta(days=30)
 
-# The expiry rolls forward as the session is used, but a write on every single
-# request would be a write per request for nothing. A session that was rolled
-# less than a day ago is left alone.
 ROLL_AFTER = timedelta(days=1)
 
 

@@ -25,7 +25,7 @@ A Design Document with declared Variables, created by promoting a design (a copy
 _Avoid_: master, model design
 
 **Variable**:
-A named, typed slot declared at the top level of a Template, referenced by element properties. Supplying one value per Variable is what generation consumes.
+A named, typed value declared at the top level of a Template and referenced by Element properties. The types are text, image, color, number, and Boolean.
 _Avoid_: slot, placeholder, merge field
 
 **Unknown Token**:
@@ -41,7 +41,7 @@ A named canvas size offered as a convenience when creating a design (e.g. Instag
 _Avoid_: asset kind, format preset
 
 **Image Asset**:
-One image file held by the app, identified by the hash of its stored bytes and served from the app's own storage at an immutable URL. Image elements and image Variable values reference it by that id.
+One image file held by the app, identified by the hash of its stored bytes and served at an immutable URL. Image Elements reference it by that id. An image Variable may use an Image Asset id or an HTTP(S) URL.
 _Avoid_: media file, upload, picture file
 
 **Font Asset**:

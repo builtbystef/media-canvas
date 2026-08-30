@@ -10,10 +10,6 @@ from media_canvas_api.db import Base
 from media_canvas_api.settings import get_settings
 from sqlalchemy import Connection, create_engine
 
-# Autogenerate compares the database against this and nothing else, so a
-# model whose module has not been imported by the time this runs is invisible
-# to it — and the migration it needs is silently never written. That is what
-# the `models` import above is for; every new table module joins it.
 target_metadata = Base.metadata
 
 

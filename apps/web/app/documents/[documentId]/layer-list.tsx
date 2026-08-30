@@ -134,7 +134,5 @@ function dropped(
     ) {
       reorder(parentPath, value.id, index);
     }
-  } catch {
-    // Foreign drag data is not a layer operation.
-  }
+  } catch {}
 }

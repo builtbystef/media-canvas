@@ -1,14 +1,7 @@
-// The worker's read of assets: held bytes from the api's internal route, and
-// external image URLs fetched here so the render page never reaches the
-// network. The compiler then sees only data URIs.
-
 import type { AssetResolver } from "@media-canvas/core";
 
 import { imageSize } from "./image-size.ts";
 
-/** An asset the worker could not load. Distinguishable from a value refusal
- *  because a later retry of bad values would fail identically, and a later
- *  retry of a fetch might not. */
 export class AssetFetchError extends Error {
   readonly assetId: string;
   constructor(assetId: string, message: string) {
@@ -27,8 +20,6 @@ export type AssetSourceOptions = {
   images: readonly string[];
 };
 
-/** Fetch every Font and Image Asset a resolved document names, and hand the
- *  compiler a resolver that answers from those bytes. */
 export async function loadAssetResolver(options: AssetSourceOptions): Promise<AssetResolver> {
   const fonts = new Map<string, ArrayBuffer>();
   const images = new Map<string, { url: string; size: { width: number; height: number } }>();

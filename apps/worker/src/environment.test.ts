@@ -12,9 +12,6 @@ import { computeEnvironment } from "./write-environment.ts";
 const workerRoot = join(import.meta.dirname, "..");
 
 test("the committed tuple is the environment this repository builds", () => {
-  // Everything a baseline is bound to is a fact about the repository, so a
-  // Dockerfile edit, a Playwright bump, a font change or a compiler change all
-  // land here — deliberately, with the baselines they invalidate.
   expect(renderEnvironment, "run `pnpm --filter worker run environment:write`").toEqual(
     computeEnvironment(),
   );
@@ -37,8 +34,6 @@ test("the render path launches full Chromium in new headless mode (ADR-0002)", (
   const { render, parity } = renderEnvironment.browsers;
   expect(render.channel).toBe("chromium");
   expect(launchOptions(render)).toEqual({ channel: "chromium", headless: true });
-  // The shell is in the image for one fixture (issue 6bqdxe) and is never the
-  // render path's build.
   expect(parity.channel).toBe("chromium-headless-shell");
 });
 

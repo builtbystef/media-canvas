@@ -1,12 +1,3 @@
-// The image's environment check: run it inside the pinned image and it says
-// whether the environment a render is about to happen in is the one the
-// committed tuple describes.
-//
-//   pnpm --filter worker run image:check
-//
-// A golden baseline (issue 6bqdxe) is worth nothing without this: the tuple is
-// a claim about the image, and these are the observations that hold it to it.
-
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -23,9 +14,6 @@ import { blankDocument, screenshot, textDocument } from "./fixture.ts";
 
 const require = createRequire(import.meta.url);
 
-/** The binary a channel actually spawns, and the version it reports. Nothing
- *  short of the running process says which of the two builds in this image a
- *  channel reaches. */
 async function launched(build: BrowserBuild): Promise<{ executable: string; version: string }> {
   const server = await chromium.launchServer(launchOptions(build));
   try {
@@ -84,11 +72,6 @@ void test("a glyph no bundled font carries draws the Font Asset's own .notdef", 
   const browser = await chromium.launch(launchOptions(renderEnvironment.browsers.render));
   try {
     const page = await (await browser.newContext(contextOptions())).newPage();
-    // Han characters, which no bundled family has a glyph for. Two families
-    // draw two different boxes and a third draws nothing at all — Pacifico's
-    // own .notdef is a blank advance (packages/fonts/README.md) — so what
-    // lands on the canvas is the face the markup carries, and not one face
-    // the image substituted for all three.
     const inter = await screenshot(page, textDocument("漢字"));
     const lora = await screenshot(page, textDocument("漢字", "Lora"));
     const pacifico = await screenshot(page, textDocument("漢字", "Pacifico"));

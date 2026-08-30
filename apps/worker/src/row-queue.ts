@@ -1,8 +1,3 @@
-// The wait list the api writes (ADR-0004): one task per Row, identifiers
-// only. This end pops them, runs the consumer, and puts a failed attempt
-// back so the contract's single retry happens — without a second queue
-// library, speaking the same layout the producer already writes.
-
 import { PAGE_POOL_SIZE } from "./page-pool.ts";
 import { connectRedis, type RedisClient, type RedisConnection } from "./redis.ts";
 import { ValueRefusal } from "./render-document.ts";
@@ -16,8 +11,6 @@ export type RowQueue = {
   close(): Promise<void>;
 };
 
-/** Pop Row tasks and run them, eight at a time — the same number as the
- *  page pool they render through. */
 export function startRowQueue(options: {
   redis: RedisConnection;
   consumer: RowConsumer;

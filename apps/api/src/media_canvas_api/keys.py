@@ -15,8 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from media_canvas_api.models import ApiKey
 from media_canvas_api.sessions import hash_token
 
-# `mc_` plus 256 bits of url-safe random; the prefix is the first eight
-# characters after the prefix marker, which is what the list shows.
 KEY_MARKER = "mc_"
 PREFIX_LENGTH = 8
 

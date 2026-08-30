@@ -1,14 +1,9 @@
-// Lossless PNG, 8-bit RGBA. Baselines are Chromium screenshots (that shape)
-// and the bake path writes those bytes untouched; this module is the reader
-// the comparator needs, and the writer the host tests use to make a PNG.
-
 import { crc32, deflateSync, inflateSync } from "node:zlib";
 
 const SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
 export type PngImage = { width: number; height: number; data: Uint8Array };
 
-/** Encode 8-bit RGBA pixels as a lossless PNG. */
 export function writePng(width: number, height: number, data: Uint8Array): Uint8Array {
   if (data.length !== width * height * 4) {
     throw new Error(`RGBA data does not match ${String(width)}×${String(height)}`);
@@ -33,8 +28,6 @@ export function writePng(width: number, height: number, data: Uint8Array): Uint8
   ]);
 }
 
-/** Decode an 8-bit RGB or RGBA PNG. Interlace is refused: Chromium does not
- *  write it, and a baseline that did would be a different file. */
 export function readPng(bytes: Uint8Array): PngImage {
   const file = Buffer.from(bytes);
   if (file.length < 8 || !file.subarray(0, 8).equals(SIGNATURE)) {

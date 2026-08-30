@@ -23,17 +23,10 @@ from pydantic.alias_generators import to_camel
 
 from media_canvas_api.settings import Settings
 
-# Long enough for the worker to read a font of the largest size the api
-# accepts, short enough that a worker which has stopped answering does not
-# hold an upload open indefinitely.
 INSPECTION_TIMEOUT = 30.0
 
-# A large batch can take a while to type and validate; a worker that has
-# stopped answering still must not hold the submit open indefinitely.
 VALIDATION_TIMEOUT = 30.0
 
-# A cold browser plus a heavy document is slower than validation; a worker
-# that has stopped answering still must not hold the call open indefinitely.
 RENDER_TIMEOUT = 60.0
 
 
@@ -70,8 +63,6 @@ class UnreadableFont(BaseModel):
     problem: Literal["unsupported_format", "unparseable_font"]
 
 
-# A file the parser could not read is an answer, not a failure of the call:
-# the api turns it into the refusal the uploader reads.
 type FontInspection = Annotated[
     ReadableFont | UnreadableFont, Field(discriminator="readable")
 ]
@@ -207,8 +198,6 @@ class HttpWorker:
                 f"the render worker did not answer at {self.base_url}"
             ) from silent
         if answer.status_code == 401:
-            # The one refusal worth naming: the two services were given
-            # different halves of a credential that is meant to be one.
             raise WorkerUnreachable(
                 "the render worker refused the api's credential — the api and "
                 "the worker must read the same INTERNAL_API_TOKEN"

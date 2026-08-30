@@ -5,8 +5,6 @@ export type DrawTool = Extract<Tool, "text" | "rect" | "ellipse">;
 export type Point = { x: number; y: number };
 export type DrawingBounds = { left: number; top: number; right: number; bottom: number };
 
-/** Inter Regular is the bundled default Font Asset. Its byte hash is its
- * stable identity in every Workspace's bundled-font seed. */
 export const DEFAULT_FONT_ASSET_ID =
   "3e5f90a0138b38de4cf4d779ad78391974ea1df776b9164842bdcbb60ce383c5";
 

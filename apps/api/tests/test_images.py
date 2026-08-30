@@ -184,7 +184,6 @@ def test_two_files_that_normalize_to_the_same_picture_are_one_asset(
 
     assert (first.status_code, again.status_code) == (201, 200)
     assert again.json() == first.json()
-    # One normalized image beside the 21 fonts every Workspace starts with.
     assert len(s3.list_objects_v2(Bucket=stored_bucket(client))["Contents"]) == 22
     with stored.begin() as connection:
         assert (

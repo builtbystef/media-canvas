@@ -14,8 +14,6 @@ down_revision: str | None = "0002_accounts"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-# Named, because the invites and api-key slices give the same three Roles to
-# their own columns and must reuse this type rather than declare a second one.
 ROLE = sa.Enum("viewer", "editor", "owner", name="role")
 
 
@@ -39,8 +37,6 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("workspace_id", "user_id"),
     )
-    # The primary key already answers "who is in this Workspace"; this answers
-    # the other direction, which is what every signed-in request asks first.
     op.create_index(
         op.f("ix_memberships_user_id"), "memberships", ["user_id"], unique=False
     )

@@ -35,12 +35,8 @@ from media_canvas_api.worker import HttpWorker
 
 logger = logging.getLogger(__name__)
 
-# Everything the api logs lives under the package name, so configuring the one
-# logger configures the lot.
 PACKAGE = __name__.split(".")[0]
 
-# One writer at a time: two api processes starting together would otherwise
-# run the same pending migrations twice. Any constant identifies the lock.
 MIGRATION_LOCK = 4_170_235_001
 
 
@@ -86,16 +82,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.sessions = create_session_factory(engine)
     app.state.clock = utc_now
     storage = ObjectStore(settings)
-    # Unlike the database, an object store that cannot be reached stops
-    # startup: there is nowhere for the api to report the problem afterwards,
-    # and every byte it holds is unreachable until someone notices.
     storage.ensure_buckets()
     app.state.storage = storage
-    # The one way in to everything only the render worker can answer: the api
-    # never opens a document or a font file itself (ADR-0003).
     app.state.worker = HttpWorker(settings)
-    # Redis is the work signal only (ADR-0004). Connecting is lazy: a
-    # deployment that is not submitting batches yet still serves the rest.
     app.state.queue = RowQueue(settings)
     try:
         await migrate(engine)
@@ -127,15 +116,9 @@ app.include_router(render.router)
 app.include_router(fonts.router)
 app.include_router(images.router)
 app.include_router(jobs.router)
-# The other service's half: reached with the shared internal credential, and
-# never part of the api a client is generated from.
 app.include_router(internal.router)
 app.include_router(internal_jobs.router)
-# An uploaded file that is no asset answers in its own envelope, so that the
-# editor branches on a code instead of matching on prose.
 app.add_exception_handler(AssetRefused, refusal_response)
-# Outermost last: a browser's preflight carries no cookie, so cross-origin
-# handling has to answer it before access refuses it.
 app.add_middleware(AccessMiddleware)
 app.add_middleware(DevelopmentCors)
 

@@ -13,7 +13,6 @@ import {
   zoomBy,
 } from "./canvas-view.ts";
 
-/** `localStorage` as far as anything here is concerned. */
 function store(entries: Record<string, string> = {}): ViewStore & { held: Map<string, string> } {
   const held = new Map(Object.entries(entries));
   return {
@@ -38,8 +37,6 @@ test("fitting shows the whole canvas with room around it", () => {
 });
 
 test("fitting a canvas smaller than the view does not blow it up past its own size", () => {
-  // Nothing here says a small canvas must fill the view; what it must not do
-  // is exceed the zoom range or the room it was given.
   const fitted = fitZoom({ width: 200, height: 100 }, { width: 1600, height: 1200 });
 
   expect(fitted).toBeLessThanOrEqual(MAX_ZOOM);
@@ -68,15 +65,11 @@ test("a wheel towards the screen zooms in, away from it zooms out, and neither l
 
 test("zooming at the cursor keeps the document point under it where it was", () => {
   const view: CanvasView = { zoom: 1, left: 0, top: 0 };
-  // The canvas's top-left sits 50 px in from the view's, and the pointer is
-  // 150 px in: the document point under it is (100, 100).
   const pointer = { x: 150, y: 150 };
   const origin = { x: 50, y: 50 };
 
   const zoomed = zoomAt(view, 2, pointer, origin);
 
-  // At twice the size that point is 200 px from the canvas's top-left, so the
-  // view has to have scrolled 100 px further to keep it under the pointer.
   expect(zoomed).toEqual({ zoom: 2, left: 100, top: 100 });
 });
 

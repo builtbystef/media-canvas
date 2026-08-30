@@ -1,20 +1,3 @@
-// The two budgets ADR-0006 rests on, measured where they are now paid: a
-// gesture frame under a millisecond, and a full compile in the tens of
-// milliseconds with every font inlined. The document shapes are the ones the
-// preview prototype measured (node vnmueh) — top-level / total / text — so the
-// numbers here can be read beside its table.
-//
-// Run: node packages/core/bench/preview-budget.ts
-//
-// The columns:
-//   open     the first compile of a session — every Font Asset parsed and
-//            base64-inlined for the first time (~40-50 ms per face, once)
-//   rebuild  a full compile with every element new and the fonts already held:
-//            what a load, an undo of a multi-element edit, or a canvas change
-//            past the memo actually costs
-//   dirty    a full compile where every element is the object it already was
-//   gesture  one element changed, patched into the mounted markup
-
 import { bundledFontBytes, bundledFonts } from "@media-canvas/fonts";
 
 import type { AssetResolver } from "../src/assets.ts";
@@ -43,9 +26,6 @@ const assets: AssetResolver = {
   },
 };
 
-/** One leaf element of the generated document: text elements first, so that a
- *  document's text count is exactly the one asked for, then shapes with the
- *  gradients, borders and shadows a real design carries. */
 function leaf(index: number, texts: number): Element {
   const x = (index % 8) * 128 + 12;
   const y = Math.floor(index / 8) * 96 + 12;
@@ -103,9 +83,6 @@ function leaf(index: number, texts: number): Element {
   };
 }
 
-/** A document of the prototype's shape: `topLevel` nodes at the top, `total`
- *  elements in all — the difference is made up of two-child groups — and
- *  `texts` text elements among them. */
 function documentOf(topLevel: number, total: number, texts: number): DesignDocument {
   const leaves = Array.from({ length: total }, (_, index) => leaf(index, texts));
   const groups = total - topLevel;
@@ -130,9 +107,6 @@ function documentOf(topLevel: number, total: number, texts: number): DesignDocum
   };
 }
 
-/** The document with its last top-level element moved a pixel, the way a pure
- *  document operation leaves it: one new element, one new list, every other
- *  element the object it already was. */
 function nudged(doc: DesignDocument, frame: number): DesignDocument {
   const elements = [...doc.elements];
   const last = elements.at(-1)!;
@@ -151,9 +125,6 @@ function took(work: () => void): number {
   return performance.now() - started;
 }
 
-/** The same document, element for element, with nothing shared: what an undo
- *  of a multi-element edit, or opening a second document that draws with fonts
- *  already held, leaves the caches nothing to answer from. */
 function rebuilt(doc: DesignDocument): DesignDocument {
   return JSON.parse(JSON.stringify(doc)) as DesignDocument;
 }
@@ -166,8 +137,6 @@ const shapes: [topLevel: number, total: number, texts: number][] = [
   [120, 236, 79],
 ];
 
-// One throwaway compile first: otherwise the first document measured wears the
-// cost of warming everything this process compiles with.
 createPreview(assets).update(documentOf(15, 26, 9));
 
 console.log(
@@ -180,8 +149,6 @@ for (const [topLevel, total, texts] of shapes) {
   const open = took(() => void preview.update(doc));
   const size = compile(doc, assets).length;
 
-  // Every element new, the fonts and the block of faces already held: the
-  // compile a change that dirties the whole document actually pays.
   const rebuild = median(
     Array.from({ length: 10 }, () => {
       const fresh = rebuilt(doc);
@@ -189,8 +156,6 @@ for (const [topLevel, total, texts] of shapes) {
     }),
   );
 
-  // A change that dirties the whole document while every element is the object
-  // it was: a canvas resize, or a zoom-independent view change reaching it.
   const dirty = median(
     Array.from({ length: 20 }, (_, index) =>
       took(
@@ -203,8 +168,6 @@ for (const [topLevel, total, texts] of shapes) {
     ),
   );
 
-  // Back to the document itself, so that each gesture frame below starts from
-  // what is mounted and changes a single element of it.
   preview.update(doc);
   let held = doc;
   const gestures = Array.from({ length: 120 }, (_, frame) => {

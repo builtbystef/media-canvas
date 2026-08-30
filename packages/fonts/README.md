@@ -8,13 +8,15 @@ manifest that names them. Every renderer, fixture, and Workspace seed reads
 
 `manifest.json` holds one entry per vendored file:
 
-| Field    | Meaning                                                            |
-| -------- | ------------------------------------------------------------------ |
-| `id`     | The Font Asset id — the SHA-256 of the file's bytes, lowercase hex |
-| `file`   | The file's path under `files/`                                     |
-| `family` | Display metadata for the font picker; the id is the identity       |
-| `weight` | 400 regular, 700 bold, 900 black                                   |
-| `style`  | `normal` or `italic`                                               |
+| Field            | Meaning                                                            |
+| ---------------- | ------------------------------------------------------------------ |
+| `id`             | The Font Asset id — the SHA-256 of the file's bytes, lowercase hex |
+| `file`           | The file's path under `files/`                                     |
+| `family`         | Display metadata for the font picker; the id is the identity       |
+| `weight`         | 400 regular, 700 bold, 900 black                                   |
+| `style`          | `normal` or `italic`                                               |
+| `subfamily`      | The font file's subfamily name                                     |
+| `postScriptName` | The font file's PostScript name                                    |
 
 The id is the identity, so the manifest never renames what a file is: change
 the bytes and the id changes with them. `src/index.ts` exposes the manifest to
@@ -53,11 +55,13 @@ box, which is that font's own answer and appears as such in the goldens.
 
 ## Changing the set
 
-Download the file, drop it under `files/{family}/`, add its entry to the
-manifest with `sha256sum` as the id, and run the tests. Adding a family means
-adding its `OFL.txt` beside the files and extending the roster in
-`src/manifest.test.ts` — the roster is what makes a lost or unexpected file a
-failure.
+Download the file, put it under `files/{family}/`, and add it to the manifest.
+Use `sha256sum` for the id. Copy `subfamily` and `postScriptName` from the font's
+metadata. Then run the tests.
+
+When adding a family, put its `OFL.txt` beside the font files and update the
+roster in `src/manifest.test.ts`. The tests fail if a font is missing, extra,
+changed, variable, or does not match its manifest metadata.
 
 ## Licensing
 

@@ -18,8 +18,6 @@ import {
   workerGoldens,
 } from "./fixtures.ts";
 
-/** The nine families the spec names. A missing fixture here is a missing
- *  baseline the day that family's metrics move. */
 const BUNDLED_FAMILIES = [
   "Inter",
   "Montserrat",

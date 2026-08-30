@@ -2,8 +2,6 @@ import type { DesignDocument, Element, GroupElement } from "@media-canvas/core";
 
 type ElementChange = (element: Element) => Element;
 
-/** Apply one operation recursively, replacing only changed Elements and their
- * ancestor groups. ADR-0006's preview caches rely on every other identity. */
 function changeElements(document: DesignDocument, ids: ReadonlySet<string>, change: ElementChange) {
   let documentChanged = false;
   const visit = (elements: Element[]): Element[] => {
@@ -93,8 +91,6 @@ export function removeElements(document: DesignDocument, ids: readonly string[])
   return elements === document.elements ? document : { ...document, elements };
 }
 
-/** Reorder one Element among the children at `parentPath` (an empty path means
- * top-level paint order). */
 export function reorderElement(
   document: DesignDocument,
   parentPath: readonly string[],

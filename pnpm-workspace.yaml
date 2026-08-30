@@ -9,35 +9,16 @@ catalog:
   "@types/node": ^24
   typescript: ^7.0.2
   vitest: ^4.1.10
-  # Bump these two together. A split pair fails at startup. Dependabot misses
-  # the coupling through the npm: alias, so update both by hand.
   vite: npm:@voidzero-dev/vite-plus-core@0.2.8
   vite-plus: 0.2.8
   "@types/opentype.js": ^1.3.10
-  # The render worker's browser automation (ADR-0002). Exact, not a range: the
-  # pinned image's environment tuple names this version and the browser build
-  # paired with it, and a caret would move that pair under a committed golden
-  # baseline. playwright-core rather than playwright: the postinstall of the
-  # full package downloads browsers onto every machine that installs the
-  # workspace, and browsers belong in the pinned image alone.
   playwright-core: 1.62.1
-  # Browser smoke tests are deliberately independent of the render worker's
-  # fidelity pin above. They follow compatible Playwright releases and install
-  # their own Chromium only when the on-demand suite is prepared.
   "@playwright/test": ^1.62.1
   opentype.js: ^1.3.4
   zod: ^4.4.3
   zustand: ^5.0.15
-  # The editor spec's styling stack (hq3p33). Tailwind v4 has no JS config —
-  # apps/web/postcss.config.mjs is the whole wiring and the theme is CSS.
   tailwindcss: ^4.3.3
   "@tailwindcss/postcss": ^4.3.3
-  # What the shadcn/ui registry's components (Base UI variant) are written
-  # against, and what its CLI installs alongside them: Base UI for the
-  # unstyled primitives, cva for the variant tables, clsx + tailwind-merge for
-  # `cn`, lucide for the icons, tw-animate-css for the enter/exit keyframes.
-  # The `shadcn` package is the CLI, and also carries the `tailwind.css` that
-  # app/globals.css imports for those components' custom variants.
   clsx: ^2.1.1
   tailwind-merge: ^3.6.0
   class-variance-authority: ^0.7.1
@@ -53,31 +34,17 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
 
-# Supply-chain policy
-# New versions must be at least 4 days old before pnpm will resolve them.
 minimumReleaseAge: 5760
 
-# No dependency may run lifecycle (install/postinstall) scripts unless it is
-# explicitly reviewed and listed in allowBuilds. Install fails loudly instead
-# of silently skipping unreviewed build scripts.
 strictDepBuilds: true
-# sharp: Next.js image optimization — native binary, reviewed and trusted.
 allowBuilds: { sharp: true }
 
-# Transitive dependencies must come from trusted registries — no git or
-# tarball URLs below the direct-dependency level.
 blockExoticSubdeps: true
 
-# Refuse versions whose publisher trust level regressed (e.g. provenance
-# silently dropped between releases).
 trustPolicy: no-downgrade
-# shadcn's CLI pulls @babel/core, which pins semver ^6.3.1, a 2023 release
-# that predates provenance.
 trustPolicyExclude:
   - semver
 
-# Keep node_modules in sync with the lockfile before running scripts.
 verifyDepsBeforeRun: install
 
-# Fail install on an engines mismatch (Node version) instead of warning.
 engineStrict: true

@@ -1,11 +1,3 @@
-# The infrastructure the product runs on: Postgres, Redis and object storage.
-# This is the default profile — bring it up, then `pnpm dev` runs the api, the
-# web app and the worker on the host. Every published port binds to the
-# loopback address, so the stack is reachable only from the host that started
-# it.
-#
-# Values come from `.env`: copy `.env.example` and fill in what it marks
-# required.
 services:
   postgres:
     image: postgres:17
@@ -17,9 +9,6 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      # The unix socket, published into the repository for the sandboxed
-      # coding agents: their sandbox isolates the network namespace, so the
-      # loopback port above is unreachable from inside it — the socket is not.
       - ./.dev/run/pg:/var/run/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U media_canvas -d media_canvas"]
@@ -29,10 +18,6 @@ services:
       start_period: 10s
 
   redis:
-    # No data volume: Redis carries only the work signal, and a lost queue is
-    # reconcilable from Postgres (ADR-0004). The bind mount below is not data —
-    # it publishes the unix socket for the sandboxed coding agents, exactly as
-    # the Postgres socket above; TCP keeps serving everything else.
     image: redis:8
     command:
       ["redis-server", "--unixsocket", "/var/run/redis/redis.sock", "--unixsocketperm", "777"]
@@ -47,28 +32,18 @@ services:
       retries: 5
 
   garage:
-    # Object storage behind the S3 API. `--single-node` builds the cluster
-    # layout on first boot and `--default-access-key` mints the credentials
-    # below, so there is no init container and no CLI step. The api creates
-    # its own buckets on startup — see issue jl1ew8.
     image: dxflrs/garage:v2.3.0
     command: /garage server --single-node --default-access-key
     environment:
       GARAGE_DEFAULT_ACCESS_KEY: "${GARAGE_DEFAULT_ACCESS_KEY:?set it in .env, copied from .env.example}"
       GARAGE_DEFAULT_SECRET_KEY: "${GARAGE_DEFAULT_SECRET_KEY:?set it in .env, copied from .env.example}"
-      # Node-to-node RPC only, but Garage refuses to start without it.
       GARAGE_RPC_SECRET: "${GARAGE_RPC_SECRET:?set it in .env, copied from .env.example}"
     ports:
       - "127.0.0.1:3900:3900"
     volumes:
-      # Garage will not start without a config file, and metadata_dir,
-      # data_dir and the bind addresses have no environment equivalents.
       - ./infra/garage.toml:/etc/garage.toml:ro
-      # One volume covers both meta/ and data/ under /var/lib/garage.
       - garage-data:/var/lib/garage
     healthcheck:
-      # The image is a single static binary with no shell, so the test must be
-      # exec form. `garage status` exits 0 once the node serves.
       test: ["CMD", "/garage", "status"]
       interval: 10s
       timeout: 5s
@@ -151,8 +126,6 @@ services:
     image: caddy:2.10-alpine
     restart: unless-stopped
     environment:
-      # A bare domain activates Caddy's automatic HTTPS. The explicit HTTP
-      # address used when it is empty disables automatic HTTPS completely.
       SITE_ADDRESS: "${DOMAIN:-http://:80}"
     ports:
       - "${HTTP_PORT:-80}:80"

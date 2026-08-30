@@ -15,8 +15,6 @@ from fastapi.testclient import TestClient
 from media_canvas_api.main import app
 from media_canvas_api.settings import Settings
 
-# BullMQ's default prefix and the queue this producer writes. The Node
-# worker consumes the same name.
 QUEUE = "rows"
 PREFIX = f"bull:{QUEUE}"
 

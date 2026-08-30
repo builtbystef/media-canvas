@@ -9,7 +9,6 @@ import {
   selectWord,
 } from "./text-editing";
 
-/** Two wrapped lines of `LIMITED OFFER`, as `layoutText` reports them. */
 const wrapped: TextLayout = {
   lines: [
     { start: 0, end: 7, baselineY: 10 },

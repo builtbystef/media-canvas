@@ -33,14 +33,6 @@ import {
 
 const MAX_NAME = 100;
 
-/**
- * This Workspace's API keys: mint one, copy it once, revoke one.
- *
- * The list is Owner-only on the api, so an Editor or Viewer sees the panel
- * and why it will not act, and nothing is fetched that would be refused.
- * The plaintext is held only in the reveal; dismissing that is a button,
- * and the row that remains has the prefix and the timestamps — never the key.
- */
 export function ApiKeysPanel({
   workspaceId,
   mayManage,
@@ -81,9 +73,7 @@ export function ApiKeysPanel({
     if (revealed === null) return;
     try {
       await navigator.clipboard.writeText(revealed.key);
-    } catch {
-      // The key is still on the screen; they can select it.
-    }
+    } catch {}
   }
 
   async function revoke(key: KeyView) {

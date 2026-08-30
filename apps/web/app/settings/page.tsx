@@ -21,14 +21,6 @@ import { WorkspacePanel } from "./workspace-panel";
 
 export const metadata = { title: "Settings — Media Canvas" };
 
-/**
- * This Workspace's settings: the Workspace itself, who is in it, who has
- * been invited, and the API keys an Owner mints for a script.
- *
- * Any member may open the page. Owner-only actions are inert for everyone
- * else — the api would refuse them — and the invites and keys lists are not
- * fetched for a Role that cannot see them.
- */
 export default async function SettingsPage() {
   const identity = await signedInOrSignIn();
   const chosen = chosenMembership(identity, (await cookies()).get(WORKSPACE_COOKIE)?.value);

@@ -9,14 +9,6 @@ import type { DesignDocument, VariableDecl } from "@media-canvas/core";
 import { validate } from "@media-canvas/core";
 import { failedToChangeDocument } from "./failures";
 
-/**
- * The Generate dialog: values, the format picker, and the one render call.
- *
- * Constraints are core's `validate` — the same check a batch would run —
- * so a field that would fail generation already says so before the request.
- */
-
-/** One value per Variable, each Variable's default, or the type's empty. */
 export function initialValues(document: DesignDocument): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const variable of document.variables ?? []) {
@@ -39,7 +31,6 @@ function valueFor(variable: VariableDecl): unknown {
   }
 }
 
-/** Per-Variable messages that block Generate, keyed by name. */
 export function fieldErrors(
   document: DesignDocument,
   values: Record<string, unknown>,
@@ -52,7 +43,6 @@ export function fieldErrors(
   return errors;
 }
 
-/** The declarations alone, so a canvas problem cannot hide a value error. */
 function valuesOnly(document: DesignDocument): DesignDocument {
   return {
     schemaVersion: 1,
@@ -62,7 +52,6 @@ function valuesOnly(document: DesignDocument): DesignDocument {
   };
 }
 
-/** The formats the picker offers, in that order. Exactly one is chosen. */
 export const GENERATE_FORMATS = ["png", "jpeg", "pdf"] as const;
 
 export type GenerateFormatKind = (typeof GENERATE_FORMATS)[number];
@@ -72,12 +61,10 @@ export type GenerateFormat =
   | { format: "jpeg"; quality?: number }
   | { format: "pdf" };
 
-/** PNG at one times, until the picker is touched. */
 export const DEFAULT_GENERATE_FORMAT: GenerateFormat = { format: "png", scale: 1 };
 
 const JPEG_QUALITY_DEFAULT = 90;
 
-/** The picker choice as the render endpoint takes it. JPEG quality defaults to 90. */
 export function outputFormat(choice: GenerateFormat): OutputFormat {
   if (choice.format === "png") return { format: "png", scale: choice.scale };
   if (choice.format === "jpeg") {
@@ -97,7 +84,6 @@ const EXTENSION: Record<GenerateFormatKind, string> = {
   pdf: "pdf",
 };
 
-/** The file the browser saves, named after the document. */
 export function downloadName(documentName: string, choice: GenerateFormat): string {
   return `${documentName}.${EXTENSION[choice.format]}`;
 }
@@ -120,12 +106,6 @@ export type RenderCall = (options: { path: { documentId: string }; body: RenderB
   response?: { status?: number };
 }>;
 
-/**
- * The one generate: render, then hand the bytes over as a named file.
- *
- * A design is format only — leftover values are dropped, never sent. A
- * template sends the form. Nothing else is called; the document is untouched.
- */
 export async function generateDocument(
   request: GenerateRequest,
   render: RenderCall = renderDocument,

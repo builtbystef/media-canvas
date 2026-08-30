@@ -1,8 +1,3 @@
-// One Row task: identifiers in, a stored file and a reported outcome out.
-// The queue carries nothing else (ADR-0004). Snapshot and format are fetched
-// once per Job and reused; values come from the Row call; bytes go to object
-// storage; the result goes back through the internal api (ADR-0005).
-
 import type { DesignDocument, ValidationError } from "@media-canvas/core";
 
 import type { OutputStore } from "./outputs.ts";
@@ -10,8 +5,6 @@ import type { PagePool } from "./page-pool.ts";
 import { renderDocument, ValueRefusal } from "./render-document.ts";
 import type { RenderOptions } from "./render.ts";
 
-/** The identifiers BullMQ carries, plus which attempt this is so a transient
- *  failure can be retried without reporting, and a value failure cannot. */
 export type RowTask = {
   jobId: string;
   rowId: string;
@@ -42,11 +35,8 @@ type RowBundle = {
   rowIndex: number;
 };
 
-/** The Row, its Job, or its Workspace is gone — a 404 from the internal api.
- *  The task is done: retrying would not bring it back. */
 class Gone extends Error {}
 
-/** Consume Row tasks against the api's internal contract and an output store. */
 export function createRowConsumer(options: RowConsumerOptions): RowConsumer {
   const origin = options.apiBaseUrl.replace(/\/$/, "");
   const jobs = new Map<string, Promise<JobBundle>>();
@@ -98,8 +88,6 @@ export function createRowConsumer(options: RowConsumerOptions): RowConsumer {
       try {
         await run(task);
       } catch (failure) {
-        // A 404 from any internal call is the Job (or its Workspace) going
-        // away mid-flight. The task is finished; retrying would not revive it.
         if (failure instanceof Gone) return;
         throw failure;
       }

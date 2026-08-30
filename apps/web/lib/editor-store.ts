@@ -5,7 +5,6 @@ import type { Tool } from "./drawing-tools";
 import { unwindEscape } from "./keyboard-map";
 import { applyHandleDrag, type Handle, type HandleDragOptions, type Point } from "./resize-scale";
 
-/** How many completed gestures the in-memory stack keeps (node 73rm0x). */
 export const UNDO_LIMIT = 200;
 
 type Snapshot = {
@@ -53,7 +52,6 @@ export type EditorState = {
 
 export type EditorStore = ReturnType<typeof createEditorStore>;
 
-/** One store owns editor document, selection, and the in-memory undo pointer. */
 export function createEditorStore(document: DesignDocument | null) {
   const history: Snapshot[] = document === null ? [] : [{ document, touched: [] }];
   let cursor = 0;
@@ -136,9 +134,6 @@ export function createEditorStore(document: DesignDocument | null) {
           };
         }),
       endTextEdit: () => set((state) => finishTextEdit(state)),
-      // A typed commit calls this once; a scrub may preview through
-      // `replaceDocument`, then calls this once on release with its starting
-      // snapshot. That boundary is one Undo Entry.
       commitInspectorEdit: (change, ids, gestureStart) =>
         set((state) => {
           if (state.document === null) return state;
@@ -153,7 +148,6 @@ export function createEditorStore(document: DesignDocument | null) {
             ids,
           );
         }),
-      // Rotation, alignment, and distribution each cross this boundary once.
       commitPlacementEdit: (change, ids, gestureStart) =>
         set((state) => {
           if (state.document === null) return state;

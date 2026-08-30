@@ -114,7 +114,6 @@ test("a non-conflict failure warns and retries with a widening delay up to the c
   state = failSave(beginSave(state), 20_000, "other");
   expect(state.scheduledAt).toBe(20_000 + RETRY_START_MS * 4);
 
-  // Keep doubling past the cap: the wait itself never exceeds it.
   state = failSave(beginSave(state), 30_000, "other");
   state = failSave(beginSave(state), 40_000, "other");
   state = failSave(beginSave(state), 50_000, "other");

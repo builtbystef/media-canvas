@@ -3,12 +3,6 @@
 import { useState } from "react";
 import { Input } from "../../../components/ui/input";
 
-/**
- * The document's name, renamed where it is displayed.
- *
- * Keystrokes are not saves. Blur or Enter hands the name to the session,
- * which puts it on the same Revision-checked PUT as every other save.
- */
 export function DocumentName({
   name,
   disabled,

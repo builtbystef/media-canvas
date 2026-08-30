@@ -22,10 +22,7 @@ export type Bounds = { left: number; top: number; right: number; bottom: number 
 export type HandleDragOptions = {
   keepAspect?: boolean;
   fromCenter?: boolean;
-  /** Mounted bounds are required for text, groups, and multiple selections,
-   * whose complete dimensions are not stored on one Element. */
   bounds?: Bounds;
-  /** Crop Mode: the frame moves and the bitmap stays put. */
   crop?: boolean;
 };
 

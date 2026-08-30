@@ -1,13 +1,7 @@
-// Where a finished Row's bytes go: the worker writes them itself, under the
-// Job's prefix, and then reports the key. The api never sees the bytes on
-// this path — it will later serve them by reading the same key.
-
 import { createHash, createHmac } from "node:crypto";
 
 import { InternalServiceConfigError } from "./internal-service.ts";
 
-/** One place that can hold a rendered file. Tests stand this in; production
- *  talks to the outputs bucket over S3. */
 export type OutputStore = {
   put(key: string, body: Uint8Array, contentType: string): Promise<void>;
 };
@@ -24,10 +18,6 @@ const DEFAULT_ENDPOINT = "http://localhost:3900";
 const DEFAULT_REGION = "garage";
 const DEFAULT_BUCKET = "media-canvas-outputs";
 
-/**
- * The outputs bucket and the credential that writes to it. The pair is the
- * same one Garage (and the api) already read: one credential, set once.
- */
 export function outputStoreConfig(env: Record<string, string | undefined>): OutputStoreConfig {
   const accessKey = env.GARAGE_DEFAULT_ACCESS_KEY;
   if (accessKey === undefined || accessKey === "") {
@@ -58,7 +48,6 @@ export function outputStoreConfig(env: Record<string, string | undefined>): Outp
   };
 }
 
-/** PutObject against an S3-compatible store, path-style, SigV4. */
 export function createS3OutputStore(config: OutputStoreConfig): OutputStore {
   return {
     async put(key, body, contentType) {

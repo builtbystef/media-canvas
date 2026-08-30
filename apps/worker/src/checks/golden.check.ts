@@ -1,11 +1,4 @@
-// The image's golden check: run it inside the pinned image and it says
-// whether a fixture still renders the picture a committed baseline froze.
-//
-//   pnpm --filter worker run image:check
-//
-// Baking is a different command (`goldens:bake`). This file never writes a
-// baseline — a failure cannot quietly become the new expected picture.
-
+// This file never writes baselines.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";

@@ -21,8 +21,6 @@ def upgrade() -> None:
     op.create_table(
         "font_assets",
         sa.Column("workspace_id", sa.Uuid(), nullable=False),
-        # The SHA-256 of the bytes, lowercase hex, never truncated: these ids
-        # live inside stored Design Documents forever.
         sa.Column("id", sa.String(length=64), nullable=False),
         sa.Column("storage_key", sa.String(length=200), nullable=False),
         sa.Column("format", FORMAT, nullable=False),
@@ -38,9 +36,6 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["workspace_id"], ["workspaces.id"], ondelete="CASCADE"
         ),
-        # The Workspace and the hash together are the identity: the same file
-        # uploaded into two Workspaces is two assets with two stored objects,
-        # and a re-upload into one of them finds the row already there.
         sa.PrimaryKeyConstraint("workspace_id", "id"),
     )
 

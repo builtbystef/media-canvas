@@ -59,45 +59,26 @@ from media_canvas_api.models import ImageAsset, Membership, Role
 
 router = APIRouter(prefix="/api/v1", tags=["images"])
 
-# What an image file may weigh (node 3ko2p7).
 MAX_IMAGE_BYTES = 25 * 1024 * 1024
 
-# And what it may decode to, which is the limit that actually protects the
-# renderer: 25 MB of PNG can expand into gigabytes inside a worker's page, so
-# the file size alone says nothing about what it costs to open.
 MAX_PIXELS = 50_000_000
 
-# The three formats an Image Asset is ever stored as, by the name the parser
-# gives them: the key suffix, and what a client is told the bytes are. The
-# declared upload type appears nowhere — the format is whatever parses.
 FORMATS = {
     "PNG": ("png", "image/png"),
     "JPEG": ("jpg", "image/jpeg"),
     "WEBP": ("webp", "image/webp"),
 }
 
-# How each format is written back out. Re-encoding is unavoidable — it is what
-# strips the metadata and applies the rotation — so the lossy formats are
-# written at a quality where a second generation is not something a designer
-# can see. PNG is lossless and needs nothing said about it.
 ENCODING: dict[str, dict[str, Any]] = {
     "PNG": {},
     "JPEG": {"quality": 95},
     "WEBP": {"quality": 95},
 }
 
-# The suffix each stored content type is addressed with, which is the same
-# one its key carries: one table describes the formats, read from both ends.
 SUFFIXES = {content_type: suffix for suffix, content_type in FORMATS.values()}
 
-# The same answer for an image this Workspace does not hold as for one that
-# was never uploaded anywhere: an id is a hash, and a stranger who guesses one
-# learns nothing from asking.
 UNREACHABLE = "No such image."
 
-# One machine-readable code per way a file can fail to be an Image Asset, each
-# with the sentence a person can act on. The editor branches on the code and
-# shows the message; it never matches on prose.
 TOO_LARGE = (
     "file_too_large",
     "An image file may be at most 25 MB. This one is larger — export it at a "
@@ -202,8 +183,6 @@ async def upload_image(
     if len(content) > MAX_IMAGE_BYTES:
         raise AssetRefused(*TOO_LARGE)
 
-    # Decoding and re-encoding a photograph is the one part of a request that
-    # takes real processor time, so it happens off the event loop.
     picture = await run_in_threadpool(normalized, content)
     image_id = asset_id(picture.content)
     held = await database.get(
@@ -214,9 +193,6 @@ async def upload_image(
         return view_of(held)
 
     key = f"{editor.workspace_id}/images/{image_id}.{picture.suffix}"
-    # The object first and the row second: an interrupted upload leaves bytes
-    # nothing points at, which cost nothing, rather than a record of an image
-    # that cannot be served.
     await run_in_threadpool(
         storage.assets.put, key, picture.content, picture.content_type
     )
@@ -233,8 +209,6 @@ async def upload_image(
             original_filename=(file.filename or "")[:255],
             created_at=clock(),
         )
-        # Two identical uploads racing each other: the loser takes the winner's
-        # record, which is the same answer a re-upload a day later would get.
         .on_conflict_do_nothing()
         .returning(ImageAsset.id)
     )
@@ -305,8 +279,6 @@ def normalized(content: bytes) -> NormalizedImage:
     try:
         opened = Image.open(BytesIO(content))
     except DecompressionBombError as enormous:
-        # A header claiming more pixels than the library will decode at all.
-        # It is the same complaint as the limit below, in different words.
         raise AssetRefused(*TOO_MANY_PIXELS) from enormous
     except UnidentifiedImageError as unreadable:
         raise AssetRefused(*UNSUPPORTED_IMAGE_FORMAT) from unreadable
@@ -314,8 +286,6 @@ def normalized(content: bytes) -> NormalizedImage:
         image_format = opened.format or ""
         if image_format not in FORMATS:
             raise AssetRefused(*UNSUPPORTED_IMAGE_FORMAT)
-        # A still WebP is stored as-is. An animated one would flatten to its
-        # first frame under a content-addressed id — refuse it instead.
         if image_format == "WEBP" and getattr(opened, "is_animated", False):
             raise AssetRefused(*ANIMATED_WEBP)
         if opened.width * opened.height > MAX_PIXELS:
@@ -323,9 +293,6 @@ def normalized(content: bytes) -> NormalizedImage:
         suffix, content_type = FORMATS[image_format]
         upright = ImageOps.exif_transpose(opened)
         written = BytesIO()
-        # Nothing but the pixels is passed to the encoder, and that is what
-        # drops the camera and location data: metadata travels only when it is
-        # handed over deliberately.
         upright.save(written, format=image_format, **ENCODING[image_format])
         return NormalizedImage(
             content=written.getvalue(),

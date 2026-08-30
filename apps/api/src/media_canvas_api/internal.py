@@ -23,13 +23,8 @@ from media_canvas_api.assets import without_suffix
 from media_canvas_api.models import FontAsset, ImageAsset
 from media_canvas_api.storage import serve
 
-# The internal surface is not part of the product's api: it is one half of a
-# conversation between two services, and no generated client should offer it.
 router = APIRouter(prefix="/internal", include_in_schema=False)
 
-# One answer for a Workspace that does not exist, an asset that does not, and
-# an asset that belongs to another Workspace. The worker is told what it needs
-# — there are no bytes here — and nothing more.
 UNREACHABLE = "No such asset."
 
 

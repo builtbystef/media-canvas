@@ -3,21 +3,12 @@ import type { DesignDocument, Element } from "@media-canvas/core";
 
 import { refusalMessage } from "./image-placement.ts";
 
-/**
- * How the Assets panel and the font picker read one Workspace's library.
- *
- * The list endpoints return newest first and ungrouped. The picker needs
- * families, bundled first; the panel needs the same faces as rows, bundled
- * together so it cannot disagree with the picker about what exists.
- */
-
 export type FontFamilyGroup = {
   family: string;
   bundled: boolean;
   faces: FontAssetView[];
 };
 
-/** Faces under their family, bundled families first, light-to-heavy inside. */
 export function groupFontsForPicker(fonts: readonly FontAssetView[]): FontFamilyGroup[] {
   const byFamily = new Map<string, FontAssetView[]>();
   for (const face of fonts) {
@@ -36,7 +27,6 @@ export function groupFontsForPicker(fonts: readonly FontAssetView[]): FontFamily
   });
 }
 
-/** Bundled faces first, as one group, then uploaded faces newest first. */
 export function fontsForPanel(fonts: readonly FontAssetView[]): {
   bundled: FontAssetView[];
   uploaded: FontAssetView[];
@@ -59,8 +49,6 @@ function byWeightThenItalic(left: FontAssetView, right: FontAssetView): number {
   return left.subfamily.localeCompare(right.subfamily);
 }
 
-/** How many Elements in the open document name this asset. Other documents
- *  are not scanned — ADR-0007 keeps no index, and the dialog does not invent one. */
 export function countAssetUsages(document: DesignDocument, assetId: string): number {
   let count = 0;
   const visit = (elements: readonly Element[]) => {
@@ -77,8 +65,6 @@ export function countAssetUsages(document: DesignDocument, assetId: string): num
 const GENERIC_DELETION =
   "Any design or template using this will fail to render until it is replaced.";
 
-/** The confirm dialog's sentence. A count of zero is the generic warning —
- *  the asset may still be used by a document this editor is not holding. */
 export function describeAssetDeletion(usageCount: number): string {
   if (usageCount === 0) return GENERIC_DELETION;
   const noun = usageCount === 1 ? "element" : "elements";
@@ -91,21 +77,16 @@ export type FinishedFontUpload =
   | { kind: "selected"; font: FontAssetView }
   | { kind: "rejected"; message: string };
 
-/** A picker upload either becomes the current face or stays a refusal in the
- *  picker, in the words the api already chose. */
 export function finishFontUpload(result: FontUploadResult): FinishedFontUpload {
   return result.ok
     ? { kind: "selected", font: result.font }
     : { kind: "rejected", message: refusalMessage(result.error) };
 }
 
-/** The CSS family the panel and picker paint a row in, distinct from the
- *  compiler's inlined face so the UI never shares a name with the canvas. */
 export function fontFaceName(fontAssetId: string): string {
   return `asset-face-${fontAssetId}`;
 }
 
-/** A face as a row or option names it. */
 export function fontFaceLabel(font: FontAssetView): string {
   return `${font.family} ${font.subfamily}`;
 }

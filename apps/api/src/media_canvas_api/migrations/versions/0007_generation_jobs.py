@@ -28,9 +28,6 @@ def upgrade() -> None:
         "generation_jobs",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("workspace_id", sa.Uuid(), nullable=False),
-        # Lineage only, and not a foreign key: deleting the Template must
-        # leave the Job standing with the id it was submitted against, and
-        # with the document copied into template_snapshot.
         sa.Column("template_id", sa.Uuid(), nullable=False),
         sa.Column(
             "template_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=False

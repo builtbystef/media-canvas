@@ -9,7 +9,6 @@ import type {
 } from "@media-canvas/core";
 import { interpolationTokens } from "@media-canvas/core";
 
-/** The name grammar 8h50hu pinned: one token, no escaping, case-sensitive. */
 const VARIABLE_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
 
 export type VariableChange =
@@ -83,7 +82,6 @@ export function variableUsage(document: DesignDocument, name: string): VariableU
   return { properties, textElements };
 }
 
-/** The elements a Variable rename or delete touches — undo selects these. */
 export function elementsUsingVariable(document: DesignDocument, name: string): string[] {
   const ids: string[] = [];
   const token = `{{${name}}}`;
@@ -156,7 +154,6 @@ export function setVariableConstraints(
   });
 }
 
-/** A bindable inspector site. Text and numbers bind as tokens, not here. */
 export type BindSite =
   | { site: "fill" | "borderColor" | "textColor" | "imageSrc" | "visible"; elementId: string }
   | { site: "background" };
@@ -233,7 +230,6 @@ export function createVariableFromToken(document: DesignDocument, name: string):
 
 export type TokenQuery = { start: number; query: string };
 
-/** The open `{{query` at the caret, if the user is inside a token. */
 export function openTokenQuery(content: string, cursor: number): TokenQuery | null {
   const before = content.slice(0, cursor);
   const start = before.lastIndexOf("{{");

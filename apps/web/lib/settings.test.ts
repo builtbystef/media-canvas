@@ -22,14 +22,6 @@ import {
   roleLabel,
 } from "./settings.ts";
 
-/**
- * What the settings area offers, and what it says when it will not.
- *
- * The api is the access control (sazdn4, k7wegl); this module is the words
- * and the affordances so an Editor is never offered an Owner action, and a
- * last Owner is told why rather than shown a failure.
- */
-
 function member(id: string, email: string, role: MemberView["role"]): MemberView {
   return { user: { id, email }, role };
 }

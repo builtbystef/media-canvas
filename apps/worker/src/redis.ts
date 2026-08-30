@@ -1,6 +1,3 @@
-// A small RESP client. Redis carries only the work signal (ADR-0004); this
-// talks the layout the api already writes, without a second Redis library.
-
 import { createConnection, type Socket } from "node:net";
 
 import { InternalServiceConfigError } from "./internal-service.ts";
@@ -15,7 +12,6 @@ export type RedisConnection = {
 const DEFAULT_HOST = "localhost";
 const DEFAULT_PORT = 6379;
 
-/** Where Redis lives, from the same variables the api already reads. */
 export function redisConnection(env: Record<string, string | undefined>): RedisConnection {
   const host = emptyToDefault(env.REDIS_HOST, DEFAULT_HOST);
   const port = numberOr(env.REDIS_PORT, DEFAULT_PORT, "REDIS_PORT");
@@ -28,8 +24,6 @@ export type RedisClient = {
   close(): Promise<void>;
 };
 
-/** Open a client. SELECT happens here so every command after is on the
- *  configured database. */
 export async function connectRedis(connection: RedisConnection): Promise<RedisClient> {
   const socket = await open(connection);
   const client = attach(socket);

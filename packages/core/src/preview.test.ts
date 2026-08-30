@@ -11,7 +11,6 @@ import type {
 } from "./index.ts";
 import { compile, createPreview, referencedAssets } from "./index.ts";
 
-/** The bundled faces the text elements here are measured with. */
 const oswaldBold = bundledFonts.find(
   (font) => font.family === "Oswald" && font.weight === 700 && font.style === "normal",
 )!;
@@ -96,16 +95,12 @@ function document(elements: Element[]): DesignDocument {
   };
 }
 
-/** The document with one element replaced, as a pure operation on the store
- *  leaves it: a new document, a new element, and every other element the same
- *  object it already was. */
 function replacing(doc: DesignDocument, index: number, element: Element): DesignDocument {
   const elements = [...doc.elements];
   elements[index] = element;
   return { ...doc, elements };
 }
 
-/** The ids of the elements an update patches, in the order it patches them. */
 function patched(update: { kind: string; patches?: { elementId: string }[] }): string[] {
   return (update.patches ?? []).map((patch) => patch.elementId);
 }
@@ -154,11 +149,6 @@ test("an element that is the same object is never compiled again", () => {
   const preview = createPreview(assets());
   preview.update(doc);
 
-  // A lie the memo is expected to keep: the element is mutated in place, which
-  // the editor's own operations never do, precisely because the caches key on
-  // the object (ADR-0006). Even a full compile draws the markup it already has
-  // for that object, while a preview meeting the element for the first time
-  // draws what the element now says.
   kept.content = "SOLD";
   const resized = { ...doc, canvas: { ...doc.canvas, width: 400 } };
   const again = preview.update(resized);

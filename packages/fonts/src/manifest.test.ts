@@ -8,8 +8,6 @@ import { expect, test } from "vitest";
 import type { BundledFont, FontStyle } from "./index.ts";
 import { bundledFonts, bundledFontPath, bundledFontsDirectory } from "./index.ts";
 
-/** The set the product ships (node oxcf2v), written out here so that losing a
- *  file — or quietly gaining one — fails rather than passes. */
 const BUNDLED_SET: Record<string, [number, FontStyle][]> = {
   Inter: [
     [400, "normal"],
@@ -48,7 +46,6 @@ const BUNDLED_SET: Record<string, [number, FontStyle][]> = {
   ],
 };
 
-/** Every font file under the bundled directory, as `family-dir/file` paths. */
 function vendoredFiles(): string[] {
   const found: string[] = [];
   for (const familyDir of readdirSync(bundledFontsDirectory, { withFileTypes: true })) {
@@ -64,7 +61,6 @@ function bytesOf(font: BundledFont): Buffer {
   return readFileSync(bundledFontPath(font));
 }
 
-/** The sfnt header: the four-byte version tag, and the table tags it lists. */
 function sfnt(bytes: Buffer): { version: string; tables: string[] } {
   const version = bytes.readUInt32BE(0) === 0x00010000 ? "ttf" : bytes.toString("latin1", 0, 4);
   const tables = Array.from({ length: bytes.readUInt16BE(4) }, (_, index) =>
@@ -109,8 +105,6 @@ test("every vendored file parses and exposes a .notdef glyph", () => {
     const bytes = bytesOf(font);
     const parsed = parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length));
     expect(parsed.glyphs.get(0).name, `${font.file} glyph 0`).toBe(".notdef");
-    // A character no font in this set maps: the missing-glyph rule resolves it
-    // to .notdef rather than to nothing.
     expect(parsed.charToGlyphIndex("\u{10FFFD}"), `${font.file} missing glyph`).toBe(0);
   }
 });

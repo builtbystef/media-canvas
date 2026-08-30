@@ -1,17 +1,8 @@
-// The editor's preview of a Design Document (ADR-0006): the compiler's own
-// markup, mounted once and thereafter patched a node at a time. What this
-// module decides is *what* has to reach the mounted markup — the whole thing,
-// one element's node, or nothing. Putting it there is the editor's business,
-// because the answer is the same in any host that can hold an `<svg>`.
-
 import type { AssetResolver } from "./assets.ts";
 import type { Caches, CompiledElement, Definition } from "./compile.ts";
 import { compileDocument, compileElementOf, newCaches } from "./compile.ts";
 import type { DesignDocument, Element } from "./document.ts";
 
-/** One element's node, recompiled, with the definitions that belong to it: the
- *  ones it points at now, and the ids it pointed at before and no longer does.
- *  A patch is applied by replacing the node named `elementId`. */
 export type ElementPatch = {
   elementId: string;
   markup: string;
@@ -19,29 +10,15 @@ export type ElementPatch = {
   droppedDefinitions: string[];
 };
 
-/** What the mounted markup needs in order to show the document it was given.
- *  A full compile is the honest answer to any change the patch path cannot
- *  express — one that adds, removes or reorders nodes, changes the canvas, or
- *  changes the set of Font Assets the inlined faces are keyed on. */
 export type PreviewUpdate =
   | { kind: "unchanged" }
   | { kind: "compiled"; svg: string }
   | { kind: "patched"; patches: ElementPatch[] };
 
 export interface Preview {
-  /** What has to reach the mounted markup for it to show `document`. */
   update(document: DesignDocument): PreviewUpdate;
 }
 
-/**
- * A preview over one document's succession of values.
- *
- * The caches live here, keyed on element object identity, so the document
- * operations that feed it must replace what they change and leave everything
- * else alone (ADR-0006) — that purity is what makes an unchanged element free.
- * The resolver is asked for a Font Asset's bytes once, however many compiles
- * follow.
- */
 export function createPreview(assets: AssetResolver): Preview {
   const caches: Caches = newCaches();
   let shown: DesignDocument | null = null;
@@ -71,20 +48,10 @@ export function createPreview(assets: AssetResolver): Preview {
   };
 }
 
-/** Whether the two documents are drawn on the same surface: the same canvas,
- *  at the same schema version. Neither belongs to any one element's node, so a
- *  change to either is a change to everything. */
 function sameSurface(before: DesignDocument, after: DesignDocument): boolean {
   return before.canvas === after.canvas && before.schemaVersion === after.schemaVersion;
 }
 
-/** The elements that changed, each as the pair of what it was and what it now
- *  is — or nothing at all, when the change is not one that replacing nodes can
- *  express, because the elements were added, removed, reordered or retyped.
- *
- *  A group is descended into only when the group's own node is untouched by
- *  what its children do: a turned group takes its center from its children's
- *  extent, so a child that moves moves the group's own transform with it. */
 function changedElements(
   before: readonly Element[],
   after: readonly Element[],
@@ -107,9 +74,6 @@ function changedElements(
   return changed;
 }
 
-/** Whether a group draws itself the same way whatever its children do. Its
- *  origin, opacity and visibility are its own; its rotation is not, because
- *  the center it turns about is the middle of what its children cover. */
 function sameGroupFrame(before: Element, after: Element): boolean {
   return (
     before.x === after.x &&
@@ -121,11 +85,6 @@ function sameGroupFrame(before: Element, after: Element): boolean {
   );
 }
 
-/** What replacing one element's node takes — or nothing, when that element
- *  cannot be reached by replacing a node: it drew nothing before or draws
- *  nothing now, so there is no node to put in place of, or it changed which
- *  Font Assets the document draws with, and the inlined faces are a block the
- *  whole document shares. */
 function patchFor(
   document: DesignDocument,
   before: Element,

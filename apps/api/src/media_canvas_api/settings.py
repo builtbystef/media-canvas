@@ -11,8 +11,6 @@ from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
-# Where `pnpm dev` serves the editor: the address a developer opens, and so
-# also the origin the api answers cross-origin calls from.
 DEVELOPMENT_ORIGIN = "http://localhost:3000"
 
 
@@ -38,11 +36,6 @@ class Settings(BaseSettings):
     postgres_password: str
     postgres_db: str = "media_canvas"
 
-    # The credential is the pair the object store itself is booted with, under
-    # the names it reads: one credential, set once, used from both ends. Every
-    # other detail is the api's own, and the defaults describe the compose
-    # stack — a hosted deployment points the same code at another S3 by
-    # setting the endpoint and the region.
     storage_access_key: str = Field(validation_alias="garage_default_access_key")
     storage_secret_key: str = Field(validation_alias="garage_default_secret_key")
     storage_endpoint: str = "http://localhost:3900"
@@ -50,17 +43,10 @@ class Settings(BaseSettings):
     assets_bucket: str = "media-canvas-assets"
     outputs_bucket: str = "media-canvas-outputs"
 
-    # Redis carries only the work signal (ADR-0004). The defaults are the
-    # compose stack. A path (unix socket) in REDIS_HOST is how sandboxed
-    # agents reach it; REDIS_DB isolates the test suite from a running dev
-    # queue.
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
 
-    # The credential the api and the render worker present to each other, and
-    # where the api reaches the worker's internal service. The port is the one
-    # the worker itself reads, under the same name, so the pair is set once.
     internal_api_token: str
     worker_internal_host: str = "localhost"
     worker_internal_port: int = 4000
@@ -68,9 +54,6 @@ class Settings(BaseSettings):
     domain: str | None = None
     public_url: str | None = None
 
-    # The Mailer driver. Unset means the console, so a machine that configures
-    # nothing still signs people in from the api log. The real drivers share
-    # EMAIL_FROM; each then needs its own credential.
     mailer: str = "console"
     resend_api_key: str | None = None
     smtp_host: str | None = None

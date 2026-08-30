@@ -4,12 +4,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 
-/**
- * One scripted pass over batch generation against the real stack. Not part of
- * `pnpm test`. Fine-grained behavior lives at the Vitest seam; this catches
- * wiring. Each `test.step` is the name a failure reports.
- */
-
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const TEXT_CONTENT = "Hello";
 const VARIABLE = "headline";
@@ -201,9 +195,7 @@ function logSources(): string {
         cwd: repoRoot(),
       }),
     );
-  } catch {
-    // The Compose app profile is optional; `pnpm dev` writes `.dev/mailer.log`.
-  }
+  } catch {}
   return chunks.join("\n");
 }
 
@@ -211,7 +203,6 @@ function repoRoot(): string {
   return join(here, "..", "..");
 }
 
-/** Names in a zip's central directory. The archive is what the operator got. */
 function zipEntryNames(bytes: Buffer): string[] {
   const eocdSig = 0x06054b50;
   const headerSig = 0x02014b50;

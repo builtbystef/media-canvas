@@ -46,17 +46,6 @@ import {
 } from "../../../components/ui/alert-dialog";
 import { Button, buttonVariants } from "../../../components/ui/button";
 
-/**
- * Live progress and the Row list for one Generation Job.
- *
- * The page that mounts this has already loaded the job once. This keeps
- * asking every two seconds while anything is left to render, and goes quiet
- * the moment a response is terminal — including after a cancel, which applies
- * the returned job in place. Counts are always the ones that response
- * carried — never a total built across refreshes. Cancel and delete are
- * Editor-level; a Viewer is offered neither. The snapshot line is a prop,
- * computed from the one template fetch the page made.
- */
 export function JobView({
   initial,
   templateName,

@@ -6,15 +6,6 @@ import { buttonVariants } from "../components/ui/button";
 import { SignOutButton } from "./sign-out-button";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
-/**
- * The frame every signed-in page is inside: the product's name, the Workspace
- * being read, and the way out.
- *
- * Light and dark are the system's — the shadcn tokens in `globals.css` are
- * declared under `prefers-color-scheme` and there is no toggle. The canvas is
- * not part of this frame: a document paints its own background, in either
- * theme.
- */
 export function Shell({
   memberships,
   current,

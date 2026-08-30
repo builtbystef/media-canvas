@@ -34,8 +34,6 @@ export function commonValue<T>(
     : { kind: "mixed" };
 }
 
-/** Apply one inspector commit recursively. Only edited Elements and their group
- * ancestors are replaced, preserving ADR-0006's identity-keyed preview cache. */
 export function updateSelectedElements(
   document: DesignDocument,
   ids: readonly string[],

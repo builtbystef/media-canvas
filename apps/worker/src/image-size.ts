@@ -1,7 +1,3 @@
-// Intrinsic size of an image file the worker has already fetched. Cover and
-// contain need it; the compiler never sees the bytes, only this pair.
-
-/** The pixel size encoded in a PNG, JPEG, or WebP file. */
 export function imageSize(bytes: Uint8Array): { width: number; height: number } | undefined {
   return pngSize(bytes) ?? jpegSize(bytes) ?? webpSize(bytes);
 }
@@ -44,7 +40,6 @@ function jpegSize(bytes: Uint8Array): { width: number; height: number } | undefi
       continue;
     }
     const length = ((bytes[i + 2] ?? 0) << 8) | (bytes[i + 3] ?? 0);
-    // SOF0 / SOF1 / SOF2: baseline, extended sequential, progressive.
     if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
       const height = ((bytes[i + 5] ?? 0) << 8) | (bytes[i + 6] ?? 0);
       const width = ((bytes[i + 7] ?? 0) << 8) | (bytes[i + 8] ?? 0);

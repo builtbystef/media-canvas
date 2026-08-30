@@ -10,7 +10,6 @@ import type {
 } from "./index.ts";
 import { resolve, validate } from "./index.ts";
 
-/** A Template: the Variables under test, over elements that reference them. */
 function template(variables: VariableDecl[], elements: Element[] = []): DesignDocument {
   return {
     schemaVersion: 1,
@@ -20,7 +19,6 @@ function template(variables: VariableDecl[], elements: Element[] = []): DesignDo
   };
 }
 
-/** A rect element, over the properties a Variable test wants to vary. */
 function rect(overrides: Partial<RectElement> = {}): RectElement {
   return {
     id: "box",
@@ -37,7 +35,6 @@ function rect(overrides: Partial<RectElement> = {}): RectElement {
   };
 }
 
-/** An image element, over the properties a Variable test wants to vary. */
 function image(overrides: Partial<ImageElement> = {}): ImageElement {
   return {
     id: "photo",
@@ -59,7 +56,6 @@ function image(overrides: Partial<ImageElement> = {}): ImageElement {
   };
 }
 
-/** A text element, over the properties a Variable test wants to vary. */
 function text(overrides: Partial<TextElement> = {}): TextElement {
   return {
     id: "headline",

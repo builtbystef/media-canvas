@@ -11,11 +11,6 @@ export function SignOutButton() {
   async function leave() {
     setBusy(true);
     await signOut();
-    // A whole-document navigation, replacing this entry rather than adding
-    // one. The session row is already gone, so nothing signed-in could be
-    // served again — and this makes sure nothing cached is shown either:
-    // every client-side cache of the product goes with the document, and the
-    // history entry the product was at is no longer there to go back to.
     window.location.replace(SIGN_IN);
   }
 

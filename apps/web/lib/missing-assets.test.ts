@@ -4,14 +4,6 @@ import { expect, test } from "vitest";
 import { createEditorStore } from "./editor-store.ts";
 import { describeMissingAssets, replaceAssetReferences } from "./missing-assets.ts";
 
-/**
- * The missing-asset panel, as pure decisions.
- *
- * Naming what is gone, listing the Elements that want it, and rewriting those
- * references as one Undo Entry are the rules the panel sits on. Fetching,
- * pickers, and mounting the preview are the canvas's job.
- */
-
 test("a missing image is named and lists the elements that reference it", () => {
   const document = documentWith([
     image("hero", "gone", "Hero"),

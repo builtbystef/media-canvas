@@ -1,13 +1,8 @@
-# Garage needs a configuration file at /etc/garage.toml; it will not start
-# without one, and metadata_dir, data_dir and the bind addresses have no
-# environment-variable equivalents. Only secrets come from the environment
-# (GARAGE_RPC_SECRET), so this file is safe to commit.
 
 metadata_dir = "/var/lib/garage/meta"
 data_dir = "/var/lib/garage/data"
 db_engine = "lmdb"
 
-# One node, so one copy. `garage server --single-node` builds the layout.
 replication_factor = 1
 
 rpc_bind_addr = "[::]:3901"
@@ -16,6 +11,5 @@ rpc_bind_addr = "[::]:3901"
 s3_region = "garage"
 api_bind_addr = "[::]:3900"
 
-# Serves an unauthenticated GET /health — 200 once the node can serve requests.
 [admin]
 api_bind_addr = "[::]:3903"

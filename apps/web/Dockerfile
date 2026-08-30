@@ -1,5 +1,3 @@
-# The production Next.js application image. Build from the repository root so
-# workspace dependencies resolve from the same lockfile as development.
 FROM node:24.18.0-slim
 
 WORKDIR /srv/media-canvas

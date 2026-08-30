@@ -1,8 +1,3 @@
-// The last step of the pipeline (issue zycblh, ADR-0002): compiled markup in,
-// one file out. The page is the canvas and nothing else; PNG keeps the
-// canvas's alpha, JPEG sits on white, and PDF is the browser's own print,
-// with text still text.
-
 import { chromium, type Page } from "playwright-core";
 
 import type { BrowserBuild } from "./environment.ts";
@@ -13,22 +8,15 @@ export type RenderOptions =
   | { format: "jpeg"; quality?: number }
   | { format: "pdf" };
 
-/** The canvas the markup describes: its width and height in CSS pixels, taken
- *  from the root SVG. Without those the page has no size, and there is nothing
- *  to print. */
 type CanvasSize = { width: number; height: number };
 
 const DEFAULT_JPEG_QUALITY = 90;
 const CSS_PX_PER_INCH = 96;
 
-/** Turn compiled markup into the bytes of exactly one file. */
 export async function render(svg: string, options: RenderOptions): Promise<Uint8Array> {
   return renderWith(renderEnvironment.browsers.render, svg, options);
 }
 
-/** Same as `render`, against one of the image's two browser builds. The
- *  production path never calls this with the headless shell; the named
- *  cross-flavor parity fixture (issue 6bqdxe) is the only caller. */
 export async function renderWith(
   build: BrowserBuild,
   svg: string,
@@ -54,9 +42,6 @@ export async function renderWith(
   }
 }
 
-/** Capture one file from a page that is already the right size and scale.
- *  The page pool reuses pages across calls; `render` / `renderWith` create a
- *  page, call this, and close it. */
 export async function renderOnPage(
   page: Page,
   svg: string,
@@ -117,8 +102,6 @@ export async function renderOnPage(
   }
 }
 
-/** The root SVG's width and height, unitless or in `px`. Anything else is not
- *  a canvas size this function can print. */
 function canvasSize(svg: string): CanvasSize | undefined {
   const open = /<svg\b[^>]*>/i.exec(svg);
   if (open === null) return undefined;
@@ -139,9 +122,6 @@ function dimension(tag: string, name: string): number | undefined {
   return size;
 }
 
-/** Watch image requests so a dead URL fails the render instead of becoming a
- *  hole in the picture. Self-contained markup never starts one, so this is
- *  idle on the production path and only the synthetic dead-URL check pays. */
 function trackImages(page: Page): {
   failed: string[];
   idle: () => Promise<void>;

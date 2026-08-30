@@ -10,15 +10,6 @@ import {
   runJobsListRefreshLoop,
 } from "./jobs.ts";
 
-/**
- * The Jobs page's numbers and its refresh, as pure functions.
- *
- * The list polls every five seconds while any listed job is still moving, and
- * goes quiet the moment every listed job is terminal. Progress is a fraction
- * read off the counts this response carried, with the failed count shown only
- * when it is above zero.
- */
-
 function counts(partial: Partial<Progress>): Progress {
   return { queued: 0, rendering: 0, succeeded: 0, failed: 0, skipped: 0, ...partial };
 }
@@ -68,8 +59,6 @@ test("the last rendering job reporting completed issues no further request", asy
 });
 
 test("progress is a fraction, and the failed count is shown only when it is above zero", () => {
-  // 1000 Rows: 812 succeeded, 6 failed, 0 skipped → 818/1000, and the failed
-  // count is shown because it is above zero.
   const withFailures = counts({ succeeded: 812, failed: 6, skipped: 0, queued: 182 });
   expect(jobProgressFraction(withFailures)).toBe("818/1000");
   expect(jobFailedCount(withFailures)).toBe(6);

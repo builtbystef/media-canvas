@@ -16,14 +16,6 @@ import { InviteView } from "./invite-view";
 
 export const metadata = { title: "Invite — Media Canvas" };
 
-/**
- * The page at the end of an invite email.
- *
- * The token is the credential. Preview is unauthenticated and names the
- * Workspace, the Role, and the invited email; accept signs the visitor in
- * as that account. A different session already in the browser is a warning
- * on this page, not a silent switch and not a block.
- */
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const identity = await currentIdentity();

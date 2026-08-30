@@ -49,8 +49,6 @@ def upgrade() -> None:
         sa.Column("consumed_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    # Every read of this table — verification and both rate-limit windows —
-    # starts from one address.
     op.create_index(op.f("ix_otp_codes_email"), "otp_codes", ["email"], unique=False)
 
 

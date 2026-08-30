@@ -13,8 +13,6 @@ from media_canvas_api.models import ApiKey
 
 router = APIRouter(prefix="/api/v1", tags=["api-keys"])
 
-# A name is how an Owner picks a key out of the list: never empty, and never
-# long enough to be prose. Same width as a Workspace name.
 KeyName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
 ]

@@ -73,8 +73,6 @@ test("the resolver answers the compiler from what was fetched", () => {
 test("an asset that was never fetched is a refusal, not an empty answer", () => {
   const resolver = resolverFor(library());
 
-  // The compiler gathers what its resolver refuses and names every missing
-  // asset at once, so a throw here is how a missing asset is reported at all.
   expect(() => resolver.fontBytes("font-b")).toThrow('"font-b"');
   expect(() => resolver.imageUrl("image-b")).toThrow('"image-b"');
   expect(() => resolver.imageSize("image-b")).toThrow('"image-b"');

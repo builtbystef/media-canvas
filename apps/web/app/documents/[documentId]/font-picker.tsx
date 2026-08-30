@@ -27,11 +27,6 @@ const CONTROL = "h-7 w-full min-w-0 text-xs";
 
 type Common<T> = { kind: "same"; value: T } | { kind: "mixed" } | { kind: "none" };
 
-/**
- * The inspector's face list: families, bundled first, each option painted in
- * its own face, and an upload that becomes the current face or a refusal in
- * this same place.
- */
 export function FontPicker({
   fonts,
   value,

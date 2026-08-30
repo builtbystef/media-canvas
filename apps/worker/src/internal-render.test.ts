@@ -20,8 +20,6 @@ afterEach(async () => {
   await Promise.all(extra.splice(0).map((item) => item.close()));
 });
 
-/** A pool that fails the test the moment a page is opened: refusals must not
- *  touch the browser. */
 function unusedPool(): PagePool {
   return {
     opened: 0,
@@ -32,9 +30,6 @@ function unusedPool(): PagePool {
   };
 }
 
-/** A pool that records the markup it was asked to print and returns canned
- *  file bytes. The HTTP tests stand the browser in this way: Chromium lives
- *  in the page-pool tests and the in-image render checks. */
 function recordingPool(bytes: Uint8Array): PagePool & { svgs: string[] } {
   const svgs: string[] = [];
   return {

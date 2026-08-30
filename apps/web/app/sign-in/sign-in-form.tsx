@@ -18,17 +18,8 @@ import { Label } from "../../components/ui/label";
 
 const CODE_LENGTH = 6;
 
-/**
- * Signing in, in two steps: an address, then the code that was mailed to it.
- *
- * The calls are made from the browser, and not from a server action, because
- * the session cookie is the api's answer to verifying a code — going through
- * the rewrite is what puts it in the browser that will carry it afterwards.
- */
 export function SignInForm() {
   const [address, setAddress] = useState("");
-  // The address a code was actually sent to, which is also the signal that
-  // the form has moved on: an address still being typed is not one yet.
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
@@ -63,10 +54,6 @@ export function SignInForm() {
       setProblem(failedToVerifyCode(response?.status));
       return;
     }
-    // A whole-document navigation, not a client-side one: the session cookie
-    // has just changed, and every page decides what to show from it on the
-    // server. Replacing the entry also keeps the sign-in page out of the
-    // history the product is reached from.
     window.location.replace(HOME);
   }
 

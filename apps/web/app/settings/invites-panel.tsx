@@ -28,15 +28,6 @@ import {
   roleLabel,
 } from "../../lib/settings";
 
-/**
- * Pending Workspace Invites: send one, see who has not arrived yet, take
- * one back.
- *
- * The list is Owner-only on the api, so an Editor or Viewer sees the panel
- * and why it will not act, and nothing is fetched that would be refused.
- * Re-inviting an address replaces the pending row; the list is updated the
- * same way, so the panel never shows two.
- */
 export function InvitesPanel({
   workspaceId,
   mayManage,

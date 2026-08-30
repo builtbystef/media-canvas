@@ -51,22 +51,17 @@ from media_canvas_api.worker import NamedProblem, RowError, Worker
 
 router = APIRouter(prefix="/api/v1", tags=["jobs"])
 
-# The same answer for a Template that does not exist and for one in a
-# Workspace the caller is not in: a stranger learns nothing from asking.
 UNREACHABLE_TEMPLATE = "No such template."
 UNREACHABLE_JOB = "No such job."
 UNREACHABLE_FILE = "No such file."
 NOT_A_TEMPLATE = "Only a template accepts a batch."
 
-# What a client is told a Job's output bytes are. The format is the Job's,
-# not whatever the store happened to record when the worker wrote them.
 CONTENT_TYPES = {
     "png": "image/png",
     "jpeg": "image/jpeg",
     "pdf": "application/pdf",
 }
 
-# `_name`: letters, digits, dot, dash, underscore; at most 128 characters.
 ROW_NAME = regexp(r"^[A-Za-z0-9._-]{1,128}$")
 
 NAME_CHARSET = (
@@ -379,8 +374,6 @@ async def accept_batch(
     try:
         await database.commit()
     except IntegrityError:
-        # Two submissions with the same key arrived together: the first
-        # writer won, and this one is the retry that must not render twice.
         await database.rollback()
         if idempotency_key is None:
             raise

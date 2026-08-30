@@ -15,13 +15,6 @@ import { failedToAcceptInvite } from "../../../lib/failures";
 import { HOME } from "../../../lib/routes";
 import { roleLabel } from "../../../lib/settings";
 
-/**
- * A pending invite: the Workspace, the Role, and the button that spends it.
- *
- * The call is made from the browser, not a server action, because accepting
- * answers with Set-Cookie — going through the rewrite is what puts the
- * session in the browser that will carry it afterwards.
- */
 export function InviteView({
   token,
   workspaceName,
@@ -46,10 +39,6 @@ export function InviteView({
       setProblem(failedToAcceptInvite(response?.status));
       return;
     }
-    // A whole-document navigation, not a client-side one: the session cookie
-    // has just changed, and every page decides what to show from it on the
-    // server. Replacing the entry also keeps this invite page out of the
-    // history the product is reached from.
     window.location.replace(HOME);
   }
 

@@ -6,10 +6,6 @@ import {
   serializePresetShapeDrag,
 } from "../../../lib/preset-shapes";
 
-/**
- * The shipped Preset Shapes. Dragging one onto the canvas places an ordinary
- * vector Element — not a type of its own.
- */
 export function ShapesPanel({ mayEdit }: { mayEdit: boolean }) {
   return (
     <aside

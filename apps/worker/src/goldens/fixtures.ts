@@ -1,10 +1,3 @@
-// The named golden fixtures (issues 6bqdxe, oaf94x). The composite is the prototype
-// hard-case document: one Design Document that puts a linear gradient, a
-// shadow, an alpha fill, an ellipse-clipped crop, rotation, group opacity,
-// a vector, and wrapped text on the same canvas. Missing values, missing
-// assets, and validation failures are not fixtures — those stay at the
-// validate and compile seams.
-
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 
@@ -27,17 +20,13 @@ export type GoldenFixture = {
   template: DesignDocument;
   values: Record<string, unknown>;
   assets: AssetResolver;
-  /** PNG deviceScaleFactor. Worker-output goldens default to 1×. */
   scale?: 1 | 2 | 3;
 };
 
-/** What `render` is called with for this fixture. The 2× fixture is the
- *  only one that leaves the default. */
 export function fixtureRenderOptions(fixture: GoldenFixture): { format: "png"; scale: 1 | 2 | 3 } {
   return { format: "png", scale: fixture.scale ?? 1 };
 }
 
-/** Where committed worker-output baselines live, next to this package. */
 export const baselinesDirectory = join(import.meta.dirname, "..", "..", "goldens", "baselines");
 
 export function baselinePath(name: string): string {
@@ -53,7 +42,6 @@ function bundled(family: string, weight: number): string {
   return font.id;
 }
 
-/** The prototype's sample photo: 800×600 gradient with three circles. */
 function samplePhoto(): { id: string; bytes: Uint8Array; width: number; height: number } {
   const width = 800;
   const height = 600;
@@ -102,8 +90,6 @@ function asRaster(image: { id: string; bytes: Uint8Array; width: number; height:
 
 const photo = asRaster(samplePhoto());
 
-/** A 400×200 landscape with an opaque disk on a transparent field — cover,
- *  contain, and stretch place it differently inside a square frame. */
 function sampleTransparent(): Raster {
   const width = 400;
   const height = 200;
@@ -138,8 +124,6 @@ const rasters = new Map<string, Raster>([
 
 const fontsById = new Map(bundledFonts.map((font) => [font.id, font]));
 
-/** Fonts from the bundled set, sample images as data URIs so the compiled
- *  markup is self-contained — the same contract production inlining uses. */
 export const fixtureAssets: AssetResolver = {
   fontBytes(fontAssetId) {
     const font = fontsById.get(fontAssetId);
@@ -158,7 +142,6 @@ export const fixtureAssets: AssetResolver = {
   },
 };
 
-/** A 5-point star centred in a 180×180 viewBox — the prototype's vector. */
 function starPath(cx: number, cy: number, outer: number, inner: number, points = 5): string {
   const pts: string[] = [];
   for (let i = 0; i < points * 2; i++) {
@@ -172,10 +155,6 @@ function starPath(cx: number, cy: number, outer: number, inner: number, points =
 const oswaldBold = bundled("Oswald", 700);
 const interRegular = bundled("Inter", 400);
 
-/** The prototype composite, restated in the v1 schema: `direction: diagonal`
- *  is angle 45 (0 is left→right, clockwise); Lato became Oswald Bold for the
- *  badge (the face the compile worked example measures) and Inter for the
- *  body; every ElementBase field the schema requires is filled. */
 function compositeDocument(): DesignDocument {
   return {
     schemaVersion: 1,
@@ -438,7 +417,6 @@ function fontFamilyFixture(family: string): GoldenFixture {
   };
 }
 
-/** One fixture per bundled family: every weight and style, plus .notdef. */
 export const fontFixtures: readonly GoldenFixture[] =
   familiesInManifestOrder().map(fontFamilyFixture);
 
@@ -792,7 +770,6 @@ export const template: GoldenFixture = {
   assets: fixtureAssets,
 };
 
-/** Worker-output goldens: each has a committed baseline and a ratio of 0. */
 export const workerGoldens: readonly GoldenFixture[] = [
   composite,
   ...fontFixtures,
@@ -805,17 +782,12 @@ export const workerGoldens: readonly GoldenFixture[] = [
   template,
 ];
 
-/** The named cross-flavor parity fixture. Same document as the composite —
- *  that is the picture the prototype measured 0.534% on — compared live
- *  between the two browser builds, not against a baseline. */
 export const parityFixture: GoldenFixture = composite;
 
 function formatErrors(errors: ValidationError[]): string {
   return errors.map((error) => error.message).join("; ");
 }
 
-/** validate → resolve → compile. The golden check and the bake command both
- *  start here, so a fixture that will not compile never reaches a browser. */
 export function compiledFixture(fixture: GoldenFixture): string {
   const errors = validate(fixture.template, fixture.values);
   if (errors.length > 0) {

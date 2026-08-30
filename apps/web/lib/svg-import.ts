@@ -52,8 +52,6 @@ type Paint = {
   strokeWidth: string | undefined;
 };
 
-/** Flatten an SVG into one single-path vector Element per path, or refuse
- *  the whole file when it carries a second renderer the compiler cannot pin. */
 export function importSvg(markup: string, nextId: () => string): SvgImportResult {
   const root = parseXml(markup);
   if (root === null) {
@@ -518,7 +516,6 @@ function fmt(value: number): string {
   return String(Object.is(rounded, -0) ? 0 : rounded);
 }
 
-/** Endpoint-parameterized SVG arc to cubics, then the caller transforms them. */
 function arcToCubics(
   x1: number,
   y1: number,

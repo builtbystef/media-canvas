@@ -1,11 +1,3 @@
-// The image's smoke check: run it inside the pinned image and it says whether
-// this image can render at all, and whether it renders the same bytes twice.
-//
-//   pnpm --filter worker run image:check
-//
-// Two consecutive runs mean two browsers: a second screenshot from a page that
-// never closed would prove far less than a second launch does.
-
 import assert from "node:assert/strict";
 import { test } from "node:test";
 

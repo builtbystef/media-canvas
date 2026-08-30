@@ -31,8 +31,6 @@ def upgrade() -> None:
         sa.Column("promoted_from_id", sa.Uuid(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        # Lineage, cleared instead of followed: deleting the design a template
-        # was promoted from leaves that template standing.
         sa.ForeignKeyConstraint(
             ["promoted_from_id"], ["documents.id"], ondelete="SET NULL"
         ),
@@ -41,8 +39,6 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    # Every list is one Workspace's, and deleting a Workspace finds its
-    # documents through this too.
     op.create_index(
         op.f("ix_documents_workspace_id"), "documents", ["workspace_id"], unique=False
     )

@@ -41,8 +41,6 @@ class Mailer(Protocol):
 def _echo_to_dev_log(line: str) -> None:
     """Mirror a console Mailer line into `.dev/mailer.log`."""
 
-    # Pytest drives ConsoleMailer in-process; the running api never has this
-    # set. Skip so unit tests do not append to the developer's log.
     if "PYTEST_CURRENT_TEST" in os.environ:
         return
     env = find_env_file()

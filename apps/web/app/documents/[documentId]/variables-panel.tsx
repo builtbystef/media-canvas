@@ -54,10 +54,6 @@ const CONTROL = "h-7 w-full min-w-0 text-xs";
 
 type Change = (document: DesignDocument) => DesignDocument;
 
-/**
- * The Variables of a Template: created, renamed, given defaults, and deleted
- * here. Binding lives in the inspector (0y2iw3); this panel is the list.
- */
 export function VariablesPanel({
   document,
   mayEdit,

@@ -42,11 +42,6 @@ from media_canvas_api.settings import Settings
 from media_canvas_api.storage import ObjectStore
 from media_canvas_api.worker import Worker
 
-# The whole of it. Asking for a code and verifying one cannot require a
-# session, and health has to answer a probe that has no account; the invites
-# spec adds previewing and accepting an invite, and nothing else ever joins
-# the list. Everything absent from it — the interactive documentation and the
-# schema included — needs a session.
 PUBLIC_PATHS = frozenset(
     {
         "/api/health",
@@ -55,13 +50,8 @@ PUBLIC_PATHS = frozenset(
     }
 )
 
-# Preview and accept live at /api/v1/invites/{token} and .../accept; the
-# token is the path, so they cannot sit in the set above.
 PUBLIC_INVITE_PREFIX = "/api/v1/invites/"
 
-# Where the other service's half of the product lives. Nothing under it is
-# reachable with a session, and nothing outside it with the credential: the
-# worker is not a member of anything, and a browser never holds this secret.
 INTERNAL_PREFIX = "/internal/"
 
 
@@ -191,8 +181,6 @@ def carries_internal_credential(request: Request, settings: Settings) -> bool:
     scheme, _, token = presented.partition(" ")
     if scheme.lower() != "bearer":
         return False
-    # Bytes rather than text: a header may carry anything, and comparing
-    # strings that are not both ASCII is an error rather than a refusal.
     return compare_digest(token.encode(), settings.internal_api_token.encode())
 
 
@@ -208,8 +196,6 @@ async def forbidden(scope: Scope, receive: Receive, send: Send) -> None:
     await response(scope, receive, send)
 
 
-# One render, the Job a batch becomes, and the files that Job made. A key
-# on any other address is 403, even when the same cookie would be let in.
 _GENERATION_SURFACE = (
     regexp(r"^/api/v1/documents/[^/]+/render$"),
     regexp(r"^/api/v1/templates/[^/]+/jobs$"),
@@ -268,8 +254,6 @@ WorkerService = Annotated[Worker, Depends(request_worker)]
 WorkQueue = Annotated[RowQueue, Depends(request_queue)]
 
 
-# The same answer for a Workspace that does not exist and for one the caller
-# is simply not in: a stranger learns nothing from asking either way.
 UNREACHABLE = "No such workspace."
 
 

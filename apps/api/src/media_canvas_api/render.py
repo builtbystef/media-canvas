@@ -20,8 +20,6 @@ from media_canvas_api.worker import NamedProblem, RenderRefusal, ValuesRefused
 
 router = APIRouter(prefix="/api/v1", tags=["render"])
 
-# The one refusal this route makes on its own: a design is how a plain
-# document becomes a file, and values have nowhere to go on one.
 DESIGN_TAKES_NO_VALUES = "A design renders with no values."
 
 

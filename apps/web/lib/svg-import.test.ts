@@ -118,7 +118,6 @@ describe("SVG import", () => {
     expect(group).toMatchObject({
       id: "g1",
       type: "group",
-      // 200×100 scaled to fit 80×80 is 80×40; centred on (40, 30) → origin (0, 10).
       x: 0,
       y: 10,
       rotation: 0,

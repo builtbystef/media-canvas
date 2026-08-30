@@ -23,14 +23,6 @@ import { WORKSPACE_DELETE_WARNING } from "../../lib/workspaces";
 
 const MAX_NAME = 100;
 
-/**
- * The Workspace itself: its name, renamed where it is displayed, and the
- * way an Owner deletes it.
- *
- * Rename travels through the existing workspace surface (sazdn4). Delete
- * asks first, with the warning 36ty5a named — members lose access, files
- * go, and nothing brings them back.
- */
 export function WorkspacePanel({
   workspaceId,
   name,

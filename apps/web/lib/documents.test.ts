@@ -3,14 +3,6 @@ import { expect, test } from "vitest";
 import { kindLabel, kindShown, tabNamed, updatedLabel } from "./documents.ts";
 import { editorPath, jobPath, listPath } from "./routes.ts";
 
-/**
- * What one list shows.
- *
- * Designs and templates share a row shape because opening either is one code
- * path; the tabs are the only thing that tells them apart, and they do it by
- * asking the api for one kind rather than by hiding rows after the fact.
- */
-
 test("the templates tab shows no designs", () => {
   expect(kindShown(tabNamed("templates"))).toBe("template");
   expect(kindShown(tabNamed("designs"))).toBe("design");

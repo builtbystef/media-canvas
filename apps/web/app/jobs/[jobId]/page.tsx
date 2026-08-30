@@ -9,15 +9,6 @@ import { JobView } from "./job-view";
 
 export const metadata = { title: "Job — Media Canvas" };
 
-/**
- * One Generation Job, reached by its id.
- *
- * The api answers alike for a job that is gone and one in a Workspace this
- * caller is not in, so that ids cannot be probed. So does this page. Any
- * member of the job's Workspace may open it, a Viewer included. The template
- * is fetched once here, never on a refresh, so the snapshot line is a fact
- * about the moment the page opened.
- */
 export default async function JobPage({ params }: { params: Promise<{ jobId: string }> }) {
   const identity = await signedInOrSignIn();
   const { jobId } = await params;

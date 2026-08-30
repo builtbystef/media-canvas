@@ -1,7 +1,7 @@
 {
   "image": {
     "base": "node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d",
-    "recipe": "32c7a44b1f4337e01ceae58bb96a92ee62bb549bb12387b39cb54bdafb9860ae"
+    "recipe": "a5cc61c11ddf21544cab6c7a18e878eb3386dcd0a1355dd6bf2196c714afdb21"
   },
   "playwright": "1.62.1",
   "browsers": {
@@ -33,6 +33,6 @@
     "timezone": "UTC",
     "colorScheme": "light"
   },
-  "compiler": "6bfdd2c0f4113cb9bcab4c8279df77365caf4aaadcc834d44b0f7654bc7621e2",
+  "compiler": "258abe7b4aaa6375d9c248783a20ab5a0b4d89766bba75c0c282a03d079b3c24",
   "schemaVersion": 1
 }

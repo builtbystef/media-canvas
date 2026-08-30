@@ -32,7 +32,7 @@ to make an unrelated failure go away.
 Never auto-rebake on failure. Never bake from a host that is not the pinned
 image.
 
-## Fixtures in this issue
+## Fixtures
 
 Worker-output goldens: ratio 0 at pixelmatch `threshold: 0.1`.
 

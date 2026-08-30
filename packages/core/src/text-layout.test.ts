@@ -4,7 +4,6 @@ import { expect, test } from "vitest";
 import type { TextElement } from "./index.ts";
 import { caretRect, hitIndex, layoutText } from "./index.ts";
 
-/** Oswald Bold is the bundled face the wrap worked examples are measured on. */
 const oswaldBold = bundledFonts.find(
   (font) => font.family === "Oswald" && font.weight === 700 && font.style === "normal",
 )!;
@@ -44,7 +43,6 @@ test("the wrap width alone decides the content ranges of each line", () => {
     { start: 0, end: 7 },
     { start: 8, end: 13 },
   ]);
-  // One x per character boundary, per line concatenated: 8 + 6.
   expect(narrow.positions).toHaveLength(14);
   expect(wide.positions).toHaveLength(14);
 });

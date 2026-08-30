@@ -3,7 +3,6 @@ import { expect, test } from "vitest";
 import type { DesignDocument } from "./index.ts";
 import { validateDocument } from "./index.ts";
 
-/** A document exercising every v1 element type and every optional property. */
 function validDocument(): DesignDocument {
   return {
     schemaVersion: 1,
@@ -124,8 +123,6 @@ function validDocument(): DesignDocument {
   };
 }
 
-/** Documents and elements as unknown input — the shape `validateDocument`
- *  actually meets — so a test can put a wrong value anywhere. */
 function documentWith(elements: unknown[], variables?: unknown[]): unknown {
   return {
     schemaVersion: 1,

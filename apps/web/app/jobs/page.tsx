@@ -11,13 +11,6 @@ import { JobsList } from "./jobs-list";
 
 export const metadata = { title: "Jobs — Media Canvas" };
 
-/**
- * This Workspace's Generation Jobs, newest first.
- *
- * Any member may open the page, a Viewer included. The list is the contract's
- * unpaginated Workspace list — no per-Row detail. Switching Workspace asks
- * again for that Workspace, so a job from another one never appears.
- */
 export default async function JobsPage() {
   const identity = await signedInOrSignIn();
   const chosen = chosenMembership(identity, (await cookies()).get(WORKSPACE_COOKIE)?.value);

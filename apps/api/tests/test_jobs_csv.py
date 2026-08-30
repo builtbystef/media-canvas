@@ -174,8 +174,6 @@ def test_a_missing_or_contradictory_format_is_refused_before_any_cell_is_read(
     template = a_template_declaring(
         client, a_workspace(client), {"name": "headline", "type": "text"}
     )
-    # A file that would also fail the header check, so a cell-level 422
-    # would name `notes` — format refusal must not.
     body = "notes\nsecret\n"
 
     missing = client.post(

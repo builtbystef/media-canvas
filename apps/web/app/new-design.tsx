@@ -19,13 +19,6 @@ import {
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 
-/**
- * Where a document comes from.
- *
- * Creating is the only way one is born, and this dialog is the only way of
- * creating: a preset or a size typed by hand, and then the editor. Nothing is
- * chosen but the canvas — the design itself starts white and empty.
- */
 export function NewDesign({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);

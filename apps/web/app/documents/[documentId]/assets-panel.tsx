@@ -35,10 +35,6 @@ import {
   AlertDialogTitle,
 } from "../../../components/ui/alert-dialog";
 
-/**
- * The CSS faces the panel and picker paint with. The compiled canvas inlines
- * its own @font-face block and must not share these names.
- */
 export function FontFaceStyles({ fonts }: { fonts: readonly FontAssetView[] }) {
   if (fonts.length === 0) return null;
   return (
@@ -54,11 +50,6 @@ type PendingDelete =
   | { kind: "image"; asset: ImageAssetView }
   | { kind: "font"; asset: FontAssetView };
 
-/**
- * The complete asset surface: images as a thumbnail grid of the full-size
- * addresses, fonts as rows in their own face. Upload and delete live here;
- * a Viewer sees the library and is offered neither.
- */
 export function AssetsPanel({
   document,
   fonts,
@@ -177,8 +168,6 @@ export function AssetsPanel({
                     event.dataTransfer.effectAllowed = "copy";
                   }}
                 >
-                  {/* The full-size address; the browser scales it. Nothing
-                      derived is stored. */}
                   <img
                     src={image.url}
                     alt={image.originalFilename}

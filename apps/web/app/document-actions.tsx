@@ -18,15 +18,6 @@ import {
   AlertDialogTrigger,
 } from "../components/ui/alert-dialog";
 
-/**
- * What a row can do to its document besides open it.
- *
- * Promotion is offered on a design only — a template has nothing to be
- * promoted into — and it opens the new copy, the same as the editor's top-bar
- * action. Deleting asks first, because nothing else in the product undoes it:
- * an alert dialog rather than a plain one, so the choice is what the surface
- * is for and escape does not stand in for cancelling.
- */
 export function DocumentActions({ row }: { row: DocumentSummary }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);

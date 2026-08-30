@@ -35,10 +35,6 @@ import { DocumentName } from "./document-name";
 import { EditorCanvas } from "./editor-canvas";
 import { GenerateAction } from "./generate-dialog";
 
-/**
- * The open editor: migrate at load, hold the store, autosave against the
- * Revision guard, and put the saving indicator in the chrome.
- */
 export function EditorSession({
   loaded,
   workspaceId,

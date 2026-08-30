@@ -25,13 +25,10 @@ from uuid import UUID
 
 from media_canvas_api.settings import Settings
 
-# The name the Node worker will consume. Changing it is a cross-runtime break.
 QUEUE_NAME = "rows"
 JOB_NAME = "row"
 PREFIX = f"bull:{QUEUE_NAME}"
 
-# One automatic retry on a transient error: BullMQ's attempts counts the
-# original try, so 2 is the contract's single retry.
 ATTEMPTS = 2
 
 
@@ -63,9 +60,6 @@ class RowQueue:
             await self._disconnect()
 
     async def _add(self, data: str, opts: str, timestamp: str) -> None:
-        # One Lua script per Row so the id, the hash, the wait list and the
-        # marker land together — a crash between them would leave a hash the
-        # worker could never pop.
         added = await self._eval(
             _ADD_JOB,
             0,
@@ -126,9 +120,6 @@ class RowQueue:
             await writer.wait_closed()
 
 
-# Mirrors BullMQ's addStandardJob for a FIFO Row: INCR the id, HMSET the
-# hash, LPUSH wait, ZADD the marker so a blocking worker wakes, and emit
-# the added/waiting events the Node client expects on the stream.
 _ADD_JOB = """
 local prefix = ARGV[1]
 local name = ARGV[2]

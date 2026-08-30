@@ -21,8 +21,6 @@ test("the worker keeps eight pages in flight", () => {
   expect(PAGE_POOL_SIZE).toBe(8);
 });
 
-/** The pool talks to Chromium. CI's unit job does not install a browser;
- *  the in-image checks are the pinned proof. Skip rather than fail there. */
 const browserTest = process.env.CI ? test.skip : test;
 
 browserTest(
