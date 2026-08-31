@@ -52,6 +52,10 @@ export function createPagePool(options?: {
     await lock();
     try {
       if (closed) throw new Error("the page pool is closed");
+      if (browser !== undefined && !browser.isConnected()) {
+        browser = undefined;
+        idle.length = 0;
+      }
       if (browser === undefined) {
         browser = await chromium.launch(launchOptions(renderEnvironment.browsers.render));
       }

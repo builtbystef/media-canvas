@@ -58,6 +58,26 @@ browserTest(
 );
 
 browserTest(
+  "a browser that dies does not take the pool down",
+  async () => {
+    let page: Page | undefined;
+    pool = createPagePool({
+      size: 1,
+      onPage(opened) {
+        page = opened;
+      },
+    });
+
+    await pool.render(canvas("#CC0000"), { format: "png", scale: 1 });
+    await page?.context().browser()?.close();
+    const bytes = await pool.render(canvas("#0000CC"), { format: "png", scale: 1 });
+
+    expect(bytes[0]).toBe(137);
+  },
+  30_000,
+);
+
+browserTest(
   "concurrent renders share the pool without taking each other down",
   async () => {
     pool = createPagePool({ size: 2 });
