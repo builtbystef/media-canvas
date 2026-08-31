@@ -1,16 +1,19 @@
 "use client";
 
 import { listJobs, type JobSummary } from "@media-canvas/api-client";
+import { ListChecks } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { updatedLabel } from "../../lib/documents";
+import { EmptyState } from "../../components/empty-state";
+import { Badge } from "../../components/ui/badge";
 import {
   jobFailedCount,
   jobProgressFraction,
   nextJobsListRefreshIn,
   runJobsListRefreshLoop,
 } from "../../lib/jobs";
-import { jobStateLabel, outputFormatLabel } from "../../lib/job-view";
+import { jobStateBadgeVariant, jobStateLabel, outputFormatLabel } from "../../lib/job-view";
 import { jobPath } from "../../lib/routes";
 
 export function JobsList({
@@ -69,25 +72,40 @@ export function JobsList({
   }, [initial, workspaceId]);
 
   if (jobs.length === 0) {
-    return <p className="mt-6 text-sm text-muted-foreground">No jobs yet.</p>;
+    return (
+      <EmptyState
+        className="mt-6"
+        icon={<ListChecks />}
+        title="No jobs yet"
+        description="Open a template in the editor and choose Generate to start a Generation Job."
+      />
+    );
   }
 
   return (
-    <ul className="mt-3">
+    <ul className="mt-6 divide-y overflow-hidden rounded-xl border">
       {jobs.map((job) => {
         const failed = jobFailedCount(job.progress);
         return (
-          <li key={job.id} className="flex items-center gap-4 border-t py-3">
-            <Link href={jobPath(job.id)} className="flex-1 text-sm font-medium hover:underline">
+          <li
+            key={job.id}
+            className="flex items-center gap-4 bg-card px-4 py-3 transition-colors hover:bg-muted/50"
+          >
+            <Link
+              href={jobPath(job.id)}
+              className="flex-1 truncate text-sm font-medium hover:underline"
+            >
               {job.templateName ?? "Generation Job"}
             </Link>
-            <span className="text-xs text-muted-foreground">{jobStateLabel(job.state)}</span>
-            <span className="text-xs text-muted-foreground">
+            <Badge variant={jobStateBadgeVariant(job.state)}>{jobStateLabel(job.state)}</Badge>
+            <span className="text-xs text-muted-foreground tabular-nums">
               {jobProgressFraction(job.progress)}
               {failed === null ? "" : ` · ${String(failed)} failed`}
             </span>
-            <span className="text-xs text-muted-foreground">{outputFormatLabel(job.output)}</span>
-            <span className="text-xs text-muted-foreground">
+            <span className="w-10 text-xs text-muted-foreground max-sm:hidden">
+              {outputFormatLabel(job.output)}
+            </span>
+            <span className="w-24 text-right text-xs text-muted-foreground max-sm:hidden">
               {updatedLabel(job.createdAt, now)}
             </span>
           </li>

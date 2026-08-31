@@ -1,6 +1,17 @@
 "use client";
 
 import { useId, useRef } from "react";
+import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalDistributeCenter,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalDistributeCenter,
+  type LucideIcon,
+} from "lucide-react";
 import type { FontAssetView } from "@media-canvas/api-client";
 import type {
   Border,
@@ -45,7 +56,7 @@ import {
 import { Slider } from "../../../components/ui/slider";
 
 const PANEL =
-  "mt-6 max-h-[min(70vh,42rem)] min-w-0 overflow-auto rounded-lg bg-card p-3 ring-1 ring-foreground/10";
+  "scrollbar-slim mt-6 max-h-[min(70vh,42rem)] min-w-0 overflow-auto rounded-lg bg-card p-3 ring-1 ring-foreground/10 max-lg:order-3 max-lg:mt-0";
 const SECTION = "border-t py-3";
 const HEADING = "font-heading text-sm font-medium";
 const NOTE = "text-xs text-muted-foreground";
@@ -583,54 +594,50 @@ function AlignmentToolbar({
   onAlign: (action: AlignAction) => void;
   onDistribute: (action: DistributeAction) => void;
 }) {
-  const actions: readonly (readonly [AlignAction, string])[] = [
-    ["left", "Align left"],
-    ["center-horizontal", "Align horizontal centres"],
-    ["right", "Align right"],
-    ["top", "Align top"],
-    ["middle-vertical", "Align vertical middles"],
-    ["bottom", "Align bottom"],
+  const actions: readonly (readonly [AlignAction, string, LucideIcon])[] = [
+    ["left", "Align left", AlignStartVertical],
+    ["center-horizontal", "Align horizontal centres", AlignCenterVertical],
+    ["right", "Align right", AlignEndVertical],
+    ["top", "Align top", AlignStartHorizontal],
+    ["middle-vertical", "Align vertical middles", AlignCenterHorizontal],
+    ["bottom", "Align bottom", AlignEndHorizontal],
   ];
-  const CELL = "h-auto min-w-0 whitespace-normal py-1 leading-tight";
   return (
-    <div
-      className="mb-3 grid grid-cols-3 items-stretch gap-1"
-      aria-label="Align and distribute"
-      role="toolbar"
-    >
-      {actions.map(([action, label]) => (
+    <div className="mb-3 flex flex-wrap gap-1" aria-label="Align and distribute" role="toolbar">
+      {actions.map(([action, label, Icon]) => (
         <Button
           type="button"
           variant="outline"
-          size="xs"
-          className={CELL}
+          size="icon-sm"
           title={label}
           aria-label={label}
           onClick={() => onAlign(action)}
           key={action}
         >
-          {label.replace("Align ", "")}
+          <Icon />
         </Button>
       ))}
       <Button
         type="button"
         variant="outline"
-        size="xs"
-        className={CELL}
+        size="icon-sm"
+        title="Distribute horizontally"
+        aria-label="Distribute horizontally"
         disabled={count < 3}
         onClick={() => onDistribute("horizontal")}
       >
-        Distribute H
+        <AlignHorizontalDistributeCenter />
       </Button>
       <Button
         type="button"
         variant="outline"
-        size="xs"
-        className={CELL}
+        size="icon-sm"
+        title="Distribute vertically"
+        aria-label="Distribute vertically"
         disabled={count < 3}
         onClick={() => onDistribute("vertical")}
       >
-        Distribute V
+        <AlignVerticalDistributeCenter />
       </Button>
     </div>
   );

@@ -27,6 +27,7 @@ import {
   invitesAfterIssue,
   roleLabel,
 } from "../../lib/settings";
+import { SettingsSection } from "./settings-section";
 
 export function InvitesPanel({
   workspaceId,
@@ -80,13 +81,12 @@ export function InvitesPanel({
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="font-heading text-base font-semibold">Invites</h2>
+    <SettingsSection
+      title="Invites"
+      description="Invite someone to this workspace by email, and pick the role they join with."
+    >
       {mayManage ? (
-        <form
-          className="mt-3 flex flex-wrap items-end gap-2"
-          onSubmit={(event) => void send(event)}
-        >
+        <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => void send(event)}>
           <div className="grid gap-1">
             <Label htmlFor="invite-email">Email</Label>
             <Input
@@ -110,7 +110,7 @@ export function InvitesPanel({
               disabled={busy}
               items={ROLES.map((named) => ({ value: named, label: roleLabel(named) }))}
             >
-              <SelectTrigger id="invite-role" size="sm" aria-label="Role">
+              <SelectTrigger id="invite-role" aria-label="Role">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -122,12 +122,12 @@ export function InvitesPanel({
               </SelectContent>
             </Select>
           </div>
-          <Button type="submit" size="sm" disabled={busy || email.trim().length === 0}>
+          <Button type="submit" disabled={busy || email.trim().length === 0}>
             {busy ? "Sending…" : "Send invite"}
           </Button>
         </form>
       ) : (
-        <p className="mt-2 text-sm text-muted-foreground">{OWNER_ONLY_INVITES}</p>
+        <p className="text-sm text-muted-foreground">{OWNER_ONLY_INVITES}</p>
       )}
       {sent ? (
         <p role="status" className="mt-2 text-sm">
@@ -143,9 +143,9 @@ export function InvitesPanel({
       ) : mayManage && (invites?.length ?? 0) === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">No pending invites.</p>
       ) : mayManage ? (
-        <ul className="mt-3">
+        <ul className="mt-4 divide-y border-t">
           {(invites ?? []).map((row) => (
-            <li key={row.id} className="flex items-center gap-4 border-t py-3">
+            <li key={row.id} className="flex items-center gap-4 py-3">
               <span className="flex-1 text-sm font-medium">{row.email}</span>
               <span className="text-xs text-muted-foreground">{roleLabel(row.role)}</span>
               <span className="text-xs text-muted-foreground">
@@ -164,6 +164,6 @@ export function InvitesPanel({
           ))}
         </ul>
       ) : null}
-    </section>
+    </SettingsSection>
   );
 }

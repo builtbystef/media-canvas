@@ -5,11 +5,10 @@ import { asThisCaller, signedInOrSignIn } from "../../lib/identity";
 import { NEW_WORKSPACE } from "../../lib/routes";
 import { WORKSPACE_COOKIE, chosenMembership } from "../../lib/workspaces";
 import { Problem } from "../../components/problem";
-import { ListNav } from "../list-nav";
 import { Shell } from "../shell";
 import { JobsList } from "./jobs-list";
 
-export const metadata = { title: "Jobs — Media Canvas" };
+export const metadata = { title: "Jobs" };
 
 export default async function JobsPage() {
   const identity = await signedInOrSignIn();
@@ -23,10 +22,12 @@ export default async function JobsPage() {
   const now = new Date();
 
   return (
-    <Shell memberships={identity.memberships} current={chosen}>
-      <main className="mt-6">
-        <ListNav current="jobs" />
-        <h1 className="mt-4 font-heading text-xl font-semibold">Jobs</h1>
+    <Shell memberships={identity.memberships} current={chosen} page="jobs">
+      <main>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">Jobs</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          A Generation Job renders a template once per Row of data.
+        </p>
         {jobs === undefined ? (
           <Problem
             className="mt-4"

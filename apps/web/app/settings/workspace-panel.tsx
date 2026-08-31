@@ -17,6 +17,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { failedToDeleteWorkspace, failedToRenameWorkspace } from "../../lib/failures";
+import { SettingsSection } from "./settings-section";
 import { HOME } from "../../lib/routes";
 import { OWNER_ONLY_WORKSPACE } from "../../lib/settings";
 import { WORKSPACE_DELETE_WARNING } from "../../lib/workspaces";
@@ -74,9 +75,8 @@ export function WorkspacePanel({
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="font-heading text-base font-semibold">Workspace</h2>
-      <div className="mt-3 flex items-center gap-2">
+    <SettingsSection title="Workspace" description="Rename this workspace, or delete it for good.">
+      <div className="flex items-center gap-2">
         {mayManage ? (
           <Input
             className="w-[min(20rem,100%)] border-transparent font-medium hover:border-input"
@@ -128,6 +128,6 @@ export function WorkspacePanel({
         <p className="mt-2 text-sm text-muted-foreground">{OWNER_ONLY_WORKSPACE}</p>
       )}
       <Problem className="mt-2" message={problem} />
-    </section>
+    </SettingsSection>
   );
 }

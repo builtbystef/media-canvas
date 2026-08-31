@@ -1,6 +1,7 @@
 "use client";
 
 import { saveDocument, type DocumentView } from "@media-canvas/api-client";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -57,11 +58,17 @@ export function EditorSession({
   });
 
   return (
-    <div className="w-[min(64rem,100%)] self-start">
-      <header className="flex items-center gap-3 border-b pb-4">
-        <Link href={HOME} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-          ← Documents
+    <div className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-4 sm:px-6">
+      <header className="flex min-h-14 items-center gap-3 border-b py-2">
+        <Link
+          href={HOME}
+          className={buttonVariants({ variant: "ghost", size: "sm" })}
+          aria-label="Back to documents"
+        >
+          <ArrowLeft data-icon="inline-start" />
+          Documents
         </Link>
+        <span aria-hidden className="h-5 w-px bg-border" />
         {mayEdit ? (
           <DocumentName
             name={persist.name}
@@ -275,7 +282,13 @@ function PromoteAction({ documentId }: { documentId: string }) {
 
   return (
     <span className="flex items-center gap-2">
-      <Button type="button" size="sm" disabled={busy} onClick={() => void promote()}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={busy}
+        onClick={() => void promote()}
+      >
         {busy ? "Promoting…" : "Promote to Template"}
       </Button>
       <Problem message={problem} />

@@ -197,7 +197,7 @@ type Gesture =
   | { kind: "text-select"; pointerId: number; id: string };
 
 const STAGE =
-  "my-6 h-[min(70vh,42rem)] touch-none overflow-auto overscroll-contain rounded-lg border bg-background p-12";
+  "scrollbar-slim my-6 h-[min(70vh,42rem)] touch-none overflow-auto overscroll-contain rounded-xl border bg-muted/40 p-12 max-lg:order-1 max-lg:my-0 max-lg:mt-6";
 
 export function EditorCanvas({
   store,
@@ -600,8 +600,8 @@ export function EditorCanvas({
 
   const scale = zoom ?? 1;
   return (
-    <div className="grid grid-cols-[14rem_minmax(0,1fr)_16rem] gap-4">
-      <div className="mt-6 min-w-0">
+    <div className="grid gap-4 max-lg:grid-cols-1 lg:grid-cols-[14rem_minmax(0,1fr)_16rem]">
+      <div className="mt-6 min-w-0 max-lg:order-2">
         <FontFaceStyles fonts={fonts} />
         <ToolPalette active={activeTool} onArm={armTool} />
         <LayerList

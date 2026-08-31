@@ -36,6 +36,7 @@ import {
   roleChangeRefusal,
   roleLabel,
 } from "../../lib/settings";
+import { SettingsSection } from "./settings-section";
 
 export function MembersPanel({
   workspaceId,
@@ -121,17 +122,13 @@ export function MembersPanel({
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="font-heading text-base font-semibold">Members</h2>
+    <SettingsSection title="Members" description="The people with access to this workspace.">
       {members === undefined ? (
-        <Problem
-          className="mt-3"
-          message="These members could not be loaded. Reload the page to try again."
-        />
+        <Problem message="These members could not be loaded. Reload the page to try again." />
       ) : (
-        <ul className="mt-3">
+        <ul className="divide-y">
           {members.map((row) => (
-            <li key={row.user.id} className="flex items-center gap-4 border-t py-3">
+            <li key={row.user.id} className="flex items-center gap-4 py-3 first:pt-0">
               <span className="flex-1 text-sm font-medium">{row.user.email}</span>
               {mayManage ? (
                 <Select
@@ -172,7 +169,7 @@ export function MembersPanel({
       {mayManage ? null : (
         <p className="mt-2 text-sm text-muted-foreground">{OWNER_ONLY_MEMBERS}</p>
       )}
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 flex items-center gap-2 border-t pt-3">
         <Button type="button" variant="outline" size="sm" disabled={busy} onClick={tryLeave}>
           Leave workspace
         </Button>
@@ -220,6 +217,6 @@ export function MembersPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </section>
+    </SettingsSection>
   );
 }

@@ -83,6 +83,21 @@ export function jobStateLabel(state: JobState): string {
   return STATE_LABEL[state];
 }
 
+const STATE_BADGE: Record<
+  JobState,
+  "default" | "secondary" | "outline" | "success" | "destructive"
+> = {
+  queued: "secondary",
+  rendering: "default",
+  completed: "success",
+  failed: "destructive",
+  canceled: "outline",
+};
+
+export function jobStateBadgeVariant(state: JobState) {
+  return STATE_BADGE[state];
+}
+
 const STATUS_LABEL: Record<RowStatus, string> = {
   queued: "Queued",
   rendering: "Rendering",

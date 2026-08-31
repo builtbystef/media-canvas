@@ -5,16 +5,10 @@ import { asThisCaller, currentIdentity } from "../../../lib/identity";
 import { sessionSwitchNotice } from "../../../lib/invites";
 import { SIGN_IN } from "../../../lib/routes";
 import { buttonVariants } from "../../../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../../../components/ui/card";
+import { AuthHeading, AuthScreen } from "../../../components/auth-screen";
 import { InviteView } from "./invite-view";
 
-export const metadata = { title: "Invite — Media Canvas" };
+export const metadata = { title: "Invite" };
 
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -24,32 +18,31 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     path: { token },
   });
   if (data === undefined) {
-    return <InviteUnavailable status={response?.status} />;
+    return (
+      <AuthScreen>
+        <InviteUnavailable status={response?.status} />
+      </AuthScreen>
+    );
   }
   return (
-    <InviteView
-      token={token}
-      workspaceName={data.workspace_name}
-      role={data.role}
-      switchNotice={sessionSwitchNotice(identity?.user.email ?? null, data.email)}
-    />
+    <AuthScreen>
+      <InviteView
+        token={token}
+        workspaceName={data.workspace_name}
+        role={data.role}
+        switchNotice={sessionSwitchNotice(identity?.user.email ?? null, data.email)}
+      />
+    </AuthScreen>
   );
 }
 
 function InviteUnavailable({ status }: { status: number | undefined }) {
   return (
-    <main className="w-[min(26rem,100%)]">
-      <Card>
-        <CardHeader>
-          <CardTitle>This invite cannot be used</CardTitle>
-          <CardDescription>{failedToLoadInvite(status)}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link href={SIGN_IN} className={buttonVariants({ className: "w-full" })}>
-            Sign in
-          </Link>
-        </CardContent>
-      </Card>
-    </main>
+    <>
+      <AuthHeading title="This invite cannot be used">{failedToLoadInvite(status)}</AuthHeading>
+      <Link href={SIGN_IN} className={buttonVariants({ className: "w-full" })}>
+        Sign in
+      </Link>
+    </>
   );
 }

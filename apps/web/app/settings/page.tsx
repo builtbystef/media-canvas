@@ -7,19 +7,17 @@ import {
 } from "@media-canvas/api-client";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { Fragment } from "react";
 import { asThisCaller, signedInOrSignIn } from "../../lib/identity";
 import { NEW_WORKSPACE } from "../../lib/routes";
 import { mayManageWorkspace } from "../../lib/settings";
 import { WORKSPACE_COOKIE, chosenMembership } from "../../lib/workspaces";
-import { ListNav } from "../list-nav";
 import { Shell } from "../shell";
 import { ApiKeysPanel } from "./api-keys-panel";
 import { InvitesPanel } from "./invites-panel";
 import { MembersPanel } from "./members-panel";
 import { WorkspacePanel } from "./workspace-panel";
 
-export const metadata = { title: "Settings — Media Canvas" };
+export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const identity = await signedInOrSignIn();
@@ -40,11 +38,13 @@ export default async function SettingsPage() {
   }
 
   return (
-    <Shell memberships={identity.memberships} current={chosen}>
-      <main className="mt-6">
-        <ListNav current="settings" />
-        <h1 className="mt-4 font-heading text-xl font-semibold">Settings</h1>
-        <Fragment key={chosen.workspace.id}>
+    <Shell memberships={identity.memberships} current={chosen} page="settings">
+      <main>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage this workspace, its members, and its API keys.
+        </p>
+        <div key={chosen.workspace.id} className="mt-8 grid gap-6">
           <WorkspacePanel
             workspaceId={chosen.workspace.id}
             name={chosen.workspace.name}
@@ -59,7 +59,7 @@ export default async function SettingsPage() {
           />
           <InvitesPanel workspaceId={chosen.workspace.id} mayManage={mayManage} initial={invites} />
           <ApiKeysPanel workspaceId={chosen.workspace.id} mayManage={mayManage} initial={keys} />
-        </Fragment>
+        </div>
       </main>
     </Shell>
   );

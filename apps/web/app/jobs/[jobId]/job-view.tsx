@@ -20,6 +20,7 @@ import {
   filterLabel,
   jobArchiveHref,
   jobEndAction,
+  jobStateBadgeVariant,
   jobStateLabel,
   nextJobRefreshIn,
   outputFormatLabel,
@@ -34,7 +35,9 @@ import {
   type RowFilter,
 } from "../../../lib/job-view";
 import { JOBS } from "../../../lib/routes";
+import { cn } from "../../../lib/utils";
 import { Problem } from "../../../components/problem";
+import { Badge } from "../../../components/ui/badge";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -144,13 +147,16 @@ export function JobView({
   }
 
   return (
-    <main className="mt-6">
+    <main>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-heading text-xl font-semibold">{templateName ?? "Generation Job"}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {jobStateLabel(job.state)} · {outputFormatLabel(job.output)}
-          </p>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">
+              {templateName ?? "Generation Job"}
+            </h1>
+            <Badge variant={jobStateBadgeVariant(job.state)}>{jobStateLabel(job.state)}</Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">{outputFormatLabel(job.output)}</p>
           {snapshot !== null ? (
             <p className="mt-2 text-sm text-muted-foreground">{snapshot}</p>
           ) : null}
@@ -192,17 +198,25 @@ export function JobView({
         onConfirm={() => void confirmEnd()}
       />
       <ProgressSummary shown={shown} onFailed={() => setFilter("failed")} />
-      <nav className="mt-4 flex flex-wrap gap-1" aria-label="Row status">
+      <nav className="mt-5 inline-flex flex-wrap rounded-lg bg-muted p-0.5" aria-label="Row status">
         {ROW_FILTERS.map((named) => (
-          <Button
+          <button
             key={named}
             type="button"
-            variant={named === filter ? "secondary" : "ghost"}
-            size="sm"
+            aria-pressed={named === filter}
+            className={cn(
+              "rounded-md px-3 py-1 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              named === filter
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
             onClick={() => setFilter(named)}
           >
-            {filterLabel(named)} {filterCount(named, job.progress, shown.total)}
-          </Button>
+            {filterLabel(named)}{" "}
+            <span className="text-muted-foreground tabular-nums">
+              {filterCount(named, job.progress, shown.total)}
+            </span>
+          </button>
         ))}
       </nav>
       <RowList rows={listed} />
@@ -274,9 +288,13 @@ function ProgressSummary({
       >
         <div className="h-full bg-primary" style={{ width: `${String(fraction)}%` }} />
       </div>
-      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground tabular-nums">
         <span>succeeded {shown.succeeded}</span>
-        <button type="button" className="hover:underline" onClick={onFailed}>
+        <button
+          type="button"
+          className={cn("hover:underline", shown.failed > 0 && "font-medium text-destructive")}
+          onClick={onFailed}
+        >
           failed {shown.failed}
         </button>
         <span>skipped {shown.skipped}</span>
@@ -296,7 +314,7 @@ function RowList({ rows }: { rows: RowView[] }) {
   });
 
   return (
-    <div ref={parentRef} className="mt-3 h-[32rem] overflow-auto border-t">
+    <div ref={parentRef} className="scrollbar-slim mt-4 h-[32rem] overflow-auto rounded-xl border">
       <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
           const row = rows[item.index];
@@ -307,7 +325,7 @@ function RowList({ rows }: { rows: RowView[] }) {
               key={row.index}
               data-index={item.index}
               ref={virtualizer.measureElement}
-              className="absolute top-0 left-0 w-full border-b px-3 py-2"
+              className="absolute top-0 left-0 w-full border-b px-4 py-2 last:border-b-0"
               style={{ transform: `translateY(${String(item.start)}px)` }}
             >
               <div className="flex items-baseline gap-3">

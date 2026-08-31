@@ -30,6 +30,7 @@ import {
   lastUsedLabel,
   listedAfterCreate,
 } from "../../lib/settings";
+import { SettingsSection } from "./settings-section";
 
 const MAX_NAME = 100;
 
@@ -92,13 +93,12 @@ export function ApiKeysPanel({
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="font-heading text-base font-semibold">API keys</h2>
+    <SettingsSection
+      title="API keys"
+      description="Keys for programmatic access to this workspace. A key is shown once, when it is created."
+    >
       {mayManage ? (
-        <form
-          className="mt-3 flex flex-wrap items-end gap-2"
-          onSubmit={(event) => void create(event)}
-        >
+        <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => void create(event)}>
           <div className="grid gap-1">
             <Label htmlFor="api-key-name">Name</Label>
             <Input
@@ -112,16 +112,12 @@ export function ApiKeysPanel({
               onChange={(event) => setName(event.target.value)}
             />
           </div>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={busy || revealed !== null || name.trim().length === 0}
-          >
+          <Button type="submit" disabled={busy || revealed !== null || name.trim().length === 0}>
             {busy ? "Creating…" : "Create key"}
           </Button>
         </form>
       ) : (
-        <p className="mt-2 text-sm text-muted-foreground">{OWNER_ONLY_API_KEYS}</p>
+        <p className="text-sm text-muted-foreground">{OWNER_ONLY_API_KEYS}</p>
       )}
       <Problem className="mt-2" message={problem} />
       {mayManage && keys === undefined ? (
@@ -132,9 +128,9 @@ export function ApiKeysPanel({
       ) : mayManage && (keys?.length ?? 0) === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">No API keys.</p>
       ) : mayManage ? (
-        <ul className="mt-3">
+        <ul className="mt-4 divide-y border-t">
           {(keys ?? []).map((row) => (
-            <li key={row.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t py-3">
+            <li key={row.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
               <span className="flex-1 text-sm font-medium">{row.name}</span>
               <span className="font-mono text-xs text-muted-foreground">
                 {keyPrefixLabel(row.prefix)}
@@ -204,6 +200,6 @@ export function ApiKeysPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </section>
+    </SettingsSection>
   );
 }

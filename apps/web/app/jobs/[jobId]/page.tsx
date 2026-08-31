@@ -7,7 +7,7 @@ import { WORKSPACE_COOKIE, chosenMembership, membershipIn } from "../../../lib/w
 import { Shell } from "../../shell";
 import { JobView } from "./job-view";
 
-export const metadata = { title: "Job — Media Canvas" };
+export const metadata = { title: "Job" };
 
 export default async function JobPage({ params }: { params: Promise<{ jobId: string }> }) {
   const identity = await signedInOrSignIn();
@@ -38,10 +38,12 @@ export default async function JobPage({ params }: { params: Promise<{ jobId: str
       canEnd={canEnd}
     />
   );
-  if (chosen === null) return view;
+  if (chosen === null) {
+    return <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">{view}</div>;
+  }
 
   return (
-    <Shell memberships={identity.memberships} current={chosen}>
+    <Shell memberships={identity.memberships} current={chosen} page="jobs">
       {view}
     </Shell>
   );

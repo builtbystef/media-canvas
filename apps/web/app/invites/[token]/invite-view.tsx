@@ -2,15 +2,9 @@
 
 import { acceptInvite, type Role } from "@media-canvas/api-client";
 import { useState } from "react";
+import { AuthHeading } from "../../../components/auth-screen";
 import { Problem } from "../../../components/problem";
 import { Button } from "../../../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../../../components/ui/card";
 import { failedToAcceptInvite } from "../../../lib/failures";
 import { HOME } from "../../../lib/routes";
 import { roleLabel } from "../../../lib/settings";
@@ -43,22 +37,15 @@ export function InviteView({
   }
 
   return (
-    <main className="w-[min(26rem,100%)]">
-      <Card>
-        <CardHeader>
-          <CardTitle>{workspaceName}</CardTitle>
-          <CardDescription>You have been invited as {roleLabel(role)}.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="grid gap-2" onSubmit={accept}>
-            {switchNotice !== null ? <p className="text-sm">{switchNotice}</p> : null}
-            <Problem message={problem} />
-            <Button type="submit" className="mt-2 w-full" disabled={busy}>
-              {busy ? "Accepting…" : "Accept invite"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </main>
+    <>
+      <AuthHeading title={workspaceName}>You have been invited as {roleLabel(role)}.</AuthHeading>
+      <form className="grid gap-2" onSubmit={accept}>
+        {switchNotice !== null ? <p className="text-sm">{switchNotice}</p> : null}
+        <Problem message={problem} />
+        <Button type="submit" className="mt-2 w-full" disabled={busy}>
+          {busy ? "Accepting…" : "Accept invite"}
+        </Button>
+      </form>
+    </>
   );
 }

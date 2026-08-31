@@ -7,14 +7,17 @@ import { RecheckOnRestore } from "./recheck-on-restore";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
 export const metadata: Metadata = {
-  title: "Media Canvas",
+  title: {
+    default: "Media Canvas",
+    template: "%s · Media Canvas",
+  },
   description: "Design static visual assets, and generate them in bulk.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={geist.variable}>
-      <body className="grid min-h-screen place-items-center px-4 py-8">
+      <body className="min-h-dvh">
         <RecheckOnRestore />
         {children}
       </body>

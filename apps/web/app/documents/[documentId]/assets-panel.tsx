@@ -221,15 +221,7 @@ export function AssetsPanel({
         {grouped.bundled.length === 0 && grouped.uploaded.length === 0 ? (
           <p className="text-xs text-muted-foreground">No fonts yet.</p>
         ) : (
-          <>
-            {grouped.bundled.length > 0 && (
-              <FontRows
-                heading="Bundled"
-                fonts={grouped.bundled}
-                mayDelete={false}
-                onDelete={() => undefined}
-              />
-            )}
+          <div className="scrollbar-slim -mr-1 max-h-56 overflow-auto pr-1">
             {grouped.uploaded.length > 0 && (
               <FontRows
                 heading="Uploaded"
@@ -238,7 +230,15 @@ export function AssetsPanel({
                 onDelete={(font) => setPending({ kind: "font", asset: font })}
               />
             )}
-          </>
+            {grouped.bundled.length > 0 && (
+              <FontRows
+                heading="Bundled"
+                fonts={grouped.bundled}
+                mayDelete={false}
+                onDelete={() => undefined}
+              />
+            )}
+          </div>
         )}
       </section>
 

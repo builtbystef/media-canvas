@@ -1,40 +1,34 @@
 import Link from "next/link";
 import { HOME, JOBS, SETTINGS } from "../lib/routes";
-import { buttonVariants } from "../components/ui/button";
+import { cn } from "../lib/utils";
 
-export function ListNav({ current }: { current: "documents" | "jobs" | "settings" }) {
+export type ListNavPage = "documents" | "jobs" | "settings";
+
+const PAGES: { page: ListNavPage; href: string; label: string }[] = [
+  { page: "documents", href: HOME, label: "Documents" },
+  { page: "jobs", href: JOBS, label: "Jobs" },
+  { page: "settings", href: SETTINGS, label: "Settings" },
+];
+
+export function ListNav({ current }: { current?: ListNavPage }) {
   return (
-    <nav className="flex gap-1" aria-label="Pages">
-      <Link
-        href={HOME}
-        aria-current={current === "documents" ? "page" : undefined}
-        className={buttonVariants({
-          variant: current === "documents" ? "secondary" : "ghost",
-          size: "sm",
-        })}
-      >
-        Documents
-      </Link>
-      <Link
-        href={JOBS}
-        aria-current={current === "jobs" ? "page" : undefined}
-        className={buttonVariants({
-          variant: current === "jobs" ? "secondary" : "ghost",
-          size: "sm",
-        })}
-      >
-        Jobs
-      </Link>
-      <Link
-        href={SETTINGS}
-        aria-current={current === "settings" ? "page" : undefined}
-        className={buttonVariants({
-          variant: current === "settings" ? "secondary" : "ghost",
-          size: "sm",
-        })}
-      >
-        Settings
-      </Link>
+    <nav className="-mx-3 flex" aria-label="Pages">
+      {PAGES.map(({ page, href, label }) => {
+        const active = page === current;
+        return (
+          <Link
+            key={page}
+            href={href}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "relative -mb-px rounded-t-md border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+              active && "border-primary text-foreground",
+            )}
+          >
+            {label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { createDocument } from "@media-canvas/api-client";
+import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CANVAS_PRESETS, UNTITLED, blankDesign, readDimension } from "../lib/canvas-presets";
@@ -58,7 +59,10 @@ export function NewDesign({ workspaceId }: { workspaceId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button type="button" size="sm" />}>New design</DialogTrigger>
+      <DialogTrigger render={<Button type="button" />}>
+        <Plus data-icon="inline-start" />
+        New design
+      </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>New design</DialogTitle>

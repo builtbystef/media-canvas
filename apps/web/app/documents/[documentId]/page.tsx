@@ -4,7 +4,14 @@ import { asThisCaller, signedInOrSignIn } from "../../../lib/identity";
 import { mayChangeDocuments, membershipIn } from "../../../lib/workspaces";
 import { EditorSession } from "./editor-session";
 
-export const metadata = { title: "Editor — Media Canvas" };
+export async function generateMetadata({ params }: { params: Promise<{ documentId: string }> }) {
+  const { documentId } = await params;
+  const { data: document } = await getDocument({
+    ...(await asThisCaller()),
+    path: { documentId },
+  });
+  return { title: document?.name ?? "Editor" };
+}
 
 export default async function EditorPage({ params }: { params: Promise<{ documentId: string }> }) {
   const identity = await signedInOrSignIn();

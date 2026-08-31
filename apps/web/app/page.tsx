@@ -6,10 +6,12 @@ import { TABS, kindLabel, kindShown, tabNamed, updatedLabel } from "../lib/docum
 import { asThisCaller, signedInOrSignIn } from "../lib/identity";
 import { NEW_WORKSPACE, editorPath, listPath } from "../lib/routes";
 import { WORKSPACE_COOKIE, chosenMembership, mayChangeDocuments } from "../lib/workspaces";
+import { LayoutTemplate, Shapes } from "lucide-react";
+import { cn } from "../lib/utils";
+import { EmptyState } from "../components/empty-state";
 import { Problem } from "../components/problem";
-import { buttonVariants } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
 import { DocumentActions } from "./document-actions";
-import { ListNav } from "./list-nav";
 import { NewDesign } from "./new-design";
 import { Shell } from "./shell";
 
@@ -33,23 +35,29 @@ export default async function Home({
   const now = new Date();
 
   return (
-    <Shell memberships={identity.memberships} current={chosen}>
-      <main className="mt-6">
-        <ListNav current="documents" />
-        <div className="mt-4 flex items-center justify-between gap-4">
-          <h1 className="font-heading text-xl font-semibold">Documents</h1>
+    <Shell memberships={identity.memberships} current={chosen} page="documents">
+      <main>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">Documents</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Designs, and the templates promoted from them.
+            </p>
+          </div>
           {mayChange && <NewDesign workspaceId={chosen.workspace.id} />}
         </div>
-        <nav className="mt-3 flex gap-1">
+        <nav className="mt-6 inline-flex rounded-lg bg-muted p-0.5" aria-label="Document kinds">
           {TABS.map(({ tab: named, label }) => (
             <Link
               key={named}
               href={listPath(named)}
               aria-current={named === tab ? "page" : undefined}
-              className={buttonVariants({
-                variant: named === tab ? "secondary" : "ghost",
-                size: "sm",
-              })}
+              className={cn(
+                "rounded-md px-3 py-1 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                named === tab
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
               {label}
             </Link>
@@ -57,27 +65,39 @@ export default async function Home({
         </nav>
         {documents === undefined ? (
           <Problem
-            className="mt-4"
+            className="mt-6"
             message="These documents could not be loaded. Reload the page to try again."
           />
         ) : documents.length === 0 ? (
-          <p className="mt-6 text-sm text-muted-foreground">
-            {tab === "templates"
-              ? "No templates yet. A template is made by promoting a design."
-              : "Nothing here yet."}
-          </p>
+          <EmptyState
+            className="mt-4"
+            icon={tab === "templates" ? <LayoutTemplate /> : <Shapes />}
+            title={tab === "templates" ? "No templates yet" : "No documents yet"}
+            description={
+              tab === "templates"
+                ? "A template is made by promoting a design, and is what a Generation Job renders in bulk."
+                : mayChange
+                  ? "Create your first design and it will show up here."
+                  : "Documents created in this workspace will show up here."
+            }
+          />
         ) : (
-          <ul className="mt-3">
+          <ul className="mt-4 divide-y overflow-hidden rounded-xl border">
             {documents.map((row) => (
-              <li key={row.id} className="flex items-center gap-4 border-t py-3">
+              <li
+                key={row.id}
+                className="flex items-center gap-4 bg-card px-4 py-3 transition-colors hover:bg-muted/50"
+              >
                 <Link
                   href={editorPath(row.id)}
-                  className="flex-1 text-sm font-medium hover:underline"
+                  className="flex-1 truncate text-sm font-medium hover:underline"
                 >
                   {row.name}
                 </Link>
-                <span className="text-xs text-muted-foreground">{kindLabel(row.kind)}</span>
-                <span className="text-xs text-muted-foreground">
+                <Badge variant={row.kind === "template" ? "default" : "outline"}>
+                  {kindLabel(row.kind)}
+                </Badge>
+                <span className="w-24 text-right text-xs text-muted-foreground max-sm:hidden">
                   {updatedLabel(row.updatedAt, now)}
                 </span>
                 {mayChange && <DocumentActions row={row} />}
