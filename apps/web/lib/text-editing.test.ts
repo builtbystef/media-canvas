@@ -2,6 +2,8 @@ import type { TextLayout } from "@media-canvas/core";
 import { describe, expect, it } from "vitest";
 import {
   insertText,
+  interpretTextPointerDown,
+  successiveClickCount,
   moveByCharacter,
   moveByLine,
   moveByWord,
@@ -28,6 +30,17 @@ describe("text editing", () => {
     expect(inserted.selection).toEqual({ anchor: 8, focus: 8 });
   });
 
+  it("replaces the selection, as paste and cut do", () => {
+    expect(insertText("Hello World", { anchor: 6, focus: 11 }, "there")).toEqual({
+      content: "Hello there",
+      selection: { anchor: 11, focus: 11 },
+    });
+    expect(insertText("Hello World", { anchor: 6, focus: 11 }, "")).toEqual({
+      content: "Hello ",
+      selection: { anchor: 6, focus: 6 },
+    });
+  });
+
   it("moves by character, word, and visual line", () => {
     expect(moveByCharacter("LIMITED OFFER", { anchor: 7, focus: 7 }, 1, false)).toEqual({
       anchor: 8,
@@ -46,5 +59,64 @@ describe("text editing", () => {
       focus: 7,
     });
     expect(selectWord("Price: {{old}}", 9)).toEqual({ anchor: 9, focus: 12 });
+  });
+
+  it("a second click on text begins editing and does not collapse a word selection", () => {
+    expect(
+      interpretTextPointerDown({
+        editingId: null,
+        targetId: "headline",
+        isText: true,
+        detail: 2,
+        shiftKey: false,
+        index: 4,
+      }),
+    ).toEqual({ action: "begin" });
+    expect(
+      interpretTextPointerDown({
+        editingId: "headline",
+        targetId: "headline",
+        isText: true,
+        detail: 2,
+        shiftKey: false,
+        index: 4,
+      }),
+    ).toEqual({ action: "begin" });
+    expect(
+      interpretTextPointerDown({
+        editingId: "headline",
+        targetId: "headline",
+        isText: true,
+        detail: 1,
+        shiftKey: false,
+        index: 4,
+      }),
+    ).toEqual({ action: "drag-select", index: 4, extend: false });
+    expect(
+      interpretTextPointerDown({
+        editingId: "headline",
+        targetId: "other",
+        isText: false,
+        detail: 1,
+        shiftKey: false,
+        index: 0,
+      }),
+    ).toEqual({ action: "end" });
+    expect(
+      interpretTextPointerDown({
+        editingId: null,
+        targetId: "headline",
+        isText: true,
+        detail: 1,
+        shiftKey: false,
+        index: 4,
+      }),
+    ).toEqual({ action: "none" });
+    const first = successiveClickCount(null, "headline", 0);
+    const second = successiveClickCount(first, "headline", 200);
+    const late = successiveClickCount(second, "headline", 800);
+    expect(first.count).toBe(1);
+    expect(second.count).toBe(2);
+    expect(late.count).toBe(1);
   });
 });

@@ -5,6 +5,7 @@ import { createEditorStore } from "./editor-store";
 import {
   bindNewVariable,
   bindProperty,
+  convertTextToVariable,
   createVariableFromToken,
   renameToken,
   renameVariable,
@@ -305,6 +306,30 @@ describe("undo and redo", () => {
       .getState()
       .commitInspectorEdit((document) => renameToken(document, "prce", "price"), ["headline"]);
     expect(store.getState().document?.elements[1]).toMatchObject({ content: "Now {{price}}" });
+    expect(undoUntilStable(store)).toBe(1);
+    expect(store.getState().document).toBe(start);
+  });
+
+  it("records converting text to a Variable as one Undo Entry", () => {
+    const start: DesignDocument = {
+      schemaVersion: 1,
+      canvas: { width: 100, height: 100, background: "#FFFFFF" },
+      elements: [headline("Hello World")],
+    };
+    const store = createEditorStore(start);
+
+    store.getState().commitInspectorEdit(
+      (document) => {
+        const converted = convertTextToVariable(document, ["headline"], "headline");
+        return converted.ok ? converted.document : document;
+      },
+      ["headline"],
+    );
+
+    expect(store.getState().document?.variables).toEqual([
+      { name: "headline", type: "text", default: "Hello World" },
+    ]);
+    expect(store.getState().document?.elements[0]).toMatchObject({ content: "{{headline}}" });
     expect(undoUntilStable(store)).toBe(1);
     expect(store.getState().document).toBe(start);
   });

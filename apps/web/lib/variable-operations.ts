@@ -19,6 +19,13 @@ export function isVariableName(name: string): boolean {
   return VARIABLE_NAME.test(name);
 }
 
+export function suggestedVariableName(text: string): string {
+  const unwrapped = text.trim().replace(/^\{\{([A-Za-z][A-Za-z0-9_]*)\}\}$/, "$1");
+  const cleaned = unwrapped.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (cleaned === "") return "";
+  return /^[A-Za-z]/.test(cleaned) ? cleaned : `text_${cleaned}`;
+}
+
 export function createVariable(
   document: DesignDocument,
   declaration: VariableDecl,
@@ -226,6 +233,62 @@ export function unknownTokens(document: DesignDocument): UnknownToken[] {
 
 export function createVariableFromToken(document: DesignDocument, name: string): VariableChange {
   return createVariable(document, { name, type: "text" });
+}
+
+export function convertTextToVariable(
+  document: DesignDocument,
+  ids: readonly string[],
+  name: string,
+  range?: { start: number; end: number },
+): VariableChange {
+  if (!isVariableName(name)) return { ok: false, reason: "invalid_name" };
+  const existing = (document.variables ?? []).find((variable) => variable.name === name);
+  if (existing !== undefined && existing.type !== "text" && existing.type !== "number") {
+    return { ok: false, reason: "collision" };
+  }
+  const targets = ids.flatMap((id) => {
+    const element = findElement(document.elements, id);
+    return element?.type === "text" ? [element] : [];
+  });
+  if (targets.length === 0) return { ok: true, document };
+  const taken = wrapRange(targets[0]!.content, name, range).taken;
+  let next = document;
+  if (existing === undefined) {
+    const created = createVariable(next, {
+      name,
+      type: "text",
+      ...(taken === "" ? {} : { default: taken }),
+    });
+    if (!created.ok) return created;
+    next = created.document;
+  }
+  for (const element of targets) {
+    const wrapped = wrapRange(element.content, name, range);
+    next = updateElement(next, element.id, (current) =>
+      current.type === "text" ? { ...current, content: wrapped.content } : current,
+    );
+  }
+  return { ok: true, document: next };
+}
+
+function wrapRange(
+  content: string,
+  name: string,
+  range?: { start: number; end: number },
+): { content: string; taken: string } {
+  const collapsed = range === undefined || range.start === range.end;
+  const start = collapsed ? 0 : clampIndex(content.length, Math.min(range.start, range.end));
+  const end = collapsed
+    ? content.length
+    : clampIndex(content.length, Math.max(range.start, range.end));
+  return {
+    content: `${content.slice(0, start)}{{${name}}}${content.slice(end)}`,
+    taken: content.slice(start, end),
+  };
+}
+
+function clampIndex(length: number, index: number): number {
+  return Math.max(0, Math.min(length, index));
 }
 
 export type TokenQuery = { start: number; query: string };

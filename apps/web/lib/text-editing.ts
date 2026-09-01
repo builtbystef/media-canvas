@@ -2,6 +2,43 @@ import { caretRect, hitIndex, type TextLayout } from "@media-canvas/core";
 
 export type TextSelection = { anchor: number; focus: number };
 
+export type TextEditPointer =
+  | { action: "none" }
+  | { action: "end" }
+  | { action: "begin" }
+  | { action: "drag-select"; index: number; extend: boolean };
+
+export function successiveClickCount(
+  previous: { id: string; at: number; count: number } | null,
+  id: string,
+  at: number,
+  windowMs = 500,
+): { id: string; at: number; count: number } {
+  if (previous !== null && previous.id === id && at - previous.at < windowMs) {
+    return { id, at, count: previous.count + 1 };
+  }
+  return { id, at, count: 1 };
+}
+
+export function interpretTextPointerDown(input: {
+  editingId: string | null;
+  targetId: string | null;
+  isText: boolean;
+  detail: number;
+  shiftKey: boolean;
+  index: number;
+}): TextEditPointer {
+  if (input.editingId !== null) {
+    if (input.targetId === input.editingId) {
+      if (input.detail >= 2) return { action: "begin" };
+      return { action: "drag-select", index: input.index, extend: input.shiftKey };
+    }
+    return { action: "end" };
+  }
+  if (input.isText && input.detail >= 2) return { action: "begin" };
+  return { action: "none" };
+}
+
 export function insertText(
   content: string,
   selection: TextSelection,

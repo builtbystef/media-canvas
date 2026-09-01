@@ -106,12 +106,15 @@ import {
 } from "../../../lib/selection";
 import {
   type TextSelection,
+  insertText,
+  interpretTextPointerDown,
   moveByCharacter,
   moveByLine,
   moveByWord,
   moveToLineBoundary,
   selectWord,
   selectionRects,
+  successiveClickCount,
 } from "../../../lib/text-editing";
 import {
   describeMissingAssets,
@@ -258,8 +261,10 @@ export function EditorCanvas({
   const [images, setImages] = useState<ImageAssetView[]>([]);
   const [missing, setMissing] = useState<MissingAsset[]>([]);
   const [libraryEpoch, setLibraryEpoch] = useState(0);
+  const [overlayTick, setOverlayTick] = useState(0);
   const lastCanvasPoint = useRef<Point | null>(null);
   const clipboard = useRef<Clipboard>({ elements: [] });
+  const textClicks = useRef<{ id: string; at: number; count: number } | null>(null);
   const canvas = design?.canvas;
 
   useEffect(() => {
@@ -314,6 +319,7 @@ export function EditorCanvas({
     }
     if (host.current !== null) {
       applyUpdate(host.current, preview.current.update(previewDocument(design, editingTextId)));
+      setOverlayTick((tick) => tick + 1);
     }
     if (zoomReady.current) return;
     const remembered = readView(window.localStorage, documentId);
@@ -367,7 +373,7 @@ export function EditorCanvas({
   useLayoutEffect(() => {
     const node = textInput.current;
     if (editingTextId === null || node === null) return;
-    node.focus();
+    node.focus({ preventScroll: true });
     const start = Math.min(textSelection.anchor, textSelection.focus);
     const end = Math.max(textSelection.anchor, textSelection.focus);
     node.setSelectionRange(start, end);
@@ -654,6 +660,7 @@ export function EditorCanvas({
             return;
           }
           if (element?.type === "text") {
+            event.preventDefault();
             beginTextEdit(element.id);
             const layout = layoutOf(element, library.current);
             if (layout !== null) {
@@ -692,26 +699,60 @@ export function EditorCanvas({
             return;
           }
           if (event.button !== 0 || zoom === null) return;
-          if (editingTextId !== null) {
-            const chain = mountedChainAt(event.clientX, event.clientY, host.current);
-            const target = selectionTarget(chain, enteredPath, event.metaKey || event.ctrlKey);
-            const editing = findElement(design.elements, editingTextId);
-            if (target === editingTextId && editing?.type === "text") {
-              const layout = layoutOf(editing, library.current);
-              const local = svgLocalPoint(event.clientX, event.clientY, host.current, editing.id);
-              const index =
-                layout === null ? 0 : hitIndex(layout, local ?? { x: editing.x, y: editing.y });
-              setTextSelection(
-                event.shiftKey
-                  ? { ...textSelection, focus: index }
-                  : { anchor: index, focus: index },
-              );
-              gesture.current = { kind: "text-select", pointerId: event.pointerId, id: editing.id };
-              event.currentTarget.setPointerCapture(event.pointerId);
-              return;
-            }
-            endTextEdit();
+          const chain = mountedChainAt(event.clientX, event.clientY, host.current);
+          const target = selectionTarget(chain, enteredPath, event.metaKey || event.ctrlKey);
+          const pointed = target === null ? null : findElement(design.elements, target);
+          if (pointed?.type === "text") {
+            textClicks.current = successiveClickCount(
+              textClicks.current,
+              pointed.id,
+              event.timeStamp,
+            );
           }
+          const pointedLayout =
+            pointed?.type === "text" ? layoutOf(pointed, library.current) : null;
+          const pointedLocal =
+            pointed?.type === "text"
+              ? svgLocalPoint(event.clientX, event.clientY, host.current, pointed.id)
+              : null;
+          const pointedIndex =
+            pointed?.type === "text" && pointedLayout !== null
+              ? hitIndex(pointedLayout, pointedLocal ?? { x: pointed.x, y: pointed.y })
+              : 0;
+          const interpreted = interpretTextPointerDown({
+            editingId: editingTextId,
+            targetId: target,
+            isText: pointed?.type === "text",
+            detail: pointed?.type === "text" ? (textClicks.current?.count ?? 1) : 1,
+            shiftKey: event.shiftKey,
+            index: pointedIndex,
+          });
+          if (interpreted.action === "begin") {
+            event.preventDefault();
+            if (pointed?.type === "text") {
+              beginTextEdit(pointed.id);
+              setTextSelection(selectWord(pointed.content, pointedIndex));
+            }
+            return;
+          }
+          if (interpreted.action === "drag-select") {
+            event.preventDefault();
+            setTextSelection(
+              interpreted.extend
+                ? { ...textSelection, focus: interpreted.index }
+                : { anchor: interpreted.index, focus: interpreted.index },
+            );
+            if (editingTextId !== null) {
+              gesture.current = {
+                kind: "text-select",
+                pointerId: event.pointerId,
+                id: editingTextId,
+              };
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }
+            return;
+          }
+          if (interpreted.action === "end") endTextEdit();
           if (activeTool === "text" || activeTool === "rect" || activeTool === "ellipse") {
             const point = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
             if (point.x < 0 || point.y < 0 || point.x > canvas.width || point.y > canvas.height)
@@ -775,8 +816,6 @@ export function EditorCanvas({
             event.currentTarget.setPointerCapture(event.pointerId);
             return;
           }
-          const chain = mountedChainAt(event.clientX, event.clientY, host.current);
-          const target = selectionTarget(chain, enteredPath, event.metaKey || event.ctrlKey);
           if (target === null) {
             select([], []);
             const point = canvasPoint(event.clientX, event.clientY, canvasSpace.current, zoom);
@@ -1094,7 +1133,7 @@ export function EditorCanvas({
           style={{ width: canvas.width * scale, height: canvas.height * scale }}
         >
           <div
-            className="relative"
+            className="relative select-none"
             ref={canvasSpace}
             style={{
               width: canvas.width,
@@ -1124,7 +1163,7 @@ export function EditorCanvas({
                   )}
                 />
               )}
-              {editingTextId !== null && (
+              {editingTextId !== null && overlayTick >= 0 && (
                 <TextCaretOverlay
                   element={findElement(design.elements, editingTextId)}
                   layout={layoutOf(findElement(design.elements, editingTextId), library.current)}
@@ -1260,13 +1299,38 @@ export function EditorCanvas({
       {editingTextId !== null && (
         <textarea
           aria-label="Text content"
-          className="sr-only"
+          className="pointer-events-none fixed top-0 left-0 h-24 w-64 opacity-0"
           onChange={(event) => {
             updateTextContent(event.currentTarget.value);
             setTextSelection({
               anchor: event.currentTarget.selectionStart,
               focus: event.currentTarget.selectionEnd,
             });
+          }}
+          onCopy={(event) => {
+            const copied = selectedSlice(textContentOf(design, editingTextId), textSelection);
+            if (copied === "") {
+              event.preventDefault();
+              return;
+            }
+            event.clipboardData.setData("text/plain", copied);
+            event.preventDefault();
+          }}
+          onCut={(event) => {
+            event.preventDefault();
+            const content = textContentOf(design, editingTextId);
+            const copied = selectedSlice(content, textSelection);
+            if (copied !== "") event.clipboardData.setData("text/plain", copied);
+            const next = insertText(content, textSelection, "");
+            updateTextContent(next.content);
+            setTextSelection(next.selection);
+          }}
+          onPaste={(event) => {
+            event.preventDefault();
+            const pasted = event.clipboardData.getData("text/plain");
+            const next = insertText(textContentOf(design, editingTextId), textSelection, pasted);
+            updateTextContent(next.content);
+            setTextSelection(next.selection);
           }}
           onKeyDown={(event) => {
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
@@ -1661,6 +1725,12 @@ function textContentOf(document: DesignDocument, id: string): string {
   return element?.type === "text" ? element.content : "";
 }
 
+function selectedSlice(content: string, selection: TextSelection): string {
+  const start = Math.min(selection.anchor, selection.focus);
+  const end = Math.max(selection.anchor, selection.focus);
+  return content.slice(start, end);
+}
+
 function layoutOf(element: DocumentElement | null, assets: AssetLibrary | null): TextLayout | null {
   if (element?.type !== "text" || assets === null) return null;
   const bytes = assets.fonts.get(element.fontAssetId);
@@ -1769,10 +1839,11 @@ function TextCaretOverlay({
         />
       ))}
       <span
-        className="absolute w-px bg-primary"
+        className="absolute bg-primary"
         style={{
           left: origin.x,
           top: origin.y,
+          width: 1 / zoom,
           height: caret.height,
           transform: element.rotation === 0 ? undefined : `rotate(${String(element.rotation)}deg)`,
           transformOrigin: "0 0",

@@ -16,9 +16,11 @@ import {
   describeVariableUsage,
   isVariableName,
   matchingVariables,
+  convertTextToVariable,
   insertTokenName,
   openTokenQuery,
   renameToken,
+  suggestedVariableName,
   renameVariable,
   setVariableConstraints,
   setVariableDefault,
@@ -437,5 +439,106 @@ describe("token autocomplete", () => {
       content: "Now {{price}}",
       cursor: 13,
     });
+  });
+});
+
+describe("convert text to a Variable", () => {
+  it("wraps the whole content and seeds the Variable with that text", () => {
+    const original = documentWith([text("headline", "Hello World")], []);
+
+    const converted = convertTextToVariable(original, ["headline"], "headline");
+
+    expect(converted).toEqual({
+      ok: true,
+      document: {
+        ...original,
+        variables: [{ name: "headline", type: "text", default: "Hello World" }],
+        elements: [{ ...original.elements[0], content: "{{headline}}" }],
+      },
+    });
+  });
+
+  it("wraps only the selected range and leaves the rest of the string", () => {
+    const original = documentWith([text("headline", "Price: $9")], []);
+
+    const converted = convertTextToVariable(original, ["headline"], "price", {
+      start: 7,
+      end: 9,
+    });
+
+    expect(converted.ok).toBe(true);
+    if (!converted.ok) throw new Error("expected a convert");
+    expect(converted.document.variables).toEqual([{ name: "price", type: "text", default: "$9" }]);
+    expect(converted.document.elements[0]).toMatchObject({ content: "Price: {{price}}" });
+  });
+
+  it("treats a collapsed range as the whole content", () => {
+    const original = documentWith([text("headline", "Sale")], []);
+
+    const converted = convertTextToVariable(original, ["headline"], "offer", {
+      start: 2,
+      end: 2,
+    });
+
+    expect(converted.ok).toBe(true);
+    if (!converted.ok) throw new Error("expected a convert");
+    expect(converted.document.elements[0]).toMatchObject({ content: "{{offer}}" });
+    expect(converted.document.variables).toEqual([
+      { name: "offer", type: "text", default: "Sale" },
+    ]);
+  });
+
+  it("wraps an existing text Variable without changing its default", () => {
+    const original = documentWith(
+      [text("headline", "Hello World")],
+      [{ name: "headline", type: "text", default: "Hi" }],
+    );
+
+    const converted = convertTextToVariable(original, ["headline"], "headline");
+
+    expect(converted.ok).toBe(true);
+    if (!converted.ok) throw new Error("expected a convert");
+    expect(converted.document.variables).toEqual([
+      { name: "headline", type: "text", default: "Hi" },
+    ]);
+    expect(converted.document.elements[0]).toMatchObject({ content: "{{headline}}" });
+  });
+
+  it("wraps every selected text Element and seeds from the first", () => {
+    const original = documentWith([text("one", "Hello World"), text("two", "Hello World")], []);
+
+    const converted = convertTextToVariable(original, ["one", "two"], "headline");
+
+    expect(converted.ok).toBe(true);
+    if (!converted.ok) throw new Error("expected a convert");
+    expect(converted.document.variables).toEqual([
+      { name: "headline", type: "text", default: "Hello World" },
+    ]);
+    expect(converted.document.elements).toMatchObject([
+      { content: "{{headline}}" },
+      { content: "{{headline}}" },
+    ]);
+  });
+
+  it("refuses a name that is already a different type, and an illegal name", () => {
+    const original = documentWith([text("headline", "Hello")], [{ name: "brand", type: "color" }]);
+
+    expect(convertTextToVariable(original, ["headline"], "brand")).toEqual({
+      ok: false,
+      reason: "collision",
+    });
+    expect(convertTextToVariable(original, ["headline"], "2price")).toEqual({
+      ok: false,
+      reason: "invalid_name",
+    });
+    expect(original.elements[0]).toMatchObject({ content: "Hello" });
+  });
+
+  it("suggests a legal name from the selected text", () => {
+    expect(suggestedVariableName("Hello World")).toBe("Hello_World");
+    expect(suggestedVariableName("  hello-world  ")).toBe("hello_world");
+    expect(suggestedVariableName("{{price}}")).toBe("price");
+    expect(suggestedVariableName("123")).toBe("text_123");
+    expect(suggestedVariableName("!!!")).toBe("");
   });
 });

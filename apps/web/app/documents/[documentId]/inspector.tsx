@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef } from "react";
+import { useId, useRef, useState } from "react";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -37,6 +37,8 @@ import {
   type BindSite,
   bindNewVariable,
   bindProperty,
+  convertTextToVariable,
+  suggestedVariableName,
   unbindProperty,
 } from "../../../lib/variable-operations";
 import { cn } from "../../../lib/utils";
@@ -430,6 +432,16 @@ export function Inspector({
       )}
 
       {allText && (
+        <TextContentEditor
+          key={selected.join(",")}
+          elements={elements}
+          selected={selected}
+          isTemplate={isTemplate}
+          onCommit={onCommit}
+        />
+      )}
+
+      {allText && (
         <section className={SECTION}>
           <h3 className={cn(HEADING, "mb-2")}>Typography</h3>
           <p className={NOTE}>Applies to the whole text Element.</p>
@@ -712,6 +724,133 @@ function NumberField({
         }}
       />
     </Label>
+  );
+}
+
+function TextContentEditor({
+  elements,
+  selected,
+  isTemplate,
+  onCommit,
+}: {
+  elements: readonly Element[];
+  selected: readonly string[];
+  isTemplate: boolean;
+  onCommit: (change: Change, touched: readonly string[]) => void;
+}) {
+  const field = useRef<HTMLTextAreaElement>(null);
+  const value = commonValue(elements, (element) =>
+    element.type === "text" ? element.content : undefined,
+  );
+  const [draft, setDraft] = useState<string | null>(null);
+  const [name, setName] = useState(() =>
+    value.kind === "same" ? suggestedVariableName(value.value) : "",
+  );
+  const [range, setRange] = useState({ start: 0, end: 0 });
+  const [error, setError] = useState<string | null>(null);
+  if (value.kind === "none") return null;
+  const shown = draft ?? (value.kind === "same" ? value.value : "");
+
+  function rememberRange(node: HTMLTextAreaElement) {
+    const start = node.selectionStart;
+    const end = node.selectionEnd;
+    setRange({ start, end });
+    const selectedText = start === end ? node.value : node.value.slice(start, end);
+    setName(suggestedVariableName(selectedText));
+  }
+
+  function commitContent(content: string) {
+    onCommit(
+      (current) =>
+        updateSelectedElements(current, selected, (element) =>
+          element.type === "text" ? { ...element, content } : element,
+        ),
+      selected,
+    );
+  }
+
+  function convert() {
+    const node = field.current;
+    const content = node?.value ?? shown;
+    const start = range.start;
+    const end = range.end;
+    const nextName = name.trim();
+    let failed: "invalid_name" | "collision" | null = null;
+    onCommit((current) => {
+      const withContent = updateSelectedElements(current, selected, (element) =>
+        element.type === "text" ? { ...element, content } : element,
+      );
+      const converted = convertTextToVariable(withContent, selected, nextName, { start, end });
+      if (!converted.ok) {
+        failed = converted.reason;
+        return current;
+      }
+      return converted.document;
+    }, selected);
+    if (failed !== null) {
+      setError(
+        failed === "collision"
+          ? "A Variable with that name already exists."
+          : "Names start with a letter, then letters, digits or underscores.",
+      );
+      return;
+    }
+    setError(null);
+    setDraft(null);
+  }
+
+  return (
+    <section className={SECTION}>
+      <h3 className={cn(HEADING, "mb-2")}>Content</h3>
+      <Label className={FIELD}>
+        Text
+        <textarea
+          ref={field}
+          className="min-h-16 w-full min-w-0 resize-y rounded-lg border border-input bg-transparent px-2.5 py-1 text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+          value={shown}
+          placeholder={value.kind === "mixed" ? "Mixed" : undefined}
+          spellCheck={false}
+          onChange={(event) => setDraft(event.currentTarget.value)}
+          onBlur={(event) => {
+            commitContent(event.currentTarget.value);
+            setDraft(null);
+          }}
+          onKeyUp={(event) => rememberRange(event.currentTarget)}
+          onMouseUp={(event) => rememberRange(event.currentTarget)}
+        />
+      </Label>
+      {isTemplate && value.kind === "same" && (
+        <div className="mt-2 grid gap-1.5">
+          <Input
+            className={CONTROL}
+            aria-label="New Variable name"
+            value={name}
+            placeholder="Variable name"
+            onChange={(event) => {
+              setName(event.target.value);
+              setError(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                convert();
+              }
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            disabled={name.trim() === ""}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={convert}
+          >
+            Convert to Variable
+          </Button>
+          {error !== null && <p className="text-xs text-destructive">{error}</p>}
+        </div>
+      )}
+    </section>
   );
 }
 
