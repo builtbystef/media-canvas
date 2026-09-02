@@ -35,27 +35,27 @@ Media Canvas is a self-hosted web application for designing static visual assets
 
 ## Screenshots
 
-![The visual editor open on a Summer Sale Instagram post Template](docs/screenshots/v2/light/10-editor-template-overview.png)
+![The visual editor open on a Summer Sale Instagram post Template](docs/screenshots/editor.png)
 
 The visual editor. A Design Document sits on the canvas, with layers and image assets on the left and canvas properties on the right.
 
-![A Workspace document list of designs and Templates](docs/screenshots/v2/light/05-documents-all.png)
+![A Workspace document list of designs and Templates](docs/screenshots/documents.png)
 
 Every design and the Templates promoted from it live in the Workspace document list.
 
-![An image Element selected in the editor](docs/screenshots/v2/light/13-editor-image-selected.png)
+![An image Element selected in the editor](docs/screenshots/editor-inspect.png)
 
 Select an Element to edit it in the inspector. The editor and the render worker compile the same JSON.
 
-![The one-off generation dialog](docs/screenshots/v2/light/15-generate-dialog-one-off.png)
+![The one-off generation dialog](docs/screenshots/generate.png)
 
 Supply one value per Variable, choose PNG, JPEG, or PDF, and download a single asset.
 
-![The Generation Jobs list](docs/screenshots/v2/light/29-jobs-list.png)
+![The Generation Jobs list](docs/screenshots/jobs.png)
 
 A Generation Job renders one output per Row: from the UI, a CSV file, or the REST API.
 
-![A new-hire announcement design in the editor](docs/screenshots/v2/light/27-editor-new-hire.png)
+![A new-hire announcement design in the editor](docs/screenshots/editor-new-hire.png)
 
 Canvas size is free: social posts, stories, posters, and website graphics. Promote a design to a Template when it is ready to generate from.
 
