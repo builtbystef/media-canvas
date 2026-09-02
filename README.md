@@ -22,6 +22,7 @@ Media Canvas is a self-hosted web application for designing static visual assets
 
 ## Table of contents
 
+- [Screenshots](#screenshots)
 - [How it works](#how-it-works)
 - [Quick start](#quick-start)
 - [Using Media Canvas](#using-media-canvas)
@@ -31,6 +32,34 @@ Media Canvas is a self-hosted web application for designing static visual assets
 - [Deployment](#deployment)
 - [Documentation](#documentation)
 - [License](#license)
+
+## Screenshots
+
+![The visual editor open on a Summer Sale Instagram post Template](docs/screenshots/v2/light/10-editor-template-overview.png)
+
+The visual editor. A Design Document sits on the canvas, with layers and image assets on the left and canvas properties on the right.
+
+![A Workspace document list of designs and Templates](docs/screenshots/v2/light/05-documents-all.png)
+
+Every design and the Templates promoted from it live in the Workspace document list.
+
+![An image Element selected in the editor](docs/screenshots/v2/light/13-editor-image-selected.png)
+
+Select an Element to edit it in the inspector. The editor and the render worker compile the same JSON.
+
+![The one-off generation dialog](docs/screenshots/v2/light/15-generate-dialog-one-off.png)
+
+Supply one value per Variable, choose PNG, JPEG, or PDF, and download a single asset.
+
+![The Generation Jobs list](docs/screenshots/v2/light/29-jobs-list.png)
+
+A Generation Job renders one output per Row: from the UI, a CSV file, or the REST API.
+
+![A new-hire announcement design in the editor](docs/screenshots/v2/light/27-editor-new-hire.png)
+
+Canvas size is free: social posts, stories, posters, and website graphics. Promote a design to a Template when it is ready to generate from.
+
+More screenshots, including other canvases, CSV batch generation, Job detail, and dark theme, are in the [screenshot gallery](docs/screenshots/README.md).
 
 ## How it works
 
@@ -195,6 +224,7 @@ For first deployment, upgrades, backups, restoration, health checks, and TLS con
 | [Coding standards](docs/CODING_STANDARDS.md) | Project conventions beyond automated checks     |
 | [Deployment](docs/DEPLOYMENT.md)             | Operations, backup, restore, and TLS procedures |
 | [Tracker](docs/TRACKER.md)                   | Repository-local issue tracker workflow         |
+| [Screenshots](docs/screenshots/README.md)    | Product screenshots                             |
 
 ## License
 
