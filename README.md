@@ -5,9 +5,6 @@
 
 Media Canvas is a self-hosted web application for designing static visual assets and generating them at scale. Create a design in the visual editor, promote it to a Template, declare typed Variables, and produce PNG, JPEG, or PDF assets from the UI, REST API, or a CSV file.
 
-> [!WARNING]
-> Media Canvas is in early development. Features and APIs may change, and production deployments should be evaluated carefully.
-
 ## Features
 
 - Visual editor for social posts, posters, ads, and website graphics
