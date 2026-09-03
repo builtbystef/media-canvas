@@ -1,7 +1,33 @@
-# Media Canvas
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-full-dark.svg">
+    <img src="docs/assets/logo-full.svg" alt="Media Canvas" width="320">
+  </picture>
+</p>
 
-[![CI](https://github.com/builtbystef/media-canvas/actions/workflows/ci.yml/badge.svg)](https://github.com/builtbystef/media-canvas/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+<p align="center">
+  <b>A self-hosted web application for designing static visual assets and generating them at scale.</b><br>
+  Design once in the visual editor, promote it to a Template with typed Variables,<br>
+  and produce PNG, JPEG, or PDF assets from the UI, the REST API, or a CSV file.
+</p>
+
+<p align="center">
+  <a href="https://github.com/builtbystef/media-canvas/actions/workflows/ci.yml"><img src="https://github.com/builtbystef/media-canvas/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+</p>
+
+<p align="center">
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#using-media-canvas">Usage</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#development">Development</a> ·
+  <a href="#deployment">Deployment</a> ·
+  <a href="#documentation">Docs</a>
+</p>
+
+---
 
 Media Canvas is a self-hosted web application for designing static visual assets and generating them at scale. Create a design in the visual editor, promote it to a Template, declare typed Variables, and produce PNG, JPEG, or PDF assets from the UI, REST API, or a CSV file.
 
@@ -16,19 +42,6 @@ Media Canvas is a self-hosted web application for designing static visual assets
 - Workspace access control with Owner, Editor, and Viewer Roles
 - Image uploads plus bundled and user-uploaded fonts
 - Self-hosted Postgres, Redis, and S3-compatible object storage
-
-## Table of contents
-
-- [Screenshots](#screenshots)
-- [How it works](#how-it-works)
-- [Quick start](#quick-start)
-- [Using Media Canvas](#using-media-canvas)
-- [Architecture](#architecture)
-- [Development](#development)
-- [Testing and quality](#testing-and-quality)
-- [Deployment](#deployment)
-- [Documentation](#documentation)
-- [License](#license)
 
 ## Screenshots
 
