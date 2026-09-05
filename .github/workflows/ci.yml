@@ -62,8 +62,11 @@ jobs:
       # job never starts. Garage checks its own two secrets, so those are
       # generated instead: it rejects a secret key shorter than 16 characters,
       # and an RPC secret that is not 32 bytes of hex.
+      # DOMAIN and PUBLIC_URL stay empty: either one makes the public base URL
+      # https, which marks the session cookie Secure, and the tests' plain-http
+      # client then drops it.
       - run: |
-          sed -E 's/^([A-Z][A-Z0-9_]*)=$/\1=ci-placeholder/' .env.example > .env
+          sed -E '/^(DOMAIN|PUBLIC_URL)=$/!s/^([A-Z][A-Z0-9_]*)=$/\1=ci-placeholder/' .env.example > .env
           {
             echo "GARAGE_DEFAULT_SECRET_KEY=$(openssl rand -hex 16)"
             echo "GARAGE_RPC_SECRET=$(openssl rand -hex 32)"
