@@ -10,7 +10,7 @@
     "@base-ui/react": "catalog:",
     "@media-canvas/api-client": "workspace:*",
     "@media-canvas/core": "workspace:*",
-    "@tanstack/react-virtual": "3.13.18",
+    "@tanstack/react-virtual": "3.14.10",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "lucide-react": "catalog:",
