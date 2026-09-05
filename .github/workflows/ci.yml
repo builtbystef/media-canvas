@@ -68,9 +68,17 @@ jobs:
             echo "GARAGE_DEFAULT_SECRET_KEY=$(openssl rand -hex 16)"
             echo "GARAGE_RPC_SECRET=$(openssl rand -hex 32)"
           } >> .env
-      - run: docker compose up -d --wait postgres garage redis
+      # Docker otherwise creates these bind sources as root-owned 0755
+      # directories; the unprivileged services cannot create their sockets.
+      - name: Prepare socket directories
+        run: install -d -m 1777 .dev/run/pg .dev/run/redis
 
+      - run: docker compose up -d --wait postgres garage redis
       - run: uv run pytest
+
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose logs postgres garage redis
 
   # The committed openapi.json and generated client must match the FastAPI app.
   contract:
