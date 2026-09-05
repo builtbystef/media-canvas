@@ -7,6 +7,11 @@ updates:
     # Mirrors pnpm's minimumReleaseAge (5760 min): don't propose versions younger than 4 days.
     cooldown:
       default-days: 4
+    ignore:
+      # 2.x ships no "exports" map (Node gets the CommonJS build without named
+      # exports) and measures text differently; upgrading is a migration, not a bump.
+      - dependency-name: opentype.js
+        update-types: ["version-update:semver-major"]
     groups:
       # vite-plus and vite need a manual bump together. See: pnpm-workspace.yaml
       vite-plus:
