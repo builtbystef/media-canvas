@@ -212,7 +212,7 @@
           "workspaces"
         ],
         "summary": "Delete Workspace",
-        "description": "Delete the Workspace and its contents. Only an Owner may, and it ends\nthe Workspace for every member of it at once.",
+        "description": "Delete the Workspace and its contents. Only an Owner may, and it ends\nthe Workspace for every member of it at once.\n\nThe rows go first and the stored objects second, so a crash between the\ntwo never leaves a record pointing at a file that is already gone. A\nsecond call, after the rows have already gone, still takes leftover\nobjects \u2014 the prefix delete is safe to run again \u2014 and answers the same\n404 a stranger would get, so it cannot tell a deleted Workspace from one\nthat never existed.",
         "operationId": "deleteWorkspace",
         "parameters": [
           {

@@ -87,6 +87,13 @@ export const createWorkspace = <ThrowOnError extends boolean = false>(options: O
  *
  * Delete the Workspace and its contents. Only an Owner may, and it ends
  * the Workspace for every member of it at once.
+ *
+ * The rows go first and the stored objects second, so a crash between the
+ * two never leaves a record pointing at a file that is already gone. A
+ * second call, after the rows have already gone, still takes leftover
+ * objects — the prefix delete is safe to run again — and answers the same
+ * 404 a stranger would get, so it cannot tell a deleted Workspace from one
+ * that never existed.
  */
 export const deleteWorkspace = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceData, ThrowOnError>): RequestResult<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError>({ url: '/api/v1/workspaces/{workspaceId}', ...options });
 
