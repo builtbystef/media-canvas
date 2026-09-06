@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-full-dark.svg">
-    <img src="docs/assets/logo-full.svg" alt="Media Canvas" width="320">
+    <img src="docs/assets/logo-full.svg" alt="Media Canvas" width="560">
   </picture>
 </p>
 
