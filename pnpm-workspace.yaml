@@ -6,7 +6,7 @@ packages:
 catalogMode: prefer
 
 catalog:
-  "@types/node": ^24
+  "@types/node": ^26
   typescript: ^7.0.2
   # Pinned exact to the version Vite+ bundles: a second Vitest in the graph
   # is two test runners. Bump it with vite-plus, not on its own.
